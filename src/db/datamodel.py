@@ -1,6 +1,7 @@
 from pydantic import BaseModel, HttpUrl, Field
 from typing import List, Optional
 from datetime import datetime
+from enum import Enum
 
 # Tweet Metadata
 class TweetUrl(BaseModel):
@@ -43,3 +44,28 @@ class Tweet(BaseModel):
     is_retweet: bool
     is_quote: bool
     possibly_sensitive: bool
+
+# Agent model
+
+class AgentStatus(str, Enum):
+    pending = "pending"
+    active = "active"
+    completed = "completed"
+    failed = "failed"
+
+class AgentBase(BaseModel):
+    name: str
+    status: AgentStatus
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    steps: Optional[List[str]] = []
+
+class AgentCreate(AgentBase):
+    pass
+
+class AgentUpdate(BaseModel):
+    status: AgentStatus
+    completed_at: Optional[datetime] = None
+
+class AgentResponse(AgentBase):
+    id: int

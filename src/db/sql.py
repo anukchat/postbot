@@ -3,8 +3,21 @@ from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy import create_engine
 import datetime
+from sqlalchemy import Column, Integer, String, Enum, DateTime, Text
+from sqlalchemy.orm import declarative_base
+from datamodel import AgentStatus
 
 Base = declarative_base()
+
+class Agent(Base):
+    __tablename__ = 'agents'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(255))
+    status = Column(Enum(AgentStatus))
+    started_at = Column(DateTime)
+    completed_at = Column(DateTime, nullable=True)
+    steps = Column(Text, nullable=True)  # can store as a JSON string or plain text
 
 # Tweets Table
 class TweetDB(Base):

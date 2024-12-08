@@ -49,3 +49,4 @@ tweet_collection/*
 *.log
 data/*
 posts/*
+.DS_Store
