@@ -1,0 +1,445 @@
+2024-12-06 21:10:17,289 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-06 21:10:17,290 - ERROR - Unexpected error in main execution: name 'read_tweet_data' is not defined
+2024-12-06 21:10:48,759 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-06 21:10:48,847 - WARNING - Could not initialize MIME type detection: name 'magic' is not defined
+2024-12-06 21:10:48,851 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-06 21:10:50,614 - WARNING - File type detection error: name 'mimetypes' is not defined
+2024-12-06 21:10:50,618 - ERROR - Unexpected error processing https://t.co/1w8Ir1eQx6: name 'time' is not defined
+2024-12-06 21:10:53,516 - WARNING - File type detection error: name 'mimetypes' is not defined
+2024-12-06 21:10:53,517 - ERROR - Unexpected error processing https://t.co/xiGJCjNCfc: name 'time' is not defined
+2024-12-06 21:10:53,958 - WARNING - File type detection error: name 'mimetypes' is not defined
+2024-12-06 21:10:53,959 - ERROR - Unexpected error processing https://t.co/IgoNLrNdRf: name 'time' is not defined
+2024-12-06 21:10:54,337 - ERROR - Download error for https://t.co/xiGJCjNCfcNotebook: 404 Client Error: Not Found for url: https://t.co/xiGJCjNCfcNotebook
+2024-12-06 21:10:54,722 - WARNING - File type detection error: name 'mimetypes' is not defined
+2024-12-06 21:10:54,723 - ERROR - Error processing media https://t.co/RHYnFdbGIO: name 'time' is not defined
+2024-12-06 21:10:57,698 - WARNING - File type detection error: name 'mimetypes' is not defined
+2024-12-06 21:10:57,699 - ERROR - Unexpected error processing https://t.co/JHRrinsIwx: name 'time' is not defined
+2024-12-06 21:10:58,151 - WARNING - File type detection error: name 'mimetypes' is not defined
+2024-12-06 21:10:58,152 - ERROR - Unexpected error processing https://t.co/Rve3I2FzmK: name 'time' is not defined
+2024-12-06 21:10:58,723 - WARNING - File type detection error: name 'mimetypes' is not defined
+2024-12-06 21:10:58,725 - ERROR - Error processing media https://t.co/Rve3I2FzmK: name 'time' is not defined
+2024-12-06 21:15:42,861 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-06 21:15:42,962 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-06 21:15:49,675 - ERROR - Download error for https://t.co/xiGJCjNCfcNotebook: 404 Client Error: Not Found for url: https://t.co/xiGJCjNCfcNotebook
+2024-12-06 21:16:02,550 - ERROR - Download error for https://t.co/iC2Prt85W5Blog: 404 Client Error: Not Found for url: https://t.co/iC2Prt85W5Blog
+2024-12-06 21:16:07,889 - ERROR - Download error for https://t.co/4UbO8pckBBNo: 404 Client Error: Not Found for url: https://t.co/4UbO8pckBBNo
+2024-12-06 21:16:20,491 - ERROR - Download error for https://t.co/pFY7E2gs8tMLOps: 404 Client Error: Not Found for url: https://t.co/pFY7E2gs8tMLOps
+2024-12-06 21:16:20,980 - ERROR - Download error for https://t.co/Hzc3TGdoQWMLOps: 404 Client Error: Not Found for url: https://t.co/Hzc3TGdoQWMLOps
+2024-12-06 21:16:21,397 - ERROR - Download error for https://t.co/ri6S7xX9oTThe: 404 Client Error: Not Found for url: https://t.co/ri6S7xX9oTThe
+2024-12-06 21:17:45,146 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-06 21:20:30,250 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-06 21:34:47,705 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-06 21:34:56,157 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-06 21:35:50,530 - WARNING - Could not parse media: [{"type":"photo","url":"https://t.co/MPgR1tLOhz","thumbnail":"https://pbs.twimg.com/media/GARBdELXkAAJcsg?format=jpg&name=thumb","original":"https://pbs.twimg.com/media/GARBdELXkAAJcsg?format=jpg&name=orig","ext_alt_text":"OpenGPTs is an open source effort to create a similar experience to OpenAI's GPTs and Assistants API. It builds upon LangChain, LangServe and LangSmith."}]
+2024-12-06 21:36:15,018 - WARNING - Could not expand URL https://llama.cpp: HTTPSConnectionPool(host='llama.cpp', port=443): Max retries exceeded with url: / (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x10d847590>: Failed to resolve 'llama.cpp' ([Errno 8] nodename nor servname provided, or not known)"))
+2024-12-06 21:36:15,023 - ERROR - Download error for https://llama.cpp: HTTPSConnectionPool(host='llama.cpp', port=443): Max retries exceeded with url: / (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x10d8454f0>: Failed to resolve 'llama.cpp' ([Errno 8] nodename nor servname provided, or not known)"))
+2024-12-06 21:36:16,964 - WARNING - Could not expand URL https://Next.js: HTTPSConnectionPool(host='next.js', port=443): Max retries exceeded with url: / (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x10d800da0>: Failed to resolve 'next.js' ([Errno 8] nodename nor servname provided, or not known)"))
+2024-12-06 21:36:16,968 - ERROR - Download error for https://Next.js: HTTPSConnectionPool(host='next.js', port=443): Max retries exceeded with url: / (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x10d846ae0>: Failed to resolve 'next.js' ([Errno 8] nodename nor servname provided, or not known)"))
+2024-12-07 06:57:31,719 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 06:57:31,820 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 06:59:14,327 - WARNING - Could not parse media: [{"type":"photo","url":"https://t.co/MPgR1tLOhz","thumbnail":"https://pbs.twimg.com/media/GARBdELXkAAJcsg?format=jpg&name=thumb","original":"https://pbs.twimg.com/media/GARBdELXkAAJcsg?format=jpg&name=orig","ext_alt_text":"OpenGPTs is an open source effort to create a similar experience to OpenAI's GPTs and Assistants API. It builds upon LangChain, LangServe and LangSmith."}]
+2024-12-07 07:49:02,937 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 07:49:03,049 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 07:55:07,886 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 07:55:08,000 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 08:00:14,615 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 08:00:14,751 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 08:02:18,892 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 08:02:19,054 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 08:11:42,237 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 08:11:42,346 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 08:18:12,905 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 08:18:13,000 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 08:18:24,076 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 08:24:38,148 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 08:24:38,250 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 08:24:55,251 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 08:25:27,694 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 14:46:20,479 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 14:46:20,577 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 14:46:48,212 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 14:48:24,147 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 15:14:10,916 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 15:14:17,769 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 15:17:46,654 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_10a8ea7a78.jpg
+2024-12-07 15:44:15,983 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 15:44:16,103 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 15:44:17,071 - ERROR - Unexpected error processing https://t.co/1w8Ir1eQx6: 'bytes' object has no attribute 'headers'
+2024-12-07 15:44:18,372 - ERROR - Unexpected error processing https://t.co/xiGJCjNCfc: 'bytes' object has no attribute 'headers'
+2024-12-07 15:44:18,767 - ERROR - Unexpected error processing https://t.co/IgoNLrNdRf: 'bytes' object has no attribute 'headers'
+2024-12-07 15:44:19,242 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_10a8ea7a78.jpg
+2024-12-07 15:44:20,519 - ERROR - Unexpected error processing https://t.co/JHRrinsIwx: 'bytes' object has no attribute 'headers'
+2024-12-07 15:44:20,966 - ERROR - Unexpected error processing https://t.co/Rve3I2FzmK: 'bytes' object has no attribute 'headers'
+2024-12-07 15:46:15,257 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 15:46:15,373 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 15:46:16,895 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 15:46:22,526 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 15:59:56,015 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 15:59:56,113 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 15:59:57,977 - ERROR - Error processing tweet 1689694616226832384: 'TweetMetadataCollector' object has no attribute 'process_media'
+2024-12-07 16:00:01,472 - ERROR - Error processing tweet 1729182899470311541: 'TweetMetadataCollector' object has no attribute 'process_media'
+2024-12-07 16:00:13,758 - ERROR - Error processing tweet 1729510078959497562: 'TweetMetadataCollector' object has no attribute 'process_media'
+2024-12-07 16:00:19,600 - ERROR - Error processing tweet 1729543675246764313: 'TweetMetadataCollector' object has no attribute 'process_media'
+2024-12-07 16:00:23,389 - ERROR - Error processing tweet 1729587400240967761: 'TweetMetadataCollector' object has no attribute 'process_media'
+2024-12-07 16:02:21,017 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 16:02:21,139 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 16:05:38,556 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 16:05:38,721 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 16:05:41,373 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 16:05:53,895 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 16:25:41,123 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 16:25:41,230 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 16:26:12,296 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 16:26:50,845 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 16:31:00,771 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 16:31:00,889 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 16:31:34,983 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 16:31:55,220 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 16:33:40,932 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 16:33:41,092 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 16:33:47,175 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 16:33:49,622 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 16:35:36,063 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 16:35:36,169 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 16:35:37,491 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 16:35:40,576 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 16:35:59,635 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_10a8ea7a78.jpg
+2024-12-07 16:38:38,813 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 16:38:38,924 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 16:38:40,352 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 16:38:42,721 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 16:38:45,326 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_10a8ea7a78.jpg
+2024-12-07 16:45:47,451 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 16:45:47,541 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 16:45:48,982 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 16:45:51,344 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 16:45:53,432 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_10a8ea7a78.jpg
+2024-12-07 16:49:40,668 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 16:49:40,757 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 16:49:42,112 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 16:49:44,308 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 16:49:46,306 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_10a8ea7a78.jpg
+2024-12-07 16:51:54,874 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 16:51:54,959 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 16:51:58,291 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 16:52:00,710 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 16:52:02,871 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_10a8ea7a78.jpg
+2024-12-07 17:02:45,468 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 17:02:45,560 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 17:02:47,082 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 17:02:47,083 - ERROR - Error processing tweet 1689694616226832384: 'metadata'
+2024-12-07 17:02:49,491 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 17:02:51,095 - ERROR - Unexpected error processing media {'type': 'photo', 'url': 'https://t.co/RHYnFdbGIO', 'thumbnail': 'https://pbs.twimg.com/media/F_9Kj49boAAReZz?format=jpg&name=thumb', 'original': 'https://pbs.twimg.com/media/F_9Kj49boAAReZz?format=jpg&name=orig'}: 'media'
+2024-12-07 17:02:51,095 - ERROR - Error processing tweet 1729182899470311541: 'metadata'
+2024-12-07 17:04:45,398 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 17:04:45,487 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 17:04:46,762 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 17:05:45,387 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 17:05:45,477 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 17:05:47,076 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 17:05:56,030 - ERROR - Error processing tweet 1689694616226832384: 'metadata'
+2024-12-07 17:05:58,491 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 17:07:24,115 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 17:07:24,201 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 17:07:25,562 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 17:07:28,779 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 17:07:32,563 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_10a8ea7a78.jpg
+2024-12-07 17:09:50,973 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 17:09:51,066 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 17:09:53,068 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 17:09:55,539 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 17:10:00,925 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_10a8ea7a78.jpg
+2024-12-07 17:10:11,530 - ERROR - Unexpected error processing https://pika.art: expected str, bytes or os.PathLike object, not NoneType
+2024-12-07 17:10:12,084 - INFO - Redirect to Twitter detected for https://t.co/Rve3I2FzmK, ignoring.
+2024-12-07 17:10:36,953 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/video_593fcabf29.mp4
+2024-12-07 17:12:03,095 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 17:12:03,184 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 17:12:04,476 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 17:12:06,901 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 17:12:13,027 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_10a8ea7a78.jpg
+2024-12-07 17:13:03,677 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 17:13:03,768 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 17:13:05,020 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 17:13:07,237 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 17:13:10,885 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_10a8ea7a78.jpg
+2024-12-07 17:14:20,432 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 17:14:20,519 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 17:14:21,823 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 17:14:24,034 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 17:14:27,412 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_10a8ea7a78.jpg
+2024-12-07 17:14:51,429 - INFO - Redirect to Twitter detected for https://t.co/Rve3I2FzmK, ignoring.
+2024-12-07 17:14:53,300 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/video_593fcabf29.mp4
+2024-12-07 17:15:02,595 - INFO - Redirect to Twitter detected for https://t.co/gxPpP10FWL, ignoring.
+2024-12-07 17:15:03,737 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_611afc1317.jpg
+2024-12-07 17:15:10,538 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_cb816aaba4.jpg
+2024-12-07 17:15:30,321 - INFO - Redirect to Twitter detected for https://t.co/1Bg6g5LrXz, ignoring.
+2024-12-07 17:15:31,575 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_066d8b6b27.jpg
+2024-12-07 17:15:36,495 - ERROR - Unexpected error processing https://docs.google.com/presentation/d/1hQUd3pF8_2Gr2Obc89LKjmHL0DlH-uof9M0yFVd3FA4/mobilepresent?slide=id.g16197112905_0_0: cannot access local variable 'text_content' where it is not associated with a value
+2024-12-07 17:15:37,004 - INFO - Redirect to Twitter detected for https://t.co/pMJTeunWJQ, ignoring.
+2024-12-07 17:15:38,124 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_3aeef6464e.jpg
+2024-12-07 17:15:43,967 - INFO - Redirect to Twitter detected for https://t.co/8CE8sxFf9E, ignoring.
+2024-12-07 17:15:44,779 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_e1b208fa78.jpg
+2024-12-07 17:15:52,979 - INFO - Redirect to Twitter detected for https://t.co/fM5RG1Dapr, ignoring.
+2024-12-07 17:15:54,500 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_6a087960aa.jpg
+2024-12-07 17:16:11,474 - ERROR - Download error for https://opengpts-example-vz4y4ooboq-uc.a.run.app/?shared_id=ce037e51-7b38-4f1e-9a00-4b24f89ac313&ref=blog.langchain.dev: 503 Server Error: Service Unavailable for url: https://opengpts-example-vz4y4ooboq-uc.a.run.app/?shared_id=ce037e51-7b38-4f1e-9a00-4b24f89ac313&ref=blog.langchain.dev
+2024-12-07 17:16:16,195 - INFO - Redirect to Twitter detected for https://t.co/UuREZrHOMf, ignoring.
+2024-12-07 17:16:17,183 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_dbad27b715.jpg
+2024-12-07 17:16:17,931 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_85d7302f26.jpg
+2024-12-07 17:16:22,850 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_8921c4492c.jpg
+2024-12-07 17:16:30,668 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_aa67ddd3fb.jpg
+2024-12-07 17:16:41,205 - INFO - Redirect to Twitter detected for https://t.co/V3VkK4Pk5P, ignoring.
+2024-12-07 17:16:42,271 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_64f32e8d4e.jpg
+2024-12-07 17:16:43,508 - INFO - Redirect to Twitter detected for https://t.co/yyNqTb3iQL, ignoring.
+2024-12-07 17:16:44,358 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/video_de84f5eb89.mp4
+2024-12-07 17:16:48,789 - INFO - Redirect to Twitter detected for https://t.co/8c3KRU0Aj6, ignoring.
+2024-12-07 17:16:50,317 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_9e1debe87a.jpg
+2024-12-07 17:16:55,317 - INFO - Redirect to Twitter detected for https://t.co/MPgR1tLOhz, ignoring.
+2024-12-07 17:16:56,213 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_d178c1102b.jpg
+2024-12-07 17:16:59,837 - ERROR - Download error for https://github.com/run-llama/llama_index/blob/main/docs/examples/multi_modal/multi_modal_pdf_tables.ipynb: 404 Client Error: Not Found for url: https://github.com/run-llama/llama_index/blob/main/docs/examples/multi_modal/multi_modal_pdf_tables.ipynb
+2024-12-07 17:17:04,956 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_dcc53a9adf.jpg
+2024-12-07 17:17:09,702 - ERROR - Download error for https://github.com/langchain-ai/langchain/tree/master/templates/rag-opensearch: 404 Client Error: Not Found for url: https://github.com/langchain-ai/langchain/tree/master/templates/rag-opensearch
+2024-12-07 17:17:12,239 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_91be65bc64.jpg
+2024-12-07 17:17:14,705 - ERROR - Unexpected error processing https://www.youtube.com/watch?v=haad3i9VROs: cannot access local variable 'text_content' where it is not associated with a value
+2024-12-07 17:17:15,207 - INFO - Redirect to Twitter detected for https://t.co/64p7O0g684, ignoring.
+2024-12-07 17:17:16,059 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_9abfa45ae6.jpg
+2024-12-07 17:17:17,522 - INFO - Redirect to Twitter detected for https://t.co/NHQQsgDhzE, ignoring.
+2024-12-07 17:17:21,468 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/video_90e2ed15a1.mp4
+2024-12-07 17:17:24,628 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_b74ece63dc.jpg
+2024-12-07 17:17:27,881 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/video_f3967a20e3.mp4
+2024-12-07 17:17:29,496 - ERROR - Unexpected error processing https://www.youtube.com/watch?v=bOaDQUCgKjw&list=PLfaIDFEXuae2CjNiTeqXG5r8n9rld9qQu: cannot access local variable 'text_content' where it is not associated with a value
+2024-12-07 17:17:36,601 - ERROR - Download error for https://github.com/langchain-ai/langchain/tree/master/templates/rag-ollama-multi-query: 404 Client Error: Not Found for url: https://github.com/langchain-ai/langchain/tree/master/templates/rag-ollama-multi-query
+2024-12-07 17:17:37,409 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_d0569be115.jpg
+2024-12-07 17:19:52,616 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 17:19:52,709 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 17:19:54,006 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 17:19:56,338 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 17:19:58,474 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_10a8ea7a78.jpg
+2024-12-07 17:20:01,526 - ERROR - Unexpected error processing https://pika.art: cannot access local variable 'text_content' where it is not associated with a value
+2024-12-07 17:20:02,019 - INFO - Redirect to Twitter detected for https://t.co/Rve3I2FzmK, ignoring.
+2024-12-07 17:20:04,773 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/video_593fcabf29.mp4
+2024-12-07 17:24:30,495 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 17:24:30,583 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 17:24:31,807 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 17:24:33,975 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 17:24:35,843 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_10a8ea7a78.jpg
+2024-12-07 17:24:39,723 - INFO - Redirect to Twitter detected for https://t.co/Rve3I2FzmK, ignoring.
+2024-12-07 17:24:41,897 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/video_593fcabf29.mp4
+2024-12-07 17:27:16,469 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-07 17:27:16,563 - ERROR - Error processing tweet 1002103360646823936: cannot convert float NaN to integer
+2024-12-07 17:27:18,021 - INFO - Redirect to Twitter detected for https://t.co/1w8Ir1eQx6, ignoring.
+2024-12-07 17:27:20,331 - ERROR - Download error for https://llamahub.ai/l/llama_packs-fuzzy_citation: 404 Client Error: Not Found for url: https://llamahub.ai/l/llama_packs-fuzzy_citation
+2024-12-07 17:27:22,556 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_10a8ea7a78.jpg
+2024-12-07 17:27:27,210 - INFO - Redirect to Twitter detected for https://t.co/Rve3I2FzmK, ignoring.
+2024-12-07 17:27:32,063 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/video_593fcabf29.mp4
+2024-12-07 17:27:39,942 - INFO - Redirect to Twitter detected for https://t.co/gxPpP10FWL, ignoring.
+2024-12-07 17:27:40,392 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_611afc1317.jpg
+2024-12-07 17:27:45,859 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_cb816aaba4.jpg
+2024-12-07 17:28:03,705 - INFO - Redirect to Twitter detected for https://t.co/1Bg6g5LrXz, ignoring.
+2024-12-07 17:28:04,544 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_066d8b6b27.jpg
+2024-12-07 17:28:12,005 - INFO - Redirect to Twitter detected for https://t.co/pMJTeunWJQ, ignoring.
+2024-12-07 17:28:12,448 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_3aeef6464e.jpg
+2024-12-07 17:28:18,350 - INFO - Redirect to Twitter detected for https://t.co/8CE8sxFf9E, ignoring.
+2024-12-07 17:28:18,672 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_e1b208fa78.jpg
+2024-12-07 17:28:26,849 - INFO - Redirect to Twitter detected for https://t.co/fM5RG1Dapr, ignoring.
+2024-12-07 17:28:27,349 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_6a087960aa.jpg
+2024-12-07 17:28:44,560 - ERROR - Download error for https://opengpts-example-vz4y4ooboq-uc.a.run.app/?shared_id=ce037e51-7b38-4f1e-9a00-4b24f89ac313&ref=blog.langchain.dev: 503 Server Error: Service Unavailable for url: https://opengpts-example-vz4y4ooboq-uc.a.run.app/?shared_id=ce037e51-7b38-4f1e-9a00-4b24f89ac313&ref=blog.langchain.dev
+2024-12-07 17:28:48,764 - INFO - Redirect to Twitter detected for https://t.co/UuREZrHOMf, ignoring.
+2024-12-07 17:28:49,132 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_dbad27b715.jpg
+2024-12-07 17:28:49,502 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_85d7302f26.jpg
+2024-12-07 17:28:53,864 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_8921c4492c.jpg
+2024-12-07 17:29:00,595 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_aa67ddd3fb.jpg
+2024-12-07 17:29:10,471 - INFO - Redirect to Twitter detected for https://t.co/V3VkK4Pk5P, ignoring.
+2024-12-07 17:29:10,851 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_64f32e8d4e.jpg
+2024-12-07 17:29:12,315 - INFO - Redirect to Twitter detected for https://t.co/yyNqTb3iQL, ignoring.
+2024-12-07 17:29:12,838 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/video_de84f5eb89.mp4
+2024-12-07 17:29:16,581 - INFO - Redirect to Twitter detected for https://t.co/8c3KRU0Aj6, ignoring.
+2024-12-07 17:29:17,088 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_9e1debe87a.jpg
+2024-12-07 17:29:22,732 - INFO - Redirect to Twitter detected for https://t.co/MPgR1tLOhz, ignoring.
+2024-12-07 17:29:23,224 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_d178c1102b.jpg
+2024-12-07 17:29:27,173 - ERROR - Download error for https://github.com/run-llama/llama_index/blob/main/docs/examples/multi_modal/multi_modal_pdf_tables.ipynb: 404 Client Error: Not Found for url: https://github.com/run-llama/llama_index/blob/main/docs/examples/multi_modal/multi_modal_pdf_tables.ipynb
+2024-12-07 17:29:30,375 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_dcc53a9adf.jpg
+2024-12-07 17:29:34,734 - ERROR - Download error for https://github.com/langchain-ai/langchain/tree/master/templates/rag-opensearch: 404 Client Error: Not Found for url: https://github.com/langchain-ai/langchain/tree/master/templates/rag-opensearch
+2024-12-07 17:29:37,014 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_91be65bc64.jpg
+2024-12-07 17:29:40,887 - INFO - Redirect to Twitter detected for https://t.co/64p7O0g684, ignoring.
+2024-12-07 17:29:41,511 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_9abfa45ae6.jpg
+2024-12-07 17:29:42,927 - INFO - Redirect to Twitter detected for https://t.co/NHQQsgDhzE, ignoring.
+2024-12-07 17:29:46,744 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/video_90e2ed15a1.mp4
+2024-12-07 17:29:49,185 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_b74ece63dc.jpg
+2024-12-07 17:29:52,006 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/video_f3967a20e3.mp4
+2024-12-07 17:30:02,694 - ERROR - Download error for https://github.com/langchain-ai/langchain/tree/master/templates/rag-ollama-multi-query: 404 Client Error: Not Found for url: https://github.com/langchain-ai/langchain/tree/master/templates/rag-ollama-multi-query
+2024-12-07 17:30:03,219 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_d0569be115.jpg
+2024-12-07 17:30:06,228 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_3be806ca77.jpg
+2024-12-07 17:30:07,088 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_cc63435d8f.jpg
+2024-12-07 17:30:08,307 - INFO - Redirect to Twitter detected for https://t.co/99PolMY6CT, ignoring.
+2024-12-07 17:30:09,611 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_eb94bee1f4.jpg
+2024-12-07 17:30:10,545 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_4423ad40f7.jpg
+2024-12-07 17:30:14,078 - INFO - Redirect to Twitter detected for https://t.co/f2oxoEQnma, ignoring.
+2024-12-07 17:30:16,658 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/video_9a556a3ead.mp4
+2024-12-07 17:30:20,106 - INFO - Redirect to Twitter detected for https://t.co/eXT2zHYrc5, ignoring.
+2024-12-07 17:30:21,226 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_6396183a79.jpg
+2024-12-07 17:30:22,976 - ERROR - Download error for https://github.com/run-llama/llama_index/blob/main/docs/examples/ingestion/ingestion_gdrive.ipynb: 404 Client Error: Not Found for url: https://github.com/run-llama/llama_index/blob/main/docs/examples/ingestion/ingestion_gdrive.ipynb
+2024-12-07 17:30:23,887 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_7429462891.jpg
+2024-12-07 17:30:24,642 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_08b0adcfd4.jpg
+2024-12-07 17:30:32,311 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_125df7ecd3.jpg
+2024-12-07 17:30:38,799 - INFO - Redirect to Twitter detected for https://t.co/OiCZSsOnCc, ignoring.
+2024-12-07 17:30:45,321 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/video_dde29f6898.mp4
+2024-12-07 17:31:06,366 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_20a8e87def.jpg
+2024-12-07 17:31:09,434 - ERROR - Download error for https://bit.ly/3ReRNHI: 400 Client Error: Bad Request for url: https://ai.meta.com/blog/purple-llama-open-trust-safety-generative-ai/?utm_source=twitter&utm_medium=organic_social&utm_campaign=llama&utm_content=image
+2024-12-07 17:31:09,974 - INFO - Redirect to Twitter detected for https://t.co/6BGZY36eM2, ignoring.
+2024-12-07 17:31:10,589 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_596a61bc97.jpg
+2024-12-07 17:31:13,213 - ERROR - Download error for https://ai.meta.com/research/publications/llama-guard-llm-based-input-output-safeguard-for-human-ai-conversations/: 400 Client Error: Bad Request for url: https://ai.meta.com/research/publications/llama-guard-llm-based-input-output-safeguard-for-human-ai-conversations/
+2024-12-07 17:31:14,038 - ERROR - Download error for https://ai.meta.com/blog/purple-llama-open-trust-safety-generative-ai/?utm_source=twitter&utm_medium=organic_social&utm_campaign=llama&utm_content=image: 400 Client Error: Bad Request for url: https://ai.meta.com/blog/purple-llama-open-trust-safety-generative-ai/?utm_source=twitter&utm_medium=organic_social&utm_campaign=llama&utm_content=image
+2024-12-07 17:31:15,142 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_bac2672f27.jpg
+2024-12-07 17:31:20,322 - INFO - Redirect to Twitter detected for https://t.co/6ParH1PJHy, ignoring.
+2024-12-07 17:31:20,841 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_5f498cea65.jpg
+2024-12-07 17:31:21,553 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_2bae687c09.jpg
+2024-12-07 17:31:22,364 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_894b8d52fc.jpg
+2024-12-07 17:31:23,029 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_2412b780c0.jpg
+2024-12-07 17:31:23,631 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_ac821717d9.jpg
+2024-12-07 17:31:32,611 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/video_a46198e2a7.mp4
+2024-12-07 17:31:40,476 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_b28d14e7be.jpg
+2024-12-07 17:31:47,662 - INFO - Redirect to Twitter detected for https://t.co/dCFiIRErFY, ignoring.
+2024-12-07 17:31:47,994 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/animated_gif_9b4d374afa.bin
+2024-12-07 17:32:01,358 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_6bc7d8c230.jpg
+2024-12-07 17:32:20,239 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_5d5edb6498.jpg
+2024-12-07 17:32:24,873 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_3796a56498.jpg
+2024-12-07 17:32:28,126 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_196c3ad7f2.jpg
+2024-12-08 11:35:16,546 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-08 11:35:19,533 - INFO - Processed tweet: 1864563648687165932
+2024-12-08 11:35:20,925 - INFO - Redirect to Twitter detected for https://t.co/pFTNO5bIaw, ignoring.
+2024-12-08 11:35:21,627 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_a3d33d77de.jpg
+2024-12-08 11:35:21,627 - INFO - Processed tweet: 1864535178133250318
+2024-12-08 11:35:22,561 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_7dced65958.jpg
+2024-12-08 11:35:22,562 - INFO - Processed tweet: 1864327307177152619
+2024-12-08 11:35:25,503 - INFO - Processed tweet: 1864315378039488836
+2024-12-08 11:35:29,818 - INFO - Redirect to Twitter detected for https://t.co/7uuUW6Tgzz, ignoring.
+2024-12-08 11:35:31,331 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_b5eb2e6e06.jpg
+2024-12-08 11:35:31,333 - INFO - Processed tweet: 1864215823830732889
+2024-12-08 11:35:35,450 - INFO - Redirect to Twitter detected for https://t.co/i6scxS4MeM, ignoring.
+2024-12-08 11:35:36,874 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_385284a1a8.jpg
+2024-12-08 11:35:36,875 - INFO - Processed tweet: 1864149492167290897
+2024-12-08 11:35:38,306 - INFO - Redirect to Twitter detected for https://t.co/5A0yojd4bs, ignoring.
+2024-12-08 11:35:38,804 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_59835b1c13.jpg
+2024-12-08 11:35:38,804 - INFO - Processed tweet: 1864111745456898546
+2024-12-08 11:35:39,208 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_c32afb627d.jpg
+2024-12-08 11:35:39,208 - INFO - Processed tweet: 1864083453899124771
+2024-12-08 11:35:44,354 - ERROR - Download error for https://t.co/wJqEPNOeu6%2C: 404 Client Error: Not Found for url: https://t.co/wJqEPNOeu6%2C
+2024-12-08 11:35:50,649 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_e574413110.jpg
+2024-12-08 11:35:50,650 - INFO - Processed tweet: 1864037791019188331
+2024-12-08 11:35:51,094 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_726ef104ef.jpg
+2024-12-08 11:35:51,096 - INFO - Processed tweet: 1863962985409982482
+2024-12-08 11:35:52,048 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_c87bc0164f.jpg
+2024-12-08 11:35:52,049 - INFO - Processed tweet: 1863945377403039842
+2024-12-08 11:35:52,621 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_5808dade44.jpg
+2024-12-08 11:35:52,622 - INFO - Processed tweet: 1863878077446823953
+2024-12-08 11:35:53,032 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_a41867230b.jpg
+2024-12-08 11:35:53,033 - INFO - Processed tweet: 1863610490989248588
+2024-12-08 11:35:54,290 - INFO - Redirect to Twitter detected for https://t.co/5NLLdfL38K, ignoring.
+2024-12-08 11:35:55,224 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_d19f73530e.jpg
+2024-12-08 11:35:55,225 - INFO - Processed tweet: 1863606556228788354
+2024-12-08 11:35:55,753 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_35d95742fa.jpg
+2024-12-08 11:35:55,754 - INFO - Processed tweet: 1863602474851934556
+2024-12-08 11:35:56,329 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_36b4dab943.jpg
+2024-12-08 11:35:56,331 - INFO - Processed tweet: 1863593113530311062
+2024-12-08 11:35:57,417 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_1b1d67d0b1.jpg
+2024-12-08 11:35:57,418 - INFO - Processed tweet: 1863346904928559316
+2024-12-08 11:36:00,261 - INFO - Processed tweet: 1862903936564302193
+2024-12-08 11:36:08,528 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_ae379dd70b.jpg
+2024-12-08 11:36:08,529 - INFO - Processed tweet: 1862813279162118346
+2024-12-08 11:36:09,964 - INFO - Redirect to Twitter detected for https://t.co/KNwHiaUkiC, ignoring.
+2024-12-08 11:36:10,893 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_68970973b6.jpg
+2024-12-08 11:36:10,894 - INFO - Processed tweet: 1862746059883119001
+2024-12-08 11:36:10,894 - INFO - Saving metadata file
+2024-12-08 11:36:10,896 - ERROR - Unexpected error in main execution: Object of type Timestamp is not JSON serializable
+2024-12-08 11:38:35,304 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-08 11:38:38,027 - INFO - Processed tweet: 1864563648687165932
+2024-12-08 11:38:39,428 - INFO - Redirect to Twitter detected for https://t.co/pFTNO5bIaw, ignoring.
+2024-12-08 11:38:39,705 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_a3d33d77de.jpg
+2024-12-08 11:38:39,706 - INFO - Processed tweet: 1864535178133250318
+2024-12-08 11:38:40,177 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_7dced65958.jpg
+2024-12-08 11:38:40,177 - INFO - Processed tweet: 1864327307177152619
+2024-12-08 11:38:43,298 - INFO - Processed tweet: 1864315378039488836
+2024-12-08 11:38:47,160 - INFO - Redirect to Twitter detected for https://t.co/7uuUW6Tgzz, ignoring.
+2024-12-08 11:38:47,608 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_b5eb2e6e06.jpg
+2024-12-08 11:38:47,608 - INFO - Processed tweet: 1864215823830732889
+2024-12-08 11:38:51,280 - INFO - Redirect to Twitter detected for https://t.co/i6scxS4MeM, ignoring.
+2024-12-08 11:38:51,753 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_385284a1a8.jpg
+2024-12-08 11:38:51,754 - INFO - Processed tweet: 1864149492167290897
+2024-12-08 11:38:53,104 - INFO - Redirect to Twitter detected for https://t.co/5A0yojd4bs, ignoring.
+2024-12-08 11:38:53,418 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_59835b1c13.jpg
+2024-12-08 11:38:53,418 - INFO - Processed tweet: 1864111745456898546
+2024-12-08 11:38:53,817 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_c32afb627d.jpg
+2024-12-08 11:38:53,818 - INFO - Processed tweet: 1864083453899124771
+2024-12-08 11:38:57,916 - ERROR - Download error for https://t.co/wJqEPNOeu6%2C: 404 Client Error: Not Found for url: https://t.co/wJqEPNOeu6%2C
+2024-12-08 11:39:04,603 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_e574413110.jpg
+2024-12-08 11:39:04,604 - INFO - Processed tweet: 1864037791019188331
+2024-12-08 11:39:05,087 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_726ef104ef.jpg
+2024-12-08 11:39:05,088 - INFO - Processed tweet: 1863962985409982482
+2024-12-08 11:39:05,598 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_c87bc0164f.jpg
+2024-12-08 11:39:05,600 - INFO - Processed tweet: 1863945377403039842
+2024-12-08 11:39:06,050 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_5808dade44.jpg
+2024-12-08 11:39:06,051 - INFO - Processed tweet: 1863878077446823953
+2024-12-08 11:39:06,460 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_a41867230b.jpg
+2024-12-08 11:39:06,461 - INFO - Processed tweet: 1863610490989248588
+2024-12-08 11:39:07,849 - INFO - Redirect to Twitter detected for https://t.co/5NLLdfL38K, ignoring.
+2024-12-08 11:39:08,336 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_d19f73530e.jpg
+2024-12-08 11:39:08,337 - INFO - Processed tweet: 1863606556228788354
+2024-12-08 11:39:08,751 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_35d95742fa.jpg
+2024-12-08 11:39:08,752 - INFO - Processed tweet: 1863602474851934556
+2024-12-08 11:39:09,227 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_36b4dab943.jpg
+2024-12-08 11:39:09,228 - INFO - Processed tweet: 1863593113530311062
+2024-12-08 11:39:09,741 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_1b1d67d0b1.jpg
+2024-12-08 11:39:09,743 - INFO - Processed tweet: 1863346904928559316
+2024-12-08 11:39:12,292 - INFO - Processed tweet: 1862903936564302193
+2024-12-08 11:39:18,982 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_ae379dd70b.jpg
+2024-12-08 11:39:18,983 - INFO - Processed tweet: 1862813279162118346
+2024-12-08 11:39:20,560 - INFO - Redirect to Twitter detected for https://t.co/KNwHiaUkiC, ignoring.
+2024-12-08 11:39:21,006 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_68970973b6.jpg
+2024-12-08 11:39:21,006 - INFO - Processed tweet: 1862746059883119001
+2024-12-08 11:39:21,006 - INFO - Saving metadata file
+2024-12-08 11:41:35,954 - INFO - Processing CSV file: data/twitter-Bookmarks-1733477295864.csv
+2024-12-08 11:41:38,992 - INFO - Processed tweet: 1864563648687165932
+2024-12-08 11:41:40,304 - INFO - Redirect to Twitter detected for https://t.co/pFTNO5bIaw, ignoring.
+2024-12-08 11:41:40,649 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_a3d33d77de.jpg
+2024-12-08 11:41:40,650 - INFO - Processed tweet: 1864535178133250318
+2024-12-08 11:41:41,180 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_7dced65958.jpg
+2024-12-08 11:41:41,181 - INFO - Processed tweet: 1864327307177152619
+2024-12-08 11:41:44,089 - INFO - Processed tweet: 1864315378039488836
+2024-12-08 11:41:48,259 - INFO - Redirect to Twitter detected for https://t.co/7uuUW6Tgzz, ignoring.
+2024-12-08 11:41:48,701 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_b5eb2e6e06.jpg
+2024-12-08 11:41:48,702 - INFO - Processed tweet: 1864215823830732889
+2024-12-08 11:41:51,873 - INFO - Redirect to Twitter detected for https://t.co/i6scxS4MeM, ignoring.
+2024-12-08 11:41:52,278 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_385284a1a8.jpg
+2024-12-08 11:41:52,279 - INFO - Processed tweet: 1864149492167290897
+2024-12-08 11:41:53,537 - INFO - Redirect to Twitter detected for https://t.co/5A0yojd4bs, ignoring.
+2024-12-08 11:41:53,910 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_59835b1c13.jpg
+2024-12-08 11:41:53,910 - INFO - Processed tweet: 1864111745456898546
+2024-12-08 11:41:54,336 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_c32afb627d.jpg
+2024-12-08 11:41:54,338 - INFO - Processed tweet: 1864083453899124771
+2024-12-08 11:41:58,453 - ERROR - Download error for https://t.co/wJqEPNOeu6%2C: 404 Client Error: Not Found for url: https://t.co/wJqEPNOeu6%2C
+2024-12-08 11:42:03,547 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_e574413110.jpg
+2024-12-08 11:42:03,548 - INFO - Processed tweet: 1864037791019188331
+2024-12-08 11:42:03,891 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_726ef104ef.jpg
+2024-12-08 11:42:03,892 - INFO - Processed tweet: 1863962985409982482
+2024-12-08 11:42:04,266 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_c87bc0164f.jpg
+2024-12-08 11:42:04,267 - INFO - Processed tweet: 1863945377403039842
+2024-12-08 11:42:04,652 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_5808dade44.jpg
+2024-12-08 11:42:04,653 - INFO - Processed tweet: 1863878077446823953
+2024-12-08 11:42:05,050 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_a41867230b.jpg
+2024-12-08 11:42:05,051 - INFO - Processed tweet: 1863610490989248588
+2024-12-08 11:42:06,409 - INFO - Redirect to Twitter detected for https://t.co/5NLLdfL38K, ignoring.
+2024-12-08 11:42:06,812 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_d19f73530e.jpg
+2024-12-08 11:42:06,813 - INFO - Processed tweet: 1863606556228788354
+2024-12-08 11:42:07,246 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_35d95742fa.jpg
+2024-12-08 11:42:07,247 - INFO - Processed tweet: 1863602474851934556
+2024-12-08 11:42:07,768 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_36b4dab943.jpg
+2024-12-08 11:42:07,769 - INFO - Processed tweet: 1863593113530311062
+2024-12-08 11:42:08,118 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_1b1d67d0b1.jpg
+2024-12-08 11:42:08,118 - INFO - Processed tweet: 1863346904928559316
+2024-12-08 11:42:10,802 - INFO - Processed tweet: 1862903936564302193
+2024-12-08 11:42:17,186 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_ae379dd70b.jpg
+2024-12-08 11:42:17,187 - INFO - Processed tweet: 1862813279162118346
+2024-12-08 11:42:18,563 - INFO - Redirect to Twitter detected for https://t.co/KNwHiaUkiC, ignoring.
+2024-12-08 11:42:18,893 - INFO - Successfully downloaded media: tweet_collection/media/reference_media/photo_68970973b6.jpg
+2024-12-08 11:42:18,894 - INFO - Processed tweet: 1862746059883119001
+2024-12-08 11:42:18,894 - INFO - Saving metadata file

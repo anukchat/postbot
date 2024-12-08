@@ -1,0 +1,706 @@
+[
+  {
+    "tweet_id": "1864563648687165932",
+    "created_at": "2024-12-05T12:23:10+05:30",
+    "full_text": "Learn Finetuning LLMs/VLMs from the ground up\\n\\nLLMs\\n\u2705 Llama 2/3\\n\u2705 Mistral / Mixtral\\n\u2705 Gemma\\nVLMs\\n\u2705 Pali Gemma \\n\u2705 Florence\\n\\nSFT, DPO  using @axolotl_ai , @huggingface (TRL) , @llamafactory_ai \\n\\nhttps://t.co/pikLKkYxEt",
+    "language": "unknown",
+    "favorite_count": 319,
+    "retweet_count": 63,
+    "bookmark_count": 326,
+    "quote_count": 0,
+    "reply_count": 4,
+    "views_count": 10052,
+    "screen_name": "adithya_s_k",
+    "user_name": "Adithya S K",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/1855533880083931136/zYapNq_f_normal.jpg",
+    "urls": [
+      {
+        "tweet_id": "1864563648687165932",
+        "index": 0,
+        "original_url": "https://github.com/adithya-s-k/AI-Engineering.academy",
+        "downloaded_path": "tweet_collection/github/github_2c6462b64e_0.html",
+        "type": "github",
+        "domain": "github.com",
+        "content_type": ".html",
+        "file_category": "repo",
+        "downloaded_at": "2024-12-08 11:41:38"
+      }
+    ],
+    "media": [],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  },
+  {
+    "tweet_id": "1864535178133250318",
+    "created_at": "2024-12-05T10:30:02+05:30",
+    "full_text": "We've built a real AI AGENT: @seobotai\\n\\nIt works 100% on autopilot. For example, an article takes 2 hours &amp; runs 727 prompts &amp; 126 jobs. Costs $6.\\n\\nIt's not similar to traditional SaaS.\\nAI controls a large tree of nested tasks imitating a human org.\\n\\nHow it works (in details) \ud83e\uddf5: https://t.co/pFTNO5bIaw",
+    "language": "unknown",
+    "favorite_count": 1887,
+    "retweet_count": 140,
+    "bookmark_count": 4690,
+    "quote_count": 16,
+    "reply_count": 95,
+    "views_count": 353025,
+    "screen_name": "johnrushx",
+    "user_name": "John Rush",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/1466385933612240901/qNMrMDlG_normal.jpg",
+    "urls": [],
+    "media": [
+      {
+        "tweet_id": "1864535178133250318",
+        "type": "photo",
+        "original_url": "https://pbs.twimg.com/media/GeAo3Rma0AI9bhU?format=png&name=orig",
+        "final_url": "https://pbs.twimg.com/media/GeAo3Rma0AI9bhU?format=png&name=orig",
+        "downloaded_path": "tweet_collection/media/reference_media/photo_a3d33d77de.jpg",
+        "content_type": "image/png",
+        "thumbnail": "https://pbs.twimg.com/media/GeAo3Rma0AI9bhU?format=png&name=thumb",
+        "downloaded_at": "2024-12-08 11:41:40"
+      }
+    ],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  },
+  {
+    "tweet_id": "1864327307177152619",
+    "created_at": "2024-12-04T20:44:02+05:30",
+    "full_text": "DataLab: A Unified Platform for LLM-Powered Business Intelligence\\n\\nIntroduces DataLab, a unified BI platform that integrates an LLM-based agent framework with an augmented computational notebook interface.\\n\\nDataLab achieves state-of-the-art performance on various BI tasks across popular research benchmarks.\\n\\nIt also achieves up to a 58.58% increase in accuracy and a 61.65% reduction in token cost on enterprise-specific BI tasks.",
+    "language": "unknown",
+    "favorite_count": 498,
+    "retweet_count": 106,
+    "bookmark_count": 510,
+    "quote_count": 4,
+    "reply_count": 7,
+    "views_count": 35975,
+    "screen_name": "omarsar0",
+    "user_name": "elvis",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/939313677647282181/vZjFWtAn_normal.jpg",
+    "urls": [],
+    "media": [
+      {
+        "tweet_id": "1864327307177152619",
+        "type": "photo",
+        "original_url": "https://pbs.twimg.com/media/Gd9rzcxa0AUYLee?format=jpg&name=orig",
+        "final_url": "https://pbs.twimg.com/media/Gd9rzcxa0AUYLee?format=jpg&name=orig",
+        "downloaded_path": "tweet_collection/media/reference_media/photo_7dced65958.jpg",
+        "content_type": "image/jpeg",
+        "thumbnail": "https://pbs.twimg.com/media/Gd9rzcxa0AUYLee?format=jpg&name=thumb",
+        "downloaded_at": "2024-12-08 11:41:41"
+      }
+    ],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  },
+  {
+    "tweet_id": "1864315378039488836",
+    "created_at": "2024-12-04T19:56:38+05:30",
+    "full_text": "@virattt His GitHub repo is available for anyone to use and learn from here: https://t.co/2MjWCNYVpS",
+    "language": "unknown",
+    "favorite_count": 76,
+    "retweet_count": 5,
+    "bookmark_count": 173,
+    "quote_count": 0,
+    "reply_count": 1,
+    "views_count": 5691,
+    "screen_name": "quantscience_",
+    "user_name": "Quant Science",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/1683527188782432269/rne8h7-S_normal.jpg",
+    "urls": [
+      {
+        "tweet_id": "1864315378039488836",
+        "index": 0,
+        "original_url": "https://github.com/virattt/ai-hedge-fund",
+        "downloaded_path": "tweet_collection/github/github_86aa53f1b0_0.html",
+        "type": "github",
+        "domain": "github.com",
+        "content_type": ".html",
+        "file_category": "repo",
+        "downloaded_at": "2024-12-08 11:41:44"
+      }
+    ],
+    "media": [],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  },
+  {
+    "tweet_id": "1864215823830732889",
+    "created_at": "2024-12-04T13:21:02+05:30",
+    "full_text": "such a great paper on quantization of deep neural networks: https://t.co/xF34rTrPXd https://t.co/7uuUW6Tgzz",
+    "language": "unknown",
+    "favorite_count": 319,
+    "retweet_count": 31,
+    "bookmark_count": 212,
+    "quote_count": 0,
+    "reply_count": 5,
+    "views_count": 11793,
+    "screen_name": "darkyboy_",
+    "user_name": "Ishaan",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/1799289093916135424/So7iqBs9_normal.jpg",
+    "urls": [
+      {
+        "tweet_id": "1864215823830732889",
+        "index": 0,
+        "original_url": "https://arxiv.org/pdf/1911.09464",
+        "downloaded_path": "tweet_collection/arxiv/arxiv_de7f6502b6_0.pdf",
+        "type": "arxiv",
+        "domain": "arxiv.org",
+        "content_type": ".pdf",
+        "file_category": "document",
+        "downloaded_at": "2024-12-08 11:41:47"
+      }
+    ],
+    "media": [
+      {
+        "tweet_id": "1864215823830732889",
+        "type": "photo",
+        "original_url": "https://pbs.twimg.com/media/Gd8GX3WasAAZJ8-?format=png&name=orig",
+        "final_url": "https://pbs.twimg.com/media/Gd8GX3WasAAZJ8-?format=png&name=orig",
+        "downloaded_path": "tweet_collection/media/reference_media/photo_b5eb2e6e06.jpg",
+        "content_type": "image/png",
+        "thumbnail": "https://pbs.twimg.com/media/Gd8GX3WasAAZJ8-?format=png&name=thumb",
+        "downloaded_at": "2024-12-08 11:41:48"
+      }
+    ],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  },
+  {
+    "tweet_id": "1864149492167290897",
+    "created_at": "2024-12-04T08:57:27+05:30",
+    "full_text": "Research paper by @ScribeHow and @mldcmu\\n\\nhttps://t.co/s0cH0owC94 https://t.co/i6scxS4MeM",
+    "language": "unknown",
+    "favorite_count": 16,
+    "retweet_count": 0,
+    "bookmark_count": 18,
+    "quote_count": 0,
+    "reply_count": 0,
+    "views_count": 1726,
+    "screen_name": "Saboo_Shubham_",
+    "user_name": "Shubham Saboo",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/1670107849815478273/Q3oUhtHM_normal.jpg",
+    "urls": [
+      {
+        "tweet_id": "1864149492167290897",
+        "index": 0,
+        "original_url": "https://arxiv.org/pdf/2411.15004",
+        "downloaded_path": "tweet_collection/arxiv/arxiv_27fb86e353_0.pdf",
+        "type": "arxiv",
+        "domain": "arxiv.org",
+        "content_type": ".pdf",
+        "file_category": "document",
+        "downloaded_at": "2024-12-08 11:41:51"
+      }
+    ],
+    "media": [
+      {
+        "tweet_id": "1864149492167290897",
+        "type": "photo",
+        "original_url": "https://pbs.twimg.com/media/Gd7KFXba0AUNfTV?format=jpg&name=orig",
+        "final_url": "https://pbs.twimg.com/media/Gd7KFXba0AUNfTV?format=jpg&name=orig",
+        "downloaded_path": "tweet_collection/media/reference_media/photo_385284a1a8.jpg",
+        "content_type": "image/jpeg",
+        "thumbnail": "https://pbs.twimg.com/media/Gd7KFXba0AUNfTV?format=jpg&name=thumb",
+        "downloaded_at": "2024-12-08 11:41:52"
+      }
+    ],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  },
+  {
+    "tweet_id": "1864111745456898546",
+    "created_at": "2024-12-04T06:27:28+05:30",
+    "full_text": "\"Wait, what?\" - perfect headline, exactly my reaction https://t.co/5A0yojd4bs",
+    "language": "unknown",
+    "favorite_count": 679,
+    "retweet_count": 48,
+    "bookmark_count": 661,
+    "quote_count": 4,
+    "reply_count": 4,
+    "views_count": 42566,
+    "screen_name": "tom_doerr",
+    "user_name": "Tom D\u00f6rr",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/1492620842542510080/BjWHr7Et_normal.jpg",
+    "urls": [],
+    "media": [
+      {
+        "tweet_id": "1864111745456898546",
+        "type": "photo",
+        "original_url": "https://pbs.twimg.com/media/Gd6nn3_XEAAMdqD?format=png&name=orig",
+        "final_url": "https://pbs.twimg.com/media/Gd6nn3_XEAAMdqD?format=png&name=orig",
+        "downloaded_path": "tweet_collection/media/reference_media/photo_59835b1c13.jpg",
+        "content_type": "image/png",
+        "thumbnail": "https://pbs.twimg.com/media/Gd6nn3_XEAAMdqD?format=png&name=thumb",
+        "downloaded_at": "2024-12-08 11:41:53"
+      }
+    ],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  },
+  {
+    "tweet_id": "1864083453899124771",
+    "created_at": "2024-12-04T04:35:03+05:30",
+    "full_text": "The Financial Metrics API is live.\\n\\nCovers 16,000+ tickers over 30+ years.\\n\\nLets you get metrics for:\\n1 \u2022 valuation (pe ratio, etc)\\n2 \u2022 leverage (debt to equity, etc)\\n3 \u2022 liquidity (current ratio, cash ratio, etc)\\n4 \u2022 growth (revenue, earnings, etc growth)\\n5 \u2022 profitability (operating margins, ROE, etc)\\n\\nI will add this API to my AI agents next.\\n\\nLet me know if you have any questions.",
+    "language": "unknown",
+    "favorite_count": 754,
+    "retweet_count": 69,
+    "bookmark_count": 1319,
+    "quote_count": 1,
+    "reply_count": 21,
+    "views_count": 71585,
+    "screen_name": "virattt",
+    "user_name": "virat",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/1237964548704841736/iai1MNLE_normal.jpg",
+    "urls": [],
+    "media": [
+      {
+        "tweet_id": "1864083453899124771",
+        "type": "photo",
+        "original_url": "https://pbs.twimg.com/media/Gd6MnQ9XUAA233p?format=png&name=orig",
+        "final_url": "https://pbs.twimg.com/media/Gd6MnQ9XUAA233p?format=png&name=orig",
+        "downloaded_path": "tweet_collection/media/reference_media/photo_c32afb627d.jpg",
+        "content_type": "image/png",
+        "thumbnail": "https://pbs.twimg.com/media/Gd6MnQ9XUAA233p?format=png&name=thumb",
+        "downloaded_at": "2024-12-08 11:41:54"
+      }
+    ],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  },
+  {
+    "tweet_id": "1864037791019188331",
+    "created_at": "2024-12-04T01:33:36+05:30",
+    "full_text": "Learn how to build an intelligent legal document navigation system using multi-graph, multi-agent recursive retrieval! \ud83e\udde0\ud83d\udcc4\\n\\nThis article demonstrates:\\n\ud83d\udd0d Creating document hierarchy and definition graphs\\n\ud83e\udd16 Implementing a multi-agent workflow for smart traversal\\n\ud83d\udcca Leveraging https://t.co/wJqEPNOeu6, https://t.co/vJSQKOXBZO and LlamaIndex\\n\\nKey features:\\n\u2022 Recursive retrieval of clauses and footnotes\\n\u2022 Intelligent navigation through document hierarchy\\n\u2022 Integration of legal definitions for context\\n\\nRead more:\\nhttps://t.co/HzcnkZ7H4Y\\n\\nOr check out the repo: https://t.co/ebmXJSAuw6",
+    "language": "unknown",
+    "favorite_count": 185,
+    "retweet_count": 46,
+    "bookmark_count": 209,
+    "quote_count": 0,
+    "reply_count": 1,
+    "views_count": 11653,
+    "screen_name": "llama_index",
+    "user_name": "LlamaIndex \ud83e\udd99",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/1623505166996742144/n-PNQGgd_normal.jpg",
+    "urls": [
+      {
+        "tweet_id": "1864037791019188331",
+        "index": 1,
+        "original_url": "http://WhyHow.AI",
+        "downloaded_path": "tweet_collection/html/html_41fc2c3c02_1.html",
+        "type": "html",
+        "domain": "whyhow.ai",
+        "content_type": ".html",
+        "file_category": "webpage",
+        "downloaded_at": "2024-12-08 11:42:00"
+      },
+      {
+        "tweet_id": "1864037791019188331",
+        "index": 2,
+        "original_url": "https://medium.com/enterprise-rag/legal-document-rag-multi-graph-multi-agent-recursive-retrieval-through-legal-clauses-c90e073e0052",
+        "downloaded_path": "tweet_collection/html/html_27a726975f_2.html",
+        "type": "html",
+        "domain": "medium.com",
+        "content_type": ".html",
+        "file_category": "webpage",
+        "downloaded_at": "2024-12-08 11:42:01"
+      },
+      {
+        "tweet_id": "1864037791019188331",
+        "index": 3,
+        "original_url": "https://github.com/whyhow-ai/recursive-retrieval",
+        "downloaded_path": "tweet_collection/github/github_6fc4f5537b_3.html",
+        "type": "github",
+        "domain": "github.com",
+        "content_type": ".html",
+        "file_category": "repo",
+        "downloaded_at": "2024-12-08 11:42:03"
+      }
+    ],
+    "media": [
+      {
+        "tweet_id": "1864037791019188331",
+        "type": "photo",
+        "original_url": "https://pbs.twimg.com/media/Gd5kdAjbkAEj9qN?format=jpg&name=orig",
+        "final_url": "https://pbs.twimg.com/media/Gd5kdAjbkAEj9qN?format=jpg&name=orig",
+        "downloaded_path": "tweet_collection/media/reference_media/photo_e574413110.jpg",
+        "content_type": "image/jpeg",
+        "thumbnail": "https://pbs.twimg.com/media/Gd5kdAjbkAEj9qN?format=jpg&name=thumb",
+        "downloaded_at": "2024-12-08 11:42:03"
+      }
+    ],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  },
+  {
+    "tweet_id": "1863962985409982482",
+    "created_at": "2024-12-03T20:36:21+05:30",
+    "full_text": "MegaParse is an open-source tool for parsing various types of documents for LLM ingestion.\\n\\nSupports text, PDF, PowerPoint, excel, csv, and Word documents. It can convert these into a format ideal for LLMs.\\n\\nIt can parse content of different types such as tables, TOC, headers, footers, images, etc. \\n\\nI am also building a similar tool and I think the most important feature at the moment is the ability to customize the format of the transformed data as different LLMs prefer different formats.",
+    "language": "unknown",
+    "favorite_count": 1679,
+    "retweet_count": 229,
+    "bookmark_count": 2580,
+    "quote_count": 7,
+    "reply_count": 23,
+    "views_count": 112225,
+    "screen_name": "omarsar0",
+    "user_name": "elvis",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/939313677647282181/vZjFWtAn_normal.jpg",
+    "urls": [],
+    "media": [
+      {
+        "tweet_id": "1863962985409982482",
+        "type": "photo",
+        "original_url": "https://pbs.twimg.com/media/Gd4fCxfXYAA_bbj?format=png&name=orig",
+        "final_url": "https://pbs.twimg.com/media/Gd4fCxfXYAA_bbj?format=png&name=orig",
+        "downloaded_path": "tweet_collection/media/reference_media/photo_726ef104ef.jpg",
+        "content_type": "image/png",
+        "thumbnail": "https://pbs.twimg.com/media/Gd4fCxfXYAA_bbj?format=png&name=thumb",
+        "downloaded_at": "2024-12-08 11:42:03"
+      }
+    ],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  },
+  {
+    "tweet_id": "1863945377403039842",
+    "created_at": "2024-12-03T19:26:23+05:30",
+    "full_text": "Hugging Face is doing a free and open course on fine tuning local LLMs\\n\\nThis is a practical course on aligning language models for your specific use case. It's a handy way to get started with aligning language models, because everything runs on most local machines. There are minimal GPU requirements and no paid services. The course is based on the SmolLM2 series of models, but you can transfer the skills you learn here to larger models or other small language models.",
+    "language": "unknown",
+    "favorite_count": 1419,
+    "retweet_count": 190,
+    "bookmark_count": 1825,
+    "quote_count": 4,
+    "reply_count": 11,
+    "views_count": 83287,
+    "screen_name": "kimmonismus",
+    "user_name": "Chubby\u2668\ufe0f",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/1728327996375719936/RW7VBJfD_normal.jpg",
+    "urls": [],
+    "media": [
+      {
+        "tweet_id": "1863945377403039842",
+        "type": "photo",
+        "original_url": "https://pbs.twimg.com/media/Gd4QTygXcAAsdCq?format=jpg&name=orig",
+        "final_url": "https://pbs.twimg.com/media/Gd4QTygXcAAsdCq?format=jpg&name=orig",
+        "downloaded_path": "tweet_collection/media/reference_media/photo_c87bc0164f.jpg",
+        "content_type": "image/jpeg",
+        "thumbnail": "https://pbs.twimg.com/media/Gd4QTygXcAAsdCq?format=jpg&name=thumb",
+        "downloaded_at": "2024-12-08 11:42:04"
+      }
+    ],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  },
+  {
+    "tweet_id": "1863878077446823953",
+    "created_at": "2024-12-03T14:58:57+05:30",
+    "full_text": "\u2600\ufe0fExcited to share our new paper!\\n\\nGenerative AI agents are powerful but complex\u2014how do we design them for transparency and human control? \ud83e\udd16\u2728\\n\\nAt the heart of this challenge is establishing common ground, a concept from human communication. Our new paper identifies 12 key challenges in improving common ground between humans and AI agents.\\n\\n1/",
+    "language": "unknown",
+    "favorite_count": 357,
+    "retweet_count": 76,
+    "bookmark_count": 497,
+    "quote_count": 10,
+    "reply_count": 2,
+    "views_count": 72520,
+    "screen_name": "bansalg_",
+    "user_name": "Gagan Bansal",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/1864062113746239488/sqrh3oMl_normal.jpg",
+    "urls": [],
+    "media": [
+      {
+        "tweet_id": "1863878077446823953",
+        "type": "photo",
+        "original_url": "https://pbs.twimg.com/media/Gd3QqnObQAA-wt5?format=jpg&name=orig",
+        "final_url": "https://pbs.twimg.com/media/Gd3QqnObQAA-wt5?format=jpg&name=orig",
+        "downloaded_path": "tweet_collection/media/reference_media/photo_5808dade44.jpg",
+        "content_type": "image/jpeg",
+        "thumbnail": "https://pbs.twimg.com/media/Gd3QqnObQAA-wt5?format=jpg&name=thumb",
+        "downloaded_at": "2024-12-08 11:42:04"
+      }
+    ],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  },
+  {
+    "tweet_id": "1863610490989248588",
+    "created_at": "2024-12-02T21:15:39+05:30",
+    "full_text": "PydanticAI\\n\\nA new Python-based agent framework to build production-grade LLM-powered applications.\\n\\n- Built by the team behind Pydantic\\n- Model-agnostic\\n- Type-sage\\n- Structured response validation with Pydantic\\n- Streamed responses (including validation) with Pydantic\\n- Tools for testing and eval-driven iterative development\\n- Logfire integration for debugging and monitoring",
+    "language": "unknown",
+    "favorite_count": 1640,
+    "retweet_count": 263,
+    "bookmark_count": 1919,
+    "quote_count": 13,
+    "reply_count": 11,
+    "views_count": 113822,
+    "screen_name": "omarsar0",
+    "user_name": "elvis",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/939313677647282181/vZjFWtAn_normal.jpg",
+    "urls": [],
+    "media": [
+      {
+        "tweet_id": "1863610490989248588",
+        "type": "photo",
+        "original_url": "https://pbs.twimg.com/media/GdzeQITWoAIeu5f?format=png&name=orig",
+        "final_url": "https://pbs.twimg.com/media/GdzeQITWoAIeu5f?format=png&name=orig",
+        "downloaded_path": "tweet_collection/media/reference_media/photo_a41867230b.jpg",
+        "content_type": "image/png",
+        "thumbnail": "https://pbs.twimg.com/media/GdzeQITWoAIeu5f?format=png&name=thumb",
+        "downloaded_at": "2024-12-08 11:42:05"
+      }
+    ],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  },
+  {
+    "tweet_id": "1863606556228788354",
+    "created_at": "2024-12-02T21:00:01+05:30",
+    "full_text": "Database of How Companies Actually Deploy LLMs in Production (300+ Technical Case Studies, Including Self-Hosted https://t.co/5NLLdfL38K",
+    "language": "unknown",
+    "favorite_count": 1814,
+    "retweet_count": 195,
+    "bookmark_count": 3351,
+    "quote_count": 9,
+    "reply_count": 19,
+    "views_count": 147747,
+    "screen_name": "rohanpaul_ai",
+    "user_name": "Rohan Paul",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/1816185267037859840/Fd18CH0v_normal.jpg",
+    "urls": [],
+    "media": [
+      {
+        "tweet_id": "1863606556228788354",
+        "type": "photo",
+        "original_url": "https://pbs.twimg.com/media/GdzcRfjbAAAFEpG?format=jpg&name=orig",
+        "final_url": "https://pbs.twimg.com/media/GdzcRfjbAAAFEpG?format=jpg&name=orig",
+        "downloaded_path": "tweet_collection/media/reference_media/photo_d19f73530e.jpg",
+        "content_type": "image/jpeg",
+        "thumbnail": "https://pbs.twimg.com/media/GdzcRfjbAAAFEpG?format=jpg&name=thumb",
+        "downloaded_at": "2024-12-08 11:42:06"
+      }
+    ],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  },
+  {
+    "tweet_id": "1863602474851934556",
+    "created_at": "2024-12-02T20:43:48+05:30",
+    "full_text": "LLMOps Database\\n\\nAmazing resource published by ZenML.\\n\\nIt's a collection of 300+ real-world LLM implementation case studies!\\n\\nIt includes production-grade architectures, detailed implementations, and practical solutions. \\n\\nToo many shiny demos out there and very few implementations (with technical details) that actually work. This resource tries to solve that problem.",
+    "language": "unknown",
+    "favorite_count": 951,
+    "retweet_count": 183,
+    "bookmark_count": 1572,
+    "quote_count": 6,
+    "reply_count": 14,
+    "views_count": 77443,
+    "screen_name": "omarsar0",
+    "user_name": "elvis",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/939313677647282181/vZjFWtAn_normal.jpg",
+    "urls": [],
+    "media": [
+      {
+        "tweet_id": "1863602474851934556",
+        "type": "photo",
+        "original_url": "https://pbs.twimg.com/media/GdzXh6JW4AAcKVA?format=jpg&name=orig",
+        "final_url": "https://pbs.twimg.com/media/GdzXh6JW4AAcKVA?format=jpg&name=orig",
+        "downloaded_path": "tweet_collection/media/reference_media/photo_35d95742fa.jpg",
+        "content_type": "image/jpeg",
+        "thumbnail": "https://pbs.twimg.com/media/GdzXh6JW4AAcKVA?format=jpg&name=thumb",
+        "downloaded_at": "2024-12-08 11:42:07"
+      }
+    ],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  },
+  {
+    "tweet_id": "1863593113530311062",
+    "created_at": "2024-12-02T20:06:36+05:30",
+    "full_text": "Steel is an open-source browser API for AI agents and apps. \\n\\nUseful to build AI apps and agents that interact with the web. \\n\\nFeatures include:\\n- Full browser control\\n- Session management\\n- Proxy support\\n- Extension support\\n- Debugging tools\\n- Anti-detection \\n- Resource management\\n- Browser tools",
+    "language": "unknown",
+    "favorite_count": 1072,
+    "retweet_count": 149,
+    "bookmark_count": 1458,
+    "quote_count": 10,
+    "reply_count": 14,
+    "views_count": 79645,
+    "screen_name": "omarsar0",
+    "user_name": "elvis",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/939313677647282181/vZjFWtAn_normal.jpg",
+    "urls": [],
+    "media": [
+      {
+        "tweet_id": "1863593113530311062",
+        "type": "photo",
+        "original_url": "https://pbs.twimg.com/media/GdzPpE9WUAAPi3e?format=png&name=orig",
+        "final_url": "https://pbs.twimg.com/media/GdzPpE9WUAAPi3e?format=png&name=orig",
+        "downloaded_path": "tweet_collection/media/reference_media/photo_36b4dab943.jpg",
+        "content_type": "image/png",
+        "thumbnail": "https://pbs.twimg.com/media/GdzPpE9WUAAPi3e?format=png&name=thumb",
+        "downloaded_at": "2024-12-08 11:42:07"
+      }
+    ],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  },
+  {
+    "tweet_id": "1863346904928559316",
+    "created_at": "2024-12-02T03:48:16+05:30",
+    "full_text": "WorkflowLLM enables LLMs to handle 70+ action workflows, a 10x improvement over current capabilities\\n\\nAn LLM that can orchestrate real-world automation workflows at production scale\\n\\nOriginal Problem \ud83e\udd14:\\n\\nCurrent LLMs can only handle small workflows with around 6 actions and simple logical structures. This falls short of real-world needs where applications like Apple Shortcuts involve 70+ actions and complex branching/looping patterns.\\n\\n-----\\n\\nSolution in this Paper \ud83d\udee0\ufe0f:\\n\\n\u2192 Created WorkflowBench - a dataset with 106,763 workflow samples covering 1,503 APIs from 83 applications\\n\\n\u2192 Collected real workflows from Apple Shortcuts and RoutineHub, converted to Python code, added hierarchical thoughts using ChatGPT\\n\\n\u2192 Used ChatGPT to generate diverse task queries and expand dataset coverage\\n\\n\u2192 Trained an annotator model on collected data to generate workflows for new queries\\n\\n\u2192 Fine-tuned Llama-3.1-8B on this dataset to create WorkflowLlama\\n\\n-----\\n\\nKey Insights from this Paper \ud83d\udca1:\\n\\n\u2192 Data quality and scale are crucial for workflow orchestration capability\\n\\n\u2192 Three-phase data construction ensures diversity and complexity\\n\\n\u2192 Hierarchical thought generation improves model understanding\\n\\n\u2192 Quality confirmation steps maintain dataset integrity\\n\\n-----\\n\\nResults \ud83d\udcca:\\n\\n\u2192 Outperformed all baselines including GPT-4\\n\\n\u2192 Handled complex workflows with 70+ actions vs 6 actions for GPT-4\\n\\n\u2192 Demonstrated strong generalization to unseen APIs and instructions\\n\\n\u2192 Achieved 77.5% F1 score on out-of-distribution T-Eval benchmark",
+    "language": "unknown",
+    "favorite_count": 175,
+    "retweet_count": 20,
+    "bookmark_count": 200,
+    "quote_count": 2,
+    "reply_count": 5,
+    "views_count": 12320,
+    "screen_name": "rohanpaul_ai",
+    "user_name": "Rohan Paul",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/1816185267037859840/Fd18CH0v_normal.jpg",
+    "urls": [],
+    "media": [
+      {
+        "tweet_id": "1863346904928559316",
+        "type": "photo",
+        "original_url": "https://pbs.twimg.com/media/Gdvvoi7XQAAjrFw?format=png&name=orig",
+        "final_url": "https://pbs.twimg.com/media/Gdvvoi7XQAAjrFw?format=png&name=orig",
+        "downloaded_path": "tweet_collection/media/reference_media/photo_1b1d67d0b1.jpg",
+        "content_type": "image/png",
+        "thumbnail": "https://pbs.twimg.com/media/Gdvvoi7XQAAjrFw?format=png&name=thumb",
+        "downloaded_at": "2024-12-08 11:42:08"
+      }
+    ],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  },
+  {
+    "tweet_id": "1862903936564302193",
+    "created_at": "2024-11-30T22:28:04+05:30",
+    "full_text": "Give a try to Prompt engineering tutorial by @AnthropicAI quick and simple, but delivers interesting aspects of this new Art.\\n\\nhttps://t.co/UOCQcVxleJ",
+    "language": "unknown",
+    "favorite_count": 810,
+    "retweet_count": 123,
+    "bookmark_count": 1122,
+    "quote_count": 2,
+    "reply_count": 6,
+    "views_count": 51228,
+    "screen_name": "ivanfioravanti",
+    "user_name": "Ivan Fioravanti \u1bc5",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/1708060690726993921/rL-zPeQb_normal.jpg",
+    "urls": [
+      {
+        "tweet_id": "1862903936564302193",
+        "index": 0,
+        "original_url": "https://github.com/anthropics/prompt-eng-interactive-tutorial",
+        "downloaded_path": "tweet_collection/github/github_a9e496dc47_0.html",
+        "type": "github",
+        "domain": "github.com",
+        "content_type": ".html",
+        "file_category": "repo",
+        "downloaded_at": "2024-12-08 11:42:10"
+      }
+    ],
+    "media": [],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  },
+  {
+    "tweet_id": "1862813279162118346",
+    "created_at": "2024-11-30T16:27:49+05:30",
+    "full_text": "\ud83d\udd2eGeoAgent: Recent Powerful Fusion of MCTS, RAG, and Code Interpretation for or High-Impact Geospatial Data Automation\\n\\n\ud83e\ude84\u300bIntroduction to GeoAgent\\n\\nWith the rise of Large Language Models (LLMs), there has been a surge in using these models to automate data science tasks. \\n\\nHowever, geospatial data analysis presents unique challenges, like handling complex data structures and calling specialized libraries. \\n\\nTo overcome these issues, researchers have developed GeoAgent\u2014a framework that leverages code interpretation, static analysis, and retrieval-augmented generation (RAG) through a Monte Carlo Tree Search (MCTS) method.\\n\\n-----------------------------\\n\u300b Key Challenges in Geospatial Data Analysis with LLMs\\nComplex Instructions: \\n\\n\u273a Geospatial tasks often have intricate dependencies, requiring step-by-step reasoning.\\n\\n\u273a Specialized Libraries: Using domain-specific libraries like Google Earth Engine (GEE) or Planetary Computer demands deep integration, which is tough for general-purpose LLMs.\\n\\n\u273a Multi-Step Tasks: Completing geospatial tasks involves consecutive steps, each building on previous outcomes.\\n\\n\u273a Data and Resource Limitations: Many existing models struggle with API hallucinations, especially with less frequently used geospatial libraries.\\n\\n----------------------------------\\n\u300bThe GeoAgent Solution\\n\\nGeoAgent introduces a way for LLMs to break down geospatial tasks into manageable subtasks and choose the right tools to complete them. \\n\\nGeoAgent\u2019s components include:\\n\\n\u274a RAG (Retrieval-Augmented Generation): Fetches the most relevant code snippets and documentation.\\n\\n\u274a Code Interpreter & Static Analysis: Ensures code executes correctly by detecting issues early.\\n\\n\u274a Monte Carlo Tree Search (MCTS): Decomposes tasks and refines each step based on execution feedback.\\n\\n----------------------------------\\n\u300b GeoCode Benchmark\\n\\nTo evaluate the efficacy of GeoAgent, researchers developed GeoCode, a new benchmark containing over 18,000 single-turn and 1,356 multi-turn tasks across 28 geospatial libraries. \\n\\nThis benchmark helps measure:\\n\\n\u274a Function Call Accuracy: Verifies if GeoAgent can correctly identify and call required functions.\\n\\n\u274aTask Completion Rate: Tracks the number of tasks GeoAgent can complete end-to-end without intervention.\\n\\n----------------------------------\\n\u300bResults and Performance\\n\\n\u274a API Retrieval: Achieved higher precision in locating and using the right API calls.\\n\\n\u274a Task Completion: Outpaced baselines, especially in tasks requiring multiple libraries and complex pipelines.\\n\\nPaper: https://t.co/yGlcp3gpuT\\n\\n\u2263\u2263\u2263\u2263\u2263\u2263\u2263\u2263\u2263\u2263\u2263\u2263\u2263\u2263\u2263\u2263\u2263\u2263\u2263\u2263\u2263\u2263\u2263\u2263\u2263\u2263\\n\\n\ud83d\udd2e Join My AI Agents Mini-Training TODAY!\\n\\n\ud83d\udc69\ud83c\udffb\u200d\ud83d\udcbb\ud835\udc04\ud835\udc27\ud835\udc2b\ud835\udc28\ud835\udc25\ud835\udc25 \ud835\udc0d\ud835\udc0e\ud835\udc16 to Build Real-World AI Agents lik Geoagents and more for Healthcare, Finance etc.\\nwith LangGraph/Langchain, CrewAI and OpenAI Swarm +\\n\\n\ud835\udfd1\ud835\udfd2% \ud835\udc1d\ud835\udc22\ud835\udc2c\ud835\udc1c\ud835\udc28\ud835\udc2e\ud835\udc27\ud835\udc2d\u2014limited time! \u27f1\\n\\nhttps://t.co/5i2v1fIrhJ",
+    "language": "unknown",
+    "favorite_count": 41,
+    "retweet_count": 9,
+    "bookmark_count": 28,
+    "quote_count": 0,
+    "reply_count": 0,
+    "views_count": 1929,
+    "screen_name": "MaryamMiradi",
+    "user_name": "Maryam Miradi, PhD",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/1759191641959563264/kx496_Qx_normal.jpg",
+    "urls": [
+      {
+        "tweet_id": "1862813279162118346",
+        "index": 0,
+        "original_url": "https://arxiv.org/pdf/2410.18792",
+        "downloaded_path": "tweet_collection/arxiv/arxiv_a0dea6a19d_0.pdf",
+        "type": "arxiv",
+        "domain": "arxiv.org",
+        "content_type": ".pdf",
+        "file_category": "document",
+        "downloaded_at": "2024-12-08 11:42:13"
+      },
+      {
+        "tweet_id": "1862813279162118346",
+        "index": 1,
+        "original_url": "https://www.maryammiradi.com/ai-agents-mastery",
+        "downloaded_path": "tweet_collection/html/html_1847c50d41_1.html",
+        "type": "html",
+        "domain": "www.maryammiradi.com",
+        "content_type": ".html",
+        "file_category": "webpage",
+        "downloaded_at": "2024-12-08 11:42:16"
+      }
+    ],
+    "media": [
+      {
+        "tweet_id": "1862813279162118346",
+        "type": "photo",
+        "original_url": "https://pbs.twimg.com/media/GdoKzYtWwAELMBY?format=jpg&name=orig",
+        "final_url": "https://pbs.twimg.com/media/GdoKzYtWwAELMBY?format=jpg&name=orig",
+        "downloaded_path": "tweet_collection/media/reference_media/photo_ae379dd70b.jpg",
+        "content_type": "image/jpeg",
+        "thumbnail": "https://pbs.twimg.com/media/GdoKzYtWwAELMBY?format=jpg&name=thumb",
+        "downloaded_at": "2024-12-08 11:42:17"
+      }
+    ],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  },
+  {
+    "tweet_id": "1862746059883119001",
+    "created_at": "2024-11-30T12:00:43+05:30",
+    "full_text": "\"The open-source browser API built for AI agents. Steel provides a REST API to control headless browsers with session management, proxy support, and anti-detection features. Perfect for web automation, scraping, and building AI agents that can interact with the web.\" https://t.co/KNwHiaUkiC",
+    "language": "unknown",
+    "favorite_count": 1171,
+    "retweet_count": 126,
+    "bookmark_count": 1568,
+    "quote_count": 1,
+    "reply_count": 11,
+    "views_count": 70475,
+    "screen_name": "tom_doerr",
+    "user_name": "Tom D\u00f6rr",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/1492620842542510080/BjWHr7Et_normal.jpg",
+    "urls": [],
+    "media": [
+      {
+        "tweet_id": "1862746059883119001",
+        "type": "photo",
+        "original_url": "https://pbs.twimg.com/media/GdnNkvBXQAAEjkg?format=png&name=orig",
+        "final_url": "https://pbs.twimg.com/media/GdnNkvBXQAAEjkg?format=png&name=orig",
+        "downloaded_path": "tweet_collection/media/reference_media/photo_68970973b6.jpg",
+        "content_type": "image/png",
+        "thumbnail": "https://pbs.twimg.com/media/GdnNkvBXQAAEjkg?format=png&name=thumb",
+        "downloaded_at": "2024-12-08 11:42:18"
+      }
+    ],
+    "is_retweet": false,
+    "is_quote": false,
+    "possibly_sensitive": false
+  }
+]

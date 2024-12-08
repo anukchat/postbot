@@ -1,0 +1,8 @@
+pandas
+requests
+beautifulsoup4
+fitz
+mime
+python-magic
+html2text
+sqlalchemy
