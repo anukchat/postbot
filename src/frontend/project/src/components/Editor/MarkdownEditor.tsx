@@ -1,0 +1,344 @@
+import React, { useCallback, useState, useRef, useEffect } from 'react';
+import { useEditorStore } from '../../store/editorStore';
+import { EditorStatusBar } from './EditorStatusBar';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { TwitterEmbed } from './TwitterEmbed';
+import { ScrollPosition } from '../../types';
+import rehypeRaw from 'rehype-raw';
+import { Toolbar } from './Toolbar';
+import { CommandPalette, getCommands } from './CommandPalette';
+
+export const MarkdownEditor: React.FC = () => {
+    const { currentPost, fetchPosts, updateContent, undo, redo } = useEditorStore();
+    const textAreaRef = useRef<HTMLTextAreaElement>(null);
+    const [selection, setSelection] = useState({ start: 0, end: 0 });
+    const isUpdatingRef = useRef(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const textareaScrollRef = useRef<ScrollPosition>({ x: 0, y: 0 });
+    const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+    const [commandPalettePosition, setCommandPalettePosition] = useState({ x: 0, y: 0 });
+    const [filteredCommands, setFilteredCommands] = useState(getCommands(currentPost));
+    const [selectedIndex, setSelectedIndex] = useState(0);
+    const commandPaletteRef = useRef<HTMLDivElement>(null);
+    const commandTriggeredRef = useRef(false);
+
+    useEffect(() => {
+        fetchPosts({});
+    }, [fetchPosts]);
+
+    const handleCommandInsert = (commandText: string, replaceLength: number) => {
+        if (!textAreaRef.current || !currentPost) return;
+
+        const textarea = textAreaRef.current;
+        const currentScroll = { x: textarea.scrollLeft, y: textarea.scrollTop };
+
+        const newText = selection.start < 0
+            ? commandText + textarea.value.substring(selection.end)
+            : textarea.value.substring(0, selection.start - replaceLength) + commandText + textarea.value.substring(selection.end);
+        updateContent(newText);
+
+        const newCursorPosition = selection.start - replaceLength + commandText.length;
+
+        requestAnimationFrame(() => {
+            if (textAreaRef.current) {
+                textAreaRef.current.focus();
+                textAreaRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
+                textAreaRef.current.scrollTo(currentScroll.x, currentScroll.y);
+            }
+        });
+
+        setIsCommandPaletteOpen(false);
+        commandTriggeredRef.current = false; // Reset the flag after command is inserted
+    };
+
+    const handleContentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const textarea = e.target;
+        isUpdatingRef.current = true;
+        setSelection({ start: textarea.selectionStart, end: textarea.selectionEnd });
+        if (textAreaRef.current) {
+            textareaScrollRef.current = { x: textAreaRef.current.scrollLeft, y: textAreaRef.current.scrollTop };
+        }
+        updateContent(textarea.value);
+    }, [updateContent]);
+
+    useEffect(() => {
+        if (textAreaRef.current && isUpdatingRef.current) {
+            textAreaRef.current.setSelectionRange(selection.start, selection.end);
+            textAreaRef.current.focus();
+            isUpdatingRef.current = false;
+            if (textareaScrollRef.current) {
+                textAreaRef.current.scrollTo(textareaScrollRef.current.x, textareaScrollRef.current.y);
+            }
+        }
+    }, [currentPost?.content, selection]);
+
+    const calculateCursorPosition = (textarea: HTMLTextAreaElement): { x: number; y: number } => {
+        const mirror = document.createElement('div');
+        const style = window.getComputedStyle(textarea);
+        
+        const styles = [
+            'font-family',
+            'font-size',
+            'font-weight',
+            'line-height',
+            'letter-spacing',
+            'padding-left',
+            'padding-top',
+            'width',
+            'box-sizing'
+        ];
+
+        styles.forEach(key => {
+            (mirror.style as unknown as CSSStyleDeclaration)[key as any] = style.getPropertyValue(key);
+        });
+
+        mirror.style.position = 'absolute';
+        mirror.style.visibility = 'hidden';
+        mirror.style.whiteSpace = 'pre-wrap';
+        mirror.style.wordWrap = 'break-word';
+        document.body.appendChild(mirror);
+
+        const textBeforeCursor = textarea.value.substring(0, textarea.selectionStart);
+        
+        const textNode = document.createTextNode(textBeforeCursor);
+        const spanNode = document.createElement('span');
+        spanNode.textContent = 'M';
+        mirror.appendChild(textNode);
+        mirror.appendChild(spanNode);
+
+        const coords = spanNode.getBoundingClientRect();
+        const textareaCoords = textarea.getBoundingClientRect();
+
+        document.body.removeChild(mirror);
+
+        return {
+            x: (coords.left - textareaCoords.left) - textarea.scrollLeft,
+            y: (coords.top - textareaCoords.top + coords.height) - textarea.scrollTop
+        };
+    };
+
+    const updateCommandPalettePosition = (textarea: HTMLTextAreaElement) => {
+        const position = calculateCursorPosition(textarea);
+        const textareaRect = textarea.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+
+        let x = textareaRect.left + position.x;
+        let y = textareaRect.top + position.y;
+
+        // Adjust if the palette goes beyond the viewport
+        if (y + 200 > viewportHeight) { // Assuming the palette height is 200px
+            y = viewportHeight - 210; // Adjust to fit within the viewport
+        }
+        if (x + 320 > viewportWidth) { // Assuming the palette width is 320px
+            x = viewportWidth - 330; // Adjust to fit within the viewport
+        }
+
+        setCommandPalettePosition({ x, y });
+    };
+
+    const handleKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        const textarea = e.currentTarget;
+        const value = textarea.value;
+        const cursorPosition = textarea.selectionStart;
+        const textBeforeCursor = value.substring(0, cursorPosition);
+
+        if (textBeforeCursor.endsWith('/')) {
+            updateCommandPalettePosition(textarea);
+            setIsCommandPaletteOpen(true);
+            setFilteredCommands(getCommands(currentPost));
+            setSelectedIndex(0);
+        } else {
+            const lastSlashIndex = textBeforeCursor.lastIndexOf('/');
+            if (lastSlashIndex !== -1 && cursorPosition - lastSlashIndex <= 10) {
+                const searchTerm = textBeforeCursor.substring(lastSlashIndex + 1).toLowerCase();
+                const filtered = getCommands(currentPost).filter(cmd =>
+                    cmd.title.toLowerCase().includes(searchTerm) ||
+                    cmd.description.toLowerCase().includes(searchTerm)
+                );
+                setFilteredCommands(filtered);
+                setIsCommandPaletteOpen(filtered.length > 0);
+                setSelectedIndex(0);
+            } else {
+                setIsCommandPaletteOpen(false);
+            }
+        }
+    };
+
+    const handleCommandSelect = (command: any) => {
+        handleCommandInsert(command.action(), command.id.length + 1);
+        setIsCommandPaletteOpen(false);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        commandTriggeredRef.current = false; // Reset the flag on every key down
+        if (isCommandPaletteOpen) {
+            updateCommandPalettePosition(e.currentTarget);
+            switch (e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    setSelectedIndex((prev) => (prev + 1) % filteredCommands.length);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    setSelectedIndex((prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length);
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (filteredCommands.length > 0) {
+                        handleCommandSelect(filteredCommands[selectedIndex]);
+                    }
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    setIsCommandPaletteOpen(false);
+                    break;
+            }
+        }
+
+        if (e.ctrlKey || e.metaKey) {
+            switch (e.key) {
+                case 'z':
+                    e.preventDefault();
+                    undo();
+                    break;
+                case 'y':
+                    e.preventDefault();
+                    redo();
+                    break;
+                case 'b':
+                    e.preventDefault();
+                    handleCommandInsert('**bold text**', 0);
+                    break;
+                case 'i':
+                    e.preventDefault();
+                    handleCommandInsert('*italic text*', 0);
+                    break;
+                case 's':
+                    e.preventDefault();
+                    handleCommandInsert('~~strikethrough text~~', 0);
+                    break;
+            }
+        }
+    };
+
+    const handleSlashCommand = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        const textarea = e.currentTarget;
+        const value = textarea.value;
+        const cursorPosition = textarea.selectionStart;
+        const textBeforeCursor = value.substring(0, cursorPosition);
+        const lastSlashIndex = textBeforeCursor.lastIndexOf('/');
+        
+        if (lastSlashIndex !== -1 && cursorPosition === textBeforeCursor.length && !commandTriggeredRef.current) {
+            const precedingChar = lastSlashIndex > 0 ? textBeforeCursor[lastSlashIndex - 1] : ' ';
+            if (precedingChar === ' ' || precedingChar === '\n' || lastSlashIndex === 0) {
+                const commandText = textBeforeCursor.substring(lastSlashIndex + 1).toLowerCase();
+                const command = getCommands(currentPost).find(cmd => cmd.id === commandText);
+                if (command) {
+                    handleCommandInsert(command.action(), commandText.length + 1); // +1 for the leading '/'
+                    commandTriggeredRef.current = true; // Set the flag to prevent repeated triggering
+                    e.preventDefault();
+                }
+            }
+        }
+    };
+
+    const customComponents = {
+        code({ node, inline, className, children, ...props }: { node?: any; inline?: boolean; className?: string; children?: React.ReactNode }) {
+            const match = /language-(\w+)/.exec(className || '');
+            return !inline && match ? (
+                <SyntaxHighlighter {...props} style={tomorrow} language={match[1]} PreTag="div">
+                    {String(children).replace(/\n$/, '')}
+                </SyntaxHighlighter>
+            ) : (
+                <code {...props} className={className}>
+                    {children}
+                </code>
+            );
+        },
+        p: ({ children }: { children?: React.ReactNode }) => {
+            const content = children?.toString() || '';
+            const tweetMatch = content.match(/{{< twitter id="([^"]+)" >}}/);
+
+            if (tweetMatch) {
+                return <TwitterEmbed tweetId={tweetMatch[1]} />;
+            }
+  
+            return <p>{children}</p>;
+        },
+        pre: ({ children }: { children?: React.ReactNode }) => {
+            const content = children?.toString() || '';
+            const metadataMatch = content.match(/^---\nblogpost: true\ncategory: .*\ndate: .*\nauthor: .*\ntags: .*\nlanguage: .*\nexcerpt: .*\n---$/);
+
+            if (metadataMatch) {
+                return null; // Do not render metadata as a preview
+            }
+
+            return <pre>{children}</pre>;
+        },
+    };
+
+    const filterMetadata = (content: string) => {
+        const metadataRegex = /^---\n(?:.*\n)*?---\n/;
+        return content.replace(metadataRegex, '');
+    };
+
+    return (
+        <div className="flex flex-col h-full" ref={containerRef}>
+            <Toolbar onCommandInsert={handleCommandInsert} />
+            <div className="flex-1 relative overflow-auto">
+                <PanelGroup direction="horizontal">
+                    <Panel defaultSize={50}>
+                        <textarea
+                            ref={textAreaRef}
+                            className="w-full h-full p-4 resize-none focus:outline-none dark:bg-gray-900 dark:text-white"
+                            value={currentPost?.content || ''}
+                            onChange={handleContentChange}
+                            onKeyUp={handleKeyUp}
+                            onKeyDown={(e) => {
+                                handleKeyDown(e);
+                                handleSlashCommand(e);
+                            }}
+                            onSelect={(e) =>
+                                setSelection({
+                                    start: e.currentTarget.selectionStart,
+                                    end: e.currentTarget.selectionEnd,
+                                })
+                            }
+                            style={{
+                                overflowAnchor: 'none',
+                                overscrollBehavior: 'none',
+                            }}
+                            readOnly={currentPost?.status === 'Published'}
+                        />
+                        {/* <CommandPalette
+                            ref={commandPaletteRef}
+                            isOpen={isCommandPaletteOpen}
+                            onSelect={handleCommandSelect}
+                            onClose={() => setIsCommandPaletteOpen(false)}
+                            position={commandPalettePosition}
+                            currentPost={currentPost}
+                        /> */}
+                    </Panel>
+                    <PanelResizeHandle className="w-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 cursor-col-resize" />
+                    <Panel defaultSize={50}>
+                        <div className="h-full overflow-auto p-4 prose dark:prose-invert max-w-none">
+                            <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                rehypePlugins={[rehypeRaw]}
+                                components={customComponents}
+                            >
+                                {filterMetadata(currentPost?.content || '')}
+                            </ReactMarkdown>
+                        </div>
+                    </Panel>
+                </PanelGroup>
+            </div>
+            {currentPost && <EditorStatusBar post={currentPost} />}
+        </div>
+    );
+};

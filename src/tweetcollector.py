@@ -5,7 +5,10 @@ from pathlib import Path
 from utils import *
 from extractors.twitter import TweetMetadataCollector
 from extractors.arxiv import download_pdfs_from_arxiv
+from extractors.docintelligence import DocumentExtractor
 from extractors.github import extract_github_readme
+
+import pandas as pd
 
 # Configure logging
 logging.basicConfig(
@@ -18,7 +21,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def tweets_meta_collector():
+def tweets_meta_collector(recent_k=50):
     """
     Main execution method for tweet metadata collection
     """
@@ -46,7 +49,7 @@ def tweets_meta_collector():
 
     try:
         # Read tweet data
-        tweets_df = read_tweet_data(csv_path,recent_k=20)
+        tweets_df = read_tweet_data(csv_path,recent_k)
         
         # Initialize metadata collector
         collector = TweetMetadataCollector()
@@ -64,8 +67,17 @@ def tweets_meta_collector():
         print(f"Error: {e}")
         sys.exit(1)
 
+def read_tweet_metadata(tweet_id):
+    file_path="tweet_collection/metadata/comprehensive_metadata.json"
+    df=pd.read_json(file_path)
 
 if __name__ == "__main__":
-    tweets_meta_collector()
+    extractor = DocumentExtractor()
+    
+    # Process all supported document types
+    
+    tweets_meta_collector(recent_k=100)
     download_pdfs_from_arxiv()
     extract_github_readme()
+
+    extractor.process_documents()

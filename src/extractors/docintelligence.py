@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 import traceback
 from docling.document_converter import DocumentConverter
-
+import markdownify
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -31,6 +31,8 @@ class DocumentExtractor:
         self.document_types = {
             'pdf': self.extract_pdf,
             'arxiv': self.extract_pdf,
+            # 'github':self.extract_html,
+            'html':self.extract_html
             # Easily extensible for other document types
             # 'docx': self.extract_docx,
             # 'txt': self.extract_txt,
@@ -65,6 +67,27 @@ class DocumentExtractor:
             logger.debug(traceback.format_exc())
             return False
     
+    def extract_html(self, input_file, output_file):
+        
+        try:
+            with open(input_file) as f:
+                html_content = f.read()
+                markdown_content=markdownify.markdownify(html_content)
+
+            # Ensure output directory exists
+            output_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Write markdown content
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write(markdown_content)
+
+            logger.info(f"Successfully extracted markdown from {input_file}")
+            return True
+        except Exception as e:
+            logger.error(f"Error extracting html {input_file}: {e}")
+            logger.debug(traceback.format_exc())
+            return False
+
     def process_documents(self, document_type=None):
         """
         Process documents of specified or all supported types
@@ -94,6 +117,8 @@ class DocumentExtractor:
             
             # Process each file in the input directory
             for input_file in input_dir.glob('*'):
+
+                print(f"Converting to markdown for file: {input_file}")
                 # Skip directories
                 if input_file.is_dir():
                     continue
@@ -116,26 +141,28 @@ class DocumentExtractor:
         """
         self.document_types[doc_type] = extraction_method
 
-def main():
-    """
-    Main execution method
-    """
-    extractor = DocumentExtractor()
+# def convert_pdfs_to_markdown():
+#     """
+#     Main execution method
+#     """
+#     extractor = DocumentExtractor()
     
-    # Process all supported document types
-    extractor.process_documents()
+#     # Process all supported document types
+#     extractor.process_documents()
 
-    # Optionally, process a specific type
-    # extractor.process_documents('pdf')
+#     # Optionally, process a specific type
+#     # extractor.process_documents('pdf')
 
-    # Example of adding a custom extraction method
-    # def custom_txt_extractor(input_file, output_file):
-    #     with open(input_file, 'r') as f:
-    #         content = f.read()
-    #     with open(output_file, 'w') as f:
-    #         f.write(content)
-    # 
-    # extractor.add_document_type('txt', custom_txt_extractor)
+#     # Example of adding a custom extraction method
+#     # def custom_txt_extractor(input_file, output_file):
+#     #     with open(input_file, 'r') as f:
+#     #         content = f.read()
+#     #     with open(output_file, 'w') as f:
+#     #         f.write(content)
+#     # 
+#     # extractor.add_document_type('txt', custom_txt_extractor)
 
-if __name__ == "__main__":
-    main()
+
+
+# if __name__ == "__main__":
+    # convert_pdfs_to_markdown()

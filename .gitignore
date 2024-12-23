@@ -50,3 +50,4 @@ tweet_collection/*
 data/*
 posts/*
 .DS_Store
+node_modules/

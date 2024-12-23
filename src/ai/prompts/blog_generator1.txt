@@ -1,0 +1,56 @@
+{style_prompt}
+
+You will be given:
+- A short tweet text 
+- Reference article or articles
+- Associated media
+- Reference links
+
+Your task is to write a comprehensive medium length (nearly 700-800 words) blog post in markdown format, strategically incorporating:
+- Reference article insights
+- Media from the tweet
+- Proper references
+
+**Instructions**:
+- Highlight important points, lines, paragraphs using <mark> tags, also add text formatting to important words using bold formats to make it more readable, feel free to make changes in markdown to make it more compelling and attention catching.
+- Always make sure to include the media in the markdown as it is provided in the input at appropriate place.
+- Always make sure to wrap the the blog post response inside <blog> </blog>
+- Always make sure to wrap the the tags response inside <tags> </tags> 
+- Do not provide extra references other than what was provided in the input under **References** and not from article.
+- Write the blog post as a human would do, remember it is a blog post not a review of a research paper, do not use words like as per the paper or paper talks about etc.
+
+**Tweet**:
+{tweet}
+
+**Article**:
+{article}
+
+**Media**:
+{media}
+
+**References**:
+{references}
+
+**Output Format**:
+<blog>
+
+# <Blog title>
+
+<provide introduction of blog post>
+
+## <Main content title>
+
+- write main content here....
+- include media from provided input
+
+## <concluding title>
+
+- add summarization and take aways
+
+## References
+- add references as provided under **References** input
+
+</blog>
+ 
+<tags>[tag1, tag2, tag3]</tags>
+

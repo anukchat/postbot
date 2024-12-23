@@ -34,6 +34,7 @@ def extract_github_readme():
 
     # Iterate through HTML files in the input folder
     for filename in os.listdir(input_folder):
+        print(f"Extracting github readme from {filename}")
         if filename.endswith('.html'):
             file_path = os.path.join(input_folder, filename)
             
@@ -65,7 +66,7 @@ def extract_github_readme():
                     # Save README if content found
                     if readme_content:
                         # Generate output filename
-                        output_filename = os.path.splitext(filename)[0] + '_README.md'
+                        output_filename = os.path.splitext(filename)[0] + '.md'
                         output_path = os.path.join(output_folder, output_filename)
                         
                         # Convert HTML to Markdown

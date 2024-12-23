@@ -1,0 +1,55 @@
+.mentions__control {
+    background-color: white;
+    font-size: 14px;
+    font-family: Helvetica, Arial, sans-serif;
+    font-weight: normal;
+    border: 1px solid #ddd;
+    padding: 5px;
+    border-radius: 5px;
+  }
+  
+  .mentions__highlighter {
+    padding: 5px;
+    border: 1px solid transparent;
+    position: absolute;
+    overflow: hidden;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: inherit;
+    line-height: inherit;
+  }
+  
+  .mentions__input {
+    padding: 5px;
+    border: 1px solid transparent;
+    position: relative;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    outline: 0;
+    border-radius: 5px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  .mentions__suggestions {
+    position: absolute;
+    background-color: white;
+    border: 1px solid #ddd;
+    z-index: 2;
+    list-style-type: none;
+    padding-left: 0;
+    margin: 0;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: Helvetica, Arial, sans-serif;
+  }
+  
+  .mentions__suggestions__item {
+    padding: 5px 10px;
+    border-bottom: 1px solid #ddd;
+    cursor: pointer;
+  }
+  
+  .mentions__suggestions__item--focused {
+    background-color: #cee4e5;
+  }

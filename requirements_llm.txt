@@ -4,3 +4,9 @@ qdrant_client
 langgraph
 openai
 python-dotenv
+langchain-core>=0.1.0
+langgraph>=0.0.15
+langgraph-checkpoint-postgres
+google-generativeai
+pypandoc
+markdownify

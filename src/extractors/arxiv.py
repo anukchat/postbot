@@ -7,13 +7,14 @@ import urllib
 
 def download_pdfs_from_arxiv():
     input_folder = 'tweet_collection/arxiv'
-    output_folder = 'tweet_collection/arxiv/pdfs'
+    output_folder = 'tweet_collection/arxiv'
 
     # Create output folder if it doesn't exist
     os.makedirs(output_folder, exist_ok=True)
 
     # Iterate through HTML files in the input folder
     for filename in os.listdir(input_folder):
+        print(f"Downloading pdfs from arxiv {filename}")
         if filename.endswith('.html'):
             file_path = os.path.join(input_folder, filename)
             with open(file_path, 'r') as file:

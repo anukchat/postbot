@@ -6,3 +6,7 @@ mime
 python-magic
 html2text
 sqlalchemy
+fastapi
+uvicorn
+psycopg2
+alembic

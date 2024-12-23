@@ -14,7 +14,7 @@ import magic
 import time
 from bs4 import BeautifulSoup 
 from utils import *
-
+from db.sql import store_tweet_data
 
 # Configure logging
 logging.basicConfig(
@@ -267,12 +267,6 @@ class TweetMetadataCollector:
                 logger.warning(f"Invalid URL structure: {url}")
                 return None
             
-            # # Classify URL
-            # url_type = self.classify_url(url)
-            
-            # # Generate unique filename
-            # url_hash = hashlib.md5(url.encode()).hexdigest()[:10]
-            # filename = f"{url_type['type']}_{url_hash}_{index}"
             
             # Custom headers to handle different content types
             headers = self.headers.copy()
@@ -340,9 +334,6 @@ class TweetMetadataCollector:
                 if url_type['category']=='document':
                     content = response.content
                     tweet_metadata['content'] = content.decode('utf-8', errors='ignore')
-                if url_type['category']=='research':
-                    content = response.content
-                    tweet_metadata['content'] = content.decode('utf-8', errors='ignore')
                 if url_type['category']=='webpage' and not url_type['domain']=='github.com':
                     content = response.content
                     tweet_metadata['content'] = content.decode('utf-8', errors='ignore')
@@ -364,37 +355,39 @@ class TweetMetadataCollector:
                     # Generate unique filename
                     url_hash = hashlib.md5(redirect_url.encode()).hexdigest()[:10]
                     filename = f"{url_type['type']}_{url_hash}_{index}{file_extension}"
-                    
                     # Determine save directory
                     save_dir = self.dirs.get(url_type['type'])
                     print(filename)
+                    
+                    # if file_extension==".pdf":
+                    file_path_md = os.path.join(save_dir,"markdown",f"{url_type['type']}_{url_hash}_{index}.md")
+                    # else:
+                    #     file_path_md=""
+                    
+                    # # Determine save directory
+                    # save_dir = self.dirs.get(url_type['type'])
+                    # print(filename)
 
                     # Full file path
                     file_path = os.path.join(save_dir,filename)
                     
                     # Download strategy handling
-                    if url_type['category'] in ['document','repo']:
+                    if url_type['category'] in ['document','repo','webpage']:
                         # Save raw content for code repositories
                         with open(file_path, 'wb') as f:
                             f.write(content)
-                    
-                    elif url_type['category'] in ['research','webpage']:
-                        # Download entire html page
-                        try:
-                            with open(file_path, 'wb') as f:
-                                f.write(content)
-                        except Exception as e:
-                            logger.error(f"Error processing web content: {e}")
                     else:
                         pass
                 else:
                     file_path=""
+                    file_path_md=""
                 
                 return {
                     'tweet_id':tweet_id,
                     'index':index,
                     'original_url': url,
                     'downloaded_path': str(file_path),
+                    'downloaded_path_md':str(file_path_md),
                     'type': url_type['type'],
                     'domain': url_type['domain'],
                     'content_type': file_extension,
@@ -584,7 +577,10 @@ class TweetMetadataCollector:
         for tweet in processed_tweets:
             if 'created_at' in tweet and isinstance(tweet['created_at'], pd.Timestamp):
                 tweet['created_at'] = tweet['created_at'].isoformat()  # Convert to ISO format
+        
+        store_tweet_data(processed_tweets)
 
+        # Save the processed tweets to database from sql.py
         with open(comprehensive_metadata_path, 'w') as f:
             json.dump(processed_tweets, f, indent=2)
         

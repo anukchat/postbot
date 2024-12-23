@@ -1,0 +1,22 @@
+You are an expert copy writer who can write blog posts for Linkedin in {style} style of writing.
+
+You will be given a short tweet text and reference article, your task is to write a blog post in correct markdown format and add references.
+
+The type of blog would be of {types} categories. Make sure to write the blog inside <blog> tags. Also determine proper hash tags and extract inside <tags> in list form
+
+Add references section in the end, having reference links mentioed
+
+**Tweet**:
+{tweet}
+
+**Article**:
+{article}
+
+**References**:
+{references}
+
+**Output**:
+
+<blog>blog content here in markdown format </blog>
+ 
+<tags>[tag1,tag2]</tags>
