@@ -490,6 +490,37 @@ class TweetMetadataCollector:
         
         return processed_media
 
+    def process_media_without_saving(self, tweet_id,media_str):
+
+         # Safely parse media string
+        media_list = safe_json_loads(media_str, [])
+        
+        processed_media = []
+        for media in media_list:
+            try:
+                # Download media
+                media_type = media.get('type', 'unknown')
+                media_url =  media.get('original')
+                
+                if not media_url:
+                    continue
+
+                processed_media.append({
+                            'tweet_id':tweet_id,
+                            'type': media_type,
+                            'original_url': media_url,
+                            'final_url': media_url,
+                            'downloaded_path': '',
+                            'content_type': '',
+                            'thumbnail': media.get('thumbnail'),
+                            'downloaded_at': time.strftime('%Y-%m-%d %H:%M:%S')
+                        })
+
+            except Exception as e:
+                logger.error(f"Unexpected error processing media {media}: {e}")
+
+        return processed_media
+        
     def extract_tweet_metadata(self, tweet_row):
         """
         Extract comprehensive metadata from a tweet
@@ -540,7 +571,8 @@ class TweetMetadataCollector:
         ]
         
         # Process Media
-        tweet_metadata['media'] = self.process_media(str(tweet_row['id']),tweet_row['media'])
+        # tweet_metadata['media'] = self.process_media(str(tweet_row['id']),tweet_row['media'])
+        tweet_metadata['media']=self.process_media_without_saving(str(tweet_row['id']),tweet_row['media'])
         
         return tweet_metadata
 

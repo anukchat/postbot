@@ -48,6 +48,18 @@ export const PostDetails: React.FC = () => {
           <p className="mb-2"><strong>Screen Name:</strong> {currentPost.tweet.screen_name}</p>
         </div>
       )}
+      {currentPost.twitter_post && (
+        <div className="mt-4">
+          <h3 className="text-lg font-semibold mb-2">Twitter Post</h3>
+          <p className="mb-2">{currentPost.twitter_post}</p>
+        </div>
+      )}
+      {currentPost.linkedin_post && (
+        <div className="mt-4">
+          <h3 className="text-lg font-semibold mb-2">LinkedIn Post</h3>
+          <p className="mb-2">{currentPost.linkedin_post}</p>
+        </div>
+      )}
     </div>
   );
 };

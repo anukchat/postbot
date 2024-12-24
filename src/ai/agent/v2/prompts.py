@@ -2,7 +2,8 @@ blog_planner_instructions="""You are an expert technical writer, helping to plan
 
 Your goal is to generate a CONCISE outline.
 
-First, carefully reflect on these notes from the user about the scope of the blog post:
+First, carefully reflect on these notes from the user about the scope of the blog post (notes can be arxiv papers, articles, github repo readme etc.):
+
 {user_instructions}
 
 Next, structure these notes into a set of sections that follow the structure EXACTLY as shown below: 
@@ -42,12 +43,16 @@ Here is the Section Description you are going to write:
 Use this information from various source urls to flesh out the details of the section:
 {source_urls}
 
+Include below media markdowns at appropriate place if available:
+{media_markdown}
+
 WRITING GUIDELINES:
 
 1. Style Requirements:
 - Use technical and precise language
 - Use active voice
 - Zero marketing language
+- Highlight important lines using <mark> tags
 
 2. Format:
 - Use markdown formatting:
@@ -55,17 +60,24 @@ WRITING GUIDELINES:
   * ``` for code blocks
   * ** for emphasis when needed
   * - for bullet points if necessary
+  * ![]() for images
+  * <video src=... controls /> for videos
+  * <mark> for highlighting
+
 - Do not include any introductory phrases like 'Here is a draft...' or 'Here is a section...'
 
 3. Grounding:
 - ONLY use information from the source urls provided
 - Do not include information that is not in the source urls
 - If the source urls are missing information, then provide a clear "MISSING INFORMATION" message to the writer 
+- Make sure to use every media markdown only ONCE inside main section, only if available
+
 
 QUALITY CHECKLIST:
 [ ] Meets word count as specified in the Section Description
 [ ] Contains one clear code example if specified in the Section Description
 [ ] Uses proper markdown formatting
+[ ] Every media markdown is used only once, if available
 
 Generate the section content now, focusing on clarity and technical accuracy."""
 
@@ -90,6 +102,7 @@ Guidelines for writing:
 - Use technical and precise language
 - Use active voice
 - Zero marketing language
+- Highlight important lines using <mark> tags
 
 2. Section-Specific Requirements:
 
@@ -100,3 +113,15 @@ FOR INTRODUCTION:
 FOR CONCLUSION:
 - Use markdown formatting:
   * ## Conclusion (crisp concluding statement)"""
+
+twitter_post_instructions = """Please ignore all previous instructions. Please respond only in the English language. You are a professional copywriter and would like to convert your article into an engaging Twitter thread. You have a Trendy tone of voice. You have a Academic writing style. Do not self reference. Do not explain what you are doing. Do not include any introductory phrases like 'here is a Twitter thread','Ok, here is your twitter thread' or similar sentences. Respond only the tweet thread you created and no starter sentences. Add emojis to the thread when appropriate. The character count for each thread should be between 270 to 280 characters. Please add relevant hashtags to the post. Please turn the following article into a Twitter thread: 
+
+Article:
+{final_blog}
+"""
+
+linkedin_post_instructions = """Please ignore all previous instructions. Please respond only in the English language. You are a professional copywriter and would like to convert your article into an engaging LinkedIn post. You have a Trendy tone of voice. You have a Academic writing style. Do not self reference. Do not explain what you are doing. Do not include any introductory phrases like 'here is your linkedin post' or similar sentences. Do not add or refer input instructions in your answer. Add emojis to the post when appropriate. The character count for the post should be between 390 to 400 words. Please turn the following article into a LinkedIn post:
+
+Article:
+{final_blog}
+"""

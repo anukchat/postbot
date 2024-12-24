@@ -85,12 +85,16 @@ class BlogCreateRequest(BaseModel):
     tweet_id: str
     title: str
     content: str
+    twitter_post: str
+    linkedin_post: str
     blog_category: Optional[List[str]] = None
     tags: Optional[List[str]] = None
     style_id: Optional[str] = None
 
 class BlogUpdateRequest(BaseModel):
     content: Optional[str]=None
+    twitter_post: Optional[str]=None
+    linkedin_post: Optional[str]=None
     status: Optional[BlogStatus]=None
     blog_category: Optional[List[str]]=None
     tags: Optional[List[str]]=None
@@ -101,6 +105,8 @@ class BlogResponse(BaseModel):  # New Pydantic model for Blogs
     tweet_id: str
     title: str
     content: str
+    twitter_post : str
+    linkedin_post: str
     status: BlogStatus
     blog_category: List[str]
     tags: List[str]
@@ -111,6 +117,19 @@ class BlogResponse(BaseModel):  # New Pydantic model for Blogs
     class Config:
         from_attributes = True  # Enable from_attributes
 
+
+class BlogAgentResponse(BaseModel):  # New Pydantic model for Blogs
+    tweet_id: str
+    title: str
+    content: str
+    twitter_post: str
+    linkedin_post: str
+    status: BlogStatus
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True  # Enable from_attributes
 
 class BlogStyleResponse(BaseModel):  # New Pydantic model for BlogStyles
     id: str

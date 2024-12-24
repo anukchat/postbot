@@ -76,7 +76,7 @@ if __name__ == "__main__":
     
     # Process all supported document types
     
-    tweets_meta_collector(recent_k=100)
+    tweets_meta_collector(recent_k=200)
     download_pdfs_from_arxiv()
     extract_github_readme()
 

@@ -6,7 +6,8 @@ import {
   Sun,
   Filter,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  AlertCircle // Add the AlertCircle icon
 } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import { EditorToolbar } from '../Sidebar/EditorToolbar';
@@ -61,21 +62,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse 
     setFilters((prev) => ({ ...prev, search_text: e.target.value }));
   };
 
-  const filteredPosts = posts.filter((post) => {
-    const titleMatch = post.title.toLowerCase().includes(searchTerm.toLowerCase());
-    const tagMatch = filters.tags
-      ? post.tags.some((tag: string) => tag.toLowerCase().includes(filters.tags.toLowerCase()))
-      : true;
-    const statusMatch = filters.status === 'All' || post.status.toLowerCase().includes(filters.status.toLowerCase());
-    const createdBeforeMatch = filters.createdBefore
-      ? new Date(post.createdAt) < new Date(filters.createdBefore)
-      : true;
-    const createdAfterMatch = filters.createdAfter
-      ? new Date(post.createdAt) > new Date(filters.createdAfter)
-      : true;
+  const filteredPosts = posts
+    .filter((post) => {
+      const titleMatch = post.title.toLowerCase().includes(searchTerm.toLowerCase());
+      const tagMatch = filters.tags
+        ? post.tags.some((tag: string) => tag.toLowerCase().includes(filters.tags.toLowerCase()))
+        : true;
+      const statusMatch = filters.status === 'All' || post.status.toLowerCase().includes(filters.status.toLowerCase());
+      const createdBeforeMatch = filters.createdBefore
+        ? new Date(post.createdAt) < new Date(filters.createdBefore)
+        : true;
+      const createdAfterMatch = filters.createdAfter
+        ? new Date(post.createdAt) > new Date(filters.createdAfter)
+        : true;
 
-    return titleMatch && tagMatch && statusMatch && createdBeforeMatch && createdAfterMatch;
-  });
+      return titleMatch && tagMatch && statusMatch && createdBeforeMatch && createdAfterMatch;
+    })
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()); // Sort by latest date
+
+  const latestDate = filteredPosts.length > 0 ? new Date(filteredPosts[0].updatedAt) : null;
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -178,30 +183,37 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse 
             {/* Posts List */}
             <div className="flex-1 overflow-auto">
               {filteredPosts.map((post) => (
+              <div className="relative border-b border-gray-200 dark:border-gray-700" key={post.id}>
               <button
-                key={post.id}
-                onClick={() => setCurrentPost(post)}
-                className={`w-full p-4 text-left hover:bg-gray-100 dark:hover:bg-gray-700 ${currentPost?.id === post.id ? 'bg-gray-100 dark:bg-gray-700' : ''
-                }`}
+              onClick={() => setCurrentPost(post)}
+              className={`w-full p-4 text-left hover:bg-gray-100 dark:hover:bg-gray-700 ${currentPost?.id === post.id ? 'bg-gray-100 dark:bg-gray-700' : ''}`}
               >
-                <h3 className="font-medium mb-1">{post.title}</h3>
-                <div className="flex justify-between items-center">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {new Date(post.updatedAt).toLocaleDateString()}
-                </p>
-                <span
-                  className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
-                  post.status === 'Published'
-                    ? 'bg-green-100 text-green-800'
-                    : post.status === 'Rejected'
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-yellow-100 text-yellow-800'
-                  }`}
-                >
-                  {post.status}
-                </span>
-                </div>
+              <h3 className={`mb-1 ${latestDate && new Date(post.updatedAt).getDate() === latestDate.getDate() ? 'font-medium' : 'font-normal'}`}>
+              {post.title}
+              </h3>
+              <div className="flex justify-between items-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+              {new Date(post.updatedAt).toLocaleDateString()}
+              </p>
+              <span
+              className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
+              post.status === 'Published'
+              ? 'bg-green-100 text-green-800'
+              : post.status === 'Rejected'
+              ? 'bg-red-100 text-red-800'
+              : 'bg-yellow-100 text-yellow-800'
+              }`}
+              >
+              {post.status}
+              </span>
+              </div>
               </button>
+              {latestDate && new Date(post.updatedAt).getDate() === latestDate.getDate() && (
+              <div className="absolute top-1 right-1">
+              <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
+              </div>
+              )}
+              </div>
               ))}
               <div ref={loadMoreRef} className="h-10"></div>
             </div>

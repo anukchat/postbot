@@ -160,15 +160,17 @@ class Blogs(Base):
     
     id = Column(String(50), primary_key=True,default=lambda: str(uuid.uuid4()))
     tweet_id = Column(String(50), ForeignKey("tweets.tweet_id"))
-    title=Column(Text, nullable=False)
-    content = Column(Text, nullable=False)
+    title=Column(Text, nullable=False,default="")
+    content = Column(Text, nullable=False,default="")
+    twitter_post = Column(Text, nullable=False,default="")
+    linkedin_post = Column(Text, nullable=False,default="")
     status = Column(
-        String(50), 
+        String(50),     
         nullable=False, 
         default=BlogStatus.DRAFT,
     )
-    blog_category = Column(ARRAY(String), nullable=True)
-    tags = Column(ARRAY(String), nullable=True)
+    blog_category = Column(ARRAY(String), nullable=True,default=[])
+    tags = Column(ARRAY(String), nullable=True,default=[])
     style_id = Column(String(50),ForeignKey("blogstyles.id"))
     is_deleted = Column(Boolean, nullable=False)
     is_archived = Column(Boolean, nullable=False)
@@ -186,6 +188,15 @@ class Blogs(Base):
         session.add(blog)
         session.commit()
         return blog
+    
+    # # create blog 
+    @classmethod
+    def create_blog(cls, session, tweet_id, title, content, twitter_post, linkedin_post, status, style_id):
+        blog = cls(tweet_id=tweet_id, title=title, content=content,tags=[],blog_category=[] ,twitter_post=twitter_post, linkedin_post=linkedin_post, status=status, style_id=style_id,is_deleted=False,is_archived=False)
+        session.add(blog)
+        session.commit()
+        return blog
+
 
     @classmethod
     def read(cls, session, id=None, tweet_id=None, status=None,is_deleted=False,is_archived=False):
@@ -311,6 +322,8 @@ class Blogs(Base):
                     "tweet_id": blog.tweet_id,
                     "title": blog.title,
                     "content": blog.content,
+                    "twitter_post": blog.twitter_post,
+                    "linkedin_post": blog.linkedin_post,
                     "status": blog.status,
                     "blog_category": blog.blog_category,
                     "tags": blog.tags,
@@ -379,6 +392,17 @@ class BlogStyles(Base):
         query = session.query(cls).filter(cls.id == id)
         
         return query.one_or_none()
+    
+    @classmethod
+    def filter_styles(cls, session, style=None, filename=None, style_prompt=None):
+        query = session.query(cls)
+        if style:
+            query = query.filter(cls.style == style)
+        if filename:
+            query = query.filter(cls.filename == filename)
+        if style_prompt:
+            query = query.filter(cls.style_prompt == style_prompt)
+        return query.all()
 
     @classmethod
     def update(cls, session, id, style=None, filename=None, style_prompt=None):
@@ -577,9 +601,11 @@ def apply_schema_updates(engine):
     
     try:
         # Add new columns safely
-        safe_add_column(engine, 'blogs', 'title', 'TEXT')
-        safe_add_column(engine, 'blogs', 'is_deleted', 'BOOLEAN DEFAULT FALSE')
-        safe_add_column(engine, 'blogs', 'is_archived', 'BOOLEAN DEFAULT FALSE')
+        safe_add_column(engine, 'blogs', 'twitter_post', 'TEXT')
+        safe_add_column(engine, 'blogs', 'linkedin_post', 'TEXT')
+
+        # safe_add_column(engine, 'blogs', 'is_deleted', 'BOOLEAN DEFAULT FALSE')
+        # safe_add_column(engine, 'blogs', 'is_archived', 'BOOLEAN DEFAULT FALSE')
         
         # Update schema version
         with engine.begin() as connection:

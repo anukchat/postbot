@@ -7,214 +7,270 @@ from langgraph.graph import START, END, StateGraph
 
 # import agent.configuration as configuration
 from src.ai.agent.v2.state import Sections, BlogState, BlogStateInput, BlogStateOutput, SectionState
-from src.ai.agent.v2.prompts import blog_planner_instructions, main_body_section_writer_instructions, intro_conclusion_instructions
+from src.ai.agent.v2.prompts import blog_planner_instructions, main_body_section_writer_instructions, intro_conclusion_instructions, linkedin_post_instructions,twitter_post_instructions
 # from agent.utils import load_and_format_urls, read_dictation_file, format_sections
-import configuration
-from src.ai.service import get_gemini
+from ai.agent.v2 import configuration
+from ai.service import get_gemini
 import json
 import re
+from db.sql import get_tweet_by_id
 
 # ------------------------------------------------------------
 # LLMs 
 # claude_3_5_sonnet = ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0) 
-gemini=get_gemini()
+# gemini=get_gemini()
 # ------------------------------------------------------------
 # Graph
-def generate_blog_plan(state: BlogState, config: RunnableConfig):
-    """ Generate the report plan """
 
-    # Read transcribed notes
-    user_instructions,reference_link, media_markdown  = get_reference_content(state.tweet)
 
-    # Get configuration
-    configurable = configuration.Configuration.from_runnable_config(config)
-    blog_structure = configurable.blog_structure
+class AgentWorkflow:
 
-    # Format system instructions
-    system_instructions_sections = blog_planner_instructions.format(user_instructions=user_instructions, blog_structure=blog_structure)
+    def __init__(self):
+        self.llm=get_gemini()
+        self.builder= StateGraph(BlogState, input=BlogStateInput, output=BlogStateOutput, config_schema=configuration.Configuration)
+        self.graph=self.setup_workflow()
 
-    # Generate sections 
-    # structured_llm = gemini.with_structured_output(Sections)
-    report_sections = gemini.invoke([SystemMessage(content=system_instructions_sections)]+[HumanMessage(content="Generate the sections of the blog. Your response must include a 'sections' field containing a list of sections. Each section must have: name, description, and content fields.")])
-    pattern = r'```json\n([\s\S]*?)\n```'
-    match = re.search(pattern, report_sections.content)
+    def generate_blog_plan(self,state: BlogState, config: RunnableConfig):
+        """ Generate the report plan """
 
-    # Parse JSON if found
-    if match:
-        report_sections = json.loads(match.group(1))
-        report_sections  # Return JSON object
-    else:
-        report_sections = {"sections": []}
-    return {"sections": report_sections.sections}
+        # Read transcribed notes
+        user_instructions,reference_link, media_markdown  = get_reference_content(state.tweet)
 
-def write_section(state: SectionState):
-    """ Write a section of the report """
+        # Get configuration
+        configurable = configuration.Configuration.from_runnable_config(config)
+        blog_structure = configurable.blog_structure
 
-    # Get state 
-    section = state.section
-    # urls = state.urls
+        # Format system instructions
+        system_instructions_sections = blog_planner_instructions.format(user_instructions=user_instructions, blog_structure=blog_structure)
 
-    # Read transcribed notes
-    user_instructions,reference_link, media_markdown  = get_reference_content(state.tweet)
+        # Generate sections 
+        # structured_llm = gemini.with_structured_output(Sections)
+        report_sections = self.llm.invoke([SystemMessage(content=system_instructions_sections)]+[HumanMessage(content="Generate the sections of the blog. Your response must include a 'sections' field containing a list of sections. Each section must have: name, description, and content fields.")])
+        pattern = r'```json\n([\s\S]*?)\n```'
+        match = re.search(pattern, report_sections.content)
 
-    # Load and format urls
-    url_source_str = reference_link#"" if not urls else load_and_format_urls(urls)
+        # Parse JSON if found
+        if match:
+            report_sections = json.loads(match.group(1))
+            report_sections  # Return JSON object
+        else:
+            report_sections = {"sections": []}
+        sections_object=Sections(**report_sections)
+        return {"sections": sections_object.sections}
 
-    # Format system instructions
-    system_instructions = main_body_section_writer_instructions.format(section_name=section.name, 
-                                                                       section_topic=section.description, 
-                                                                       user_instructions=user_instructions, 
-                                                                       source_urls=url_source_str)
+    def write_section(self,state: SectionState):
+        """ Write a section of the report """
 
-    # Generate section  
-    section_content = gemini.invoke([SystemMessage(content=system_instructions)]+[HumanMessage(content="Generate a blog section based on the provided information.")])
-    
-    # Write content to the section object  
-    section.content = section_content.content
+        # Get state 
+        section = state.section
+        # urls = state.urls
 
-    # Write the updated section to completed sections
-    return {"completed_sections": [section]}
+        # Read transcribed notes
+        user_instructions,reference_link, media_markdown  = get_reference_content(state.tweet)
 
-def write_final_sections(state: SectionState):
-    """ Write final sections of the report, which do not require web search and use the completed sections as context """
+        # Load and format urls
+        url_source_str = reference_link#"" if not urls else load_and_format_urls(urls)
 
-    # Get state 
-    section = state.section
-    
-    # Format system instructions
-    system_instructions = intro_conclusion_instructions.format(section_name=section.name, 
-                                                               section_topic=section.description, 
-                                                               main_body_sections=state.blog_main_body_sections, 
-                                                               source_urls=state.urls)
+        # Format system instructions
+        system_instructions = main_body_section_writer_instructions.format(section_name=section.name, 
+                                                                        section_topic=section.description, 
+                                                                        user_instructions=user_instructions, 
+                                                                        source_urls=url_source_str,
+                                                                        media_markdown=media_markdown)
 
-    # Generate section  
-    section_content = gemini.invoke([SystemMessage(content=system_instructions)]+[HumanMessage(content="Generate an intro/conclusion section based on the provided main body sections.")])
-    
-    # Write content to section 
-    section.content = section_content.content
-
-    # Write the updated section to completed sections
-    return {"completed_sections": [section]}
-
-def initiate_section_writing(state: BlogState):
-    """ This is the "map" step when we kick off web research for some sections of the report """    
+        # Generate section  
+        section_content = self.llm.invoke([SystemMessage(content=system_instructions)]+[HumanMessage(content="Generate a blog section based on the provided information.")])
         
-    # Kick off section writing in parallel via Send() API for any sections that require research
-    return [
-        Send("write_section", SectionState(
-            section=s,
-            tweet=state.tweet,
-            urls=state.urls,
-            completed_sections=[]  # Initialize with empty list
-        )) 
-        for s in state.sections 
-        if s.main_body
-    ]
+        # Write content to the section object  
+        section.content = section_content.content
 
-def gather_completed_sections(state: BlogState):
-    """ Gather completed main body sections"""    
+        # Write the updated section to completed sections
+        return {"completed_sections": [section]}
 
-    # List of completed sections
-    completed_sections = state.completed_sections
+    def write_final_sections(self,state: SectionState):
+        """ Write final sections of the report, which do not require web search and use the completed sections as context """
 
-    # Format completed section to str to use as context for final sections
-    completed_report_sections = format_sections(completed_sections)
+        # Get state 
+        section = state.section
+        
+        # Format system instructions
+        system_instructions = intro_conclusion_instructions.format(section_name=section.name, 
+                                                                section_topic=section.description, 
+                                                                main_body_sections=state.blog_main_body_sections, 
+                                                                source_urls=state.urls)
 
-    return {"blog_main_body_sections": completed_report_sections}
+        # Generate section  
+        section_content = self.llm.invoke([SystemMessage(content=system_instructions)]+[HumanMessage(content="Generate an intro/conclusion section based on the provided main body sections.")])
+        
+        # Write content to section 
+        section.content = section_content.content
 
-def initiate_final_section_writing(state: BlogState):
-    """ This is the "map" step when we kick off research on any sections that require it using the Send API """    
+        # Write the updated section to completed sections
+        return {"completed_sections": [section]}
 
-    # Kick off section writing in parallel via Send() API for any sections that do not require research
-    return [
-        Send("write_final_sections", SectionState(
-            section=s,
-            blog_main_body_sections=state.blog_main_body_sections,
-            urls=state.urls,
-            completed_sections=[]  # Initialize with empty list
-        )) 
-        for s in state.sections 
-        if not s.main_body
-    ]
+    def initiate_section_writing(self,state: BlogState):
+        """ This is the "map" step when we kick off web research for some sections of the report """    
+            
+        # Kick off section writing in parallel via Send() API for any sections that require research
+        return [
+            Send("write_section", SectionState(
+                section=s,
+                tweet=state.tweet,
+                urls=[url['original_url'] for url in state.tweet['urls']],
+                completed_sections=[]  # Initialize with empty list
+            )) 
+            for s in state.sections 
+            if s.main_body
+        ]
 
-def compile_final_blog(state: BlogState):
-    """ Compile the final blog """    
+    def gather_completed_sections(self,state: BlogState):
+        """ Gather completed main body sections"""    
 
-    # Get sections
-    sections = state.sections
-    completed_sections = {s.name: s.content for s in state.completed_sections}
+        # List of completed sections
+        completed_sections = state.completed_sections
 
-    # Update sections with completed content while maintaining original order
-    for section in sections:
-        section.content = completed_sections[section.name]
+        # Format completed section to str to use as context for final sections
+        completed_report_sections = format_sections(completed_sections)
 
-    # Compile final report
-    all_sections = "\n\n".join([s.content for s in sections])
+        return {"blog_main_body_sections": completed_report_sections}
 
-    return {"final_blog": all_sections}
+    def initiate_final_section_writing(self,state: BlogState):
+        """ This is the "map" step when we kick off research on any sections that require it using the Send API """    
 
-# Add nodes and edges 
-builder = StateGraph(BlogState, input=BlogStateInput, output=BlogStateOutput, config_schema=configuration.Configuration)
-builder.add_node("generate_blog_plan", generate_blog_plan)
-builder.add_node("write_section", write_section)
-builder.add_node("compile_final_blog", compile_final_blog)
-builder.add_node("gather_completed_sections", gather_completed_sections)
-builder.add_node("write_final_sections", write_final_sections)
-builder.add_edge(START, "generate_blog_plan")
-builder.add_conditional_edges("generate_blog_plan", initiate_section_writing, ["write_section"])
-builder.add_edge("write_section", "gather_completed_sections")
-builder.add_conditional_edges("gather_completed_sections", initiate_final_section_writing, ["write_final_sections"])
-builder.add_edge("write_final_sections", "compile_final_blog")
-builder.add_edge("compile_final_blog", END)
+        # Kick off section writing in parallel via Send() API for any sections that do not require research
+        return [
+            Send("write_final_sections", SectionState(
+                tweet=state.tweet,
+                section=s,
+                blog_main_body_sections=state.blog_main_body_sections,
+                urls=[url['original_url'] for url in state.tweet['urls']],
+                completed_sections=[]  # Initialize with empty list
+            )) 
+            for s in state.sections 
+            if not s.main_body
+        ]
 
-graph = builder.compile() 
+    def compile_final_blog(self,state: BlogState):
+        """ Compile the final blog """    
 
+        # Get sections
+        sections = state.sections
+        completed_sections = {s.name: s.content for s in state.completed_sections}
+
+        # Update sections with completed content while maintaining original order
+        for section in sections:
+            section.content = completed_sections[section.name]
+
+        # Compile final report
+        all_sections = "\n\n".join([s.content for s in sections])
+
+        return {"final_blog": all_sections}
+
+    def write_twitter_post(self,state: BlogState):
+        """ Write the Twitter post """    
+
+        # Get final blog
+        final_blog = state.final_blog
+
+        # Generate Twitter post
+        twitter_post = self.llm.invoke([SystemMessage(content=twitter_post_instructions.format(final_blog=final_blog))]+[HumanMessage(content="Generate a Twitter post based on the provided article ")])
+        
+        return {"twitter_post": twitter_post.content}
+
+    def write_linkedin_post(self,state: BlogState):
+        """ Write the Twitter post """    
+
+        # Get final blog
+        final_blog = state.final_blog
+
+        # Generate linkedin post
+        linkedin_post = self.llm.invoke([SystemMessage(content=linkedin_post_instructions.format(final_blog=final_blog))]+[HumanMessage(content="Generate a LinkedIn post based on the provided article ")])
+
+        return {"linkedin_post": linkedin_post.content}
+
+    def setup_workflow(self):
+        # Add nodes and edges 
+        builder = StateGraph(BlogState, input=BlogStateInput, output=BlogStateOutput, config_schema=configuration.Configuration)
+        builder.add_node("generate_blog_plan", self.generate_blog_plan)
+        builder.add_node("write_section", self.write_section)
+        builder.add_node("compile_final_blog", self.compile_final_blog)
+        builder.add_node("gather_completed_sections", self.gather_completed_sections)
+        builder.add_node("write_final_sections", self.write_final_sections)
+        builder.add_node("write_twitter_post", self.write_twitter_post)
+        builder.add_node("write_linkedin_post", self.write_linkedin_post)
+        builder.add_edge(START, "generate_blog_plan")
+        builder.add_conditional_edges("generate_blog_plan", self.initiate_section_writing, ["write_section"])
+        builder.add_edge("write_section", "gather_completed_sections")
+        builder.add_conditional_edges("gather_completed_sections", self.initiate_final_section_writing, ["write_final_sections"])
+        builder.add_edge("write_final_sections", "compile_final_blog")
+        builder.add_edge("compile_final_blog", "write_twitter_post")
+        builder.add_edge("write_twitter_post", "write_linkedin_post")
+        builder.add_edge("write_linkedin_post", END)
+
+        graph = builder.compile() 
+
+        return graph
+
+
+    def run_workflow(self,payload):
+        tweet = get_tweet_by_id(payload["tweet_id"])
+        print(f"Retrieved {tweet['tweet_id']}")
+        test_input = BlogStateInput(tweet=tweet)
+        result = self.graph.invoke(test_input)
+        result['blog_title'] = re.findall(r"^#\s+(.*)$", result['final_blog'], re.MULTILINE)[0]
+        response = BlogStateOutput(**result)
+        return response
 
 if __name__ == "__main__":
     # Test the graph
     tweet={
-    "tweet_id": "1866137546528350566",
-    "created_at": "2024-12-09T20:37:16+05:30",
-    "full_text": "Great little primer on LLMs and their limitations. \\n\\nUseful for those who want to learn about key LLM concepts and their applications. \\n\\nhttps://t.co/J0NDd1qGrt https://t.co/tZPK7HItKt",
+    "tweet_id": "1864215823830732889",
+    "created_at": "2024-12-04T13:21:02+05:30",
+    "full_text": "such a great paper on quantization of deep neural networks: https://t.co/xF34rTrPXd https://t.co/7uuUW6Tgzz",
     "language": "unknown",
-    "favorite_count": 215,
-    "retweet_count": 49,
-    "bookmark_count": 200,
-    "quote_count": 1,
-    "reply_count": 4,
-    "views_count": 14466,
-    "screen_name": "omarsar0",
-    "user_name": "elvis",
-    "profile_image_url": "https://pbs.twimg.com/profile_images/939313677647282181/vZjFWtAn_normal.jpg",
+    "favorite_count": 321,
+    "retweet_count": 35,
+    "bookmark_count": 211,
+    "quote_count": 0,
+    "reply_count": 5,
+    "views_count": 12377,
+    "screen_name": "darkyboy_",
+    "user_name": "Ishaan",
+    "profile_image_url": "https://pbs.twimg.com/profile_images/1799289093916135424/So7iqBs9_normal.jpg",
     "urls": [
       {
-        "tweet_id": "1866137546528350566",
+        "tweet_id": "1864215823830732889",
         "index": 0,
-        "original_url": "https://arxiv.org/abs/2412.04503",
-        "downloaded_path": "tweet_collection/arxiv/arxiv_2fd14a8788_0.html",
-        "downloaded_path_md": "tweet_collection/arxiv/markdown/arxiv_2fd14a8788_0.md",
+        "original_url": "https://arxiv.org/pdf/1911.09464",
+        "downloaded_path": "tweet_collection/arxiv/arxiv_de7f6502b6_0.pdf",
+        "downloaded_path_md": "tweet_collection/arxiv/markdown/arxiv_de7f6502b6_0.md",
         "type": "arxiv",
         "domain": "arxiv.org",
-        "content_type": ".html",
+        "content_type": ".pdf",
         "file_category": "document",
-        "downloaded_at": "2024-12-18 13:05:36"
+        "downloaded_at": "2024-12-18 13:07:29"
       }
     ],
     "media": [
       {
-        "tweet_id": "1866137546528350566",
+        "tweet_id": "1864215823830732889",
         "type": "photo",
-        "original_url": "https://pbs.twimg.com/media/GeXZ8qXXIAArU5M?format=png&name=orig",
-        "final_url": "https://pbs.twimg.com/media/GeXZ8qXXIAArU5M?format=png&name=orig",
-        "downloaded_path": "tweet_collection/media/reference_media/photo_2032a8b06b.jpg",
+        "original_url": "https://pbs.twimg.com/media/Gd8GX3WasAAZJ8-?format=png&name=orig",
+        "final_url": "https://pbs.twimg.com/media/Gd8GX3WasAAZJ8-?format=png&name=orig",
+        "downloaded_path": "tweet_collection/media/reference_media/photo_b5eb2e6e06.jpg",
         "content_type": "image/png",
-        "thumbnail": "https://pbs.twimg.com/media/GeXZ8qXXIAArU5M?format=png&name=thumb",
-        "downloaded_at": "2024-12-18 13:05:37"
+        "thumbnail": "https://pbs.twimg.com/media/Gd8GX3WasAAZJ8-?format=png&name=thumb",
+        "downloaded_at": "2024-12-18 13:07:29"
       }
     ],
     "is_retweet": False,
     "is_quote": False,
     "possibly_sensitive": False
   }
+    
+    agent=AgentWorkflow()
     test_input = BlogStateInput(tweet=tweet)
-    result = graph.invoke(test_input)
+    result = agent.setup_workflow(test_input)
+    result['blog_title']=  re.findall(r"^#\s+(.*)",result['final_blog'],re.DOTALL)[0]
+    result = BlogStateOutput(**result)
+    print(result)

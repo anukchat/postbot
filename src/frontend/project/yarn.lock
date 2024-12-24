@@ -2257,6 +2257,11 @@
   resolved "https://registry.npmjs.org/@rollup/rollup-darwin-arm64/-/rollup-darwin-arm64-4.29.1.tgz"
   integrity sha512-2ORr7T31Y0Mnk6qNuwtyNmy14MunTAMx06VAPI6/Ju52W10zk1i7i5U3vlDRWjhOI5quBcrvhkCHyF76bI7kEw==
 
+"@sindresorhus/is@^4.6.0":
+  version "4.6.0"
+  resolved "https://registry.npmjs.org/@sindresorhus/is/-/is-4.6.0.tgz"
+  integrity sha512-t09vSN3MdfsyCHoFcTRCH/iUtG7OJ0CsjzB8cjAmKc/va/kIgeDI/TxsigdncE/4be734m0cvIYwNaV4i2XqAw==
+
 "@sindresorhus/slugify@^2.2.0":
   version "2.2.1"
   resolved "https://registry.npmjs.org/@sindresorhus/slugify/-/slugify-2.2.1.tgz"
@@ -2579,7 +2584,14 @@
   resolved "https://registry.npmjs.org/@types/lodash/-/lodash-4.17.13.tgz"
   integrity sha512-lfx+dftrEZcdBPczf9d0Qv0x+j/rfNCMuC6OcfXmO8gkfeNAY88PgKUbvG56whcN23gc27yenwF6oJZXGFpYxg==
 
-"@types/markdown-it@^14.0.0":
+"@types/markdown-it-emoji@^3.0.1":
+  version "3.0.1"
+  resolved "https://registry.npmjs.org/@types/markdown-it-emoji/-/markdown-it-emoji-3.0.1.tgz"
+  integrity sha512-cz1j8R35XivBqq9mwnsrP2fsz2yicLhB8+PDtuVkKOExwEdsVBNI+ROL3sbhtR5occRZ66vT0QnwFZCqdjf3pA==
+  dependencies:
+    "@types/markdown-it" "^14"
+
+"@types/markdown-it@^14", "@types/markdown-it@^14.0.0":
   version "14.1.2"
   resolved "https://registry.npmjs.org/@types/markdown-it/-/markdown-it-14.1.2.tgz"
   integrity sha512-promo4eFwuiW+TfGxhi+0x3czqTYJkG8qB17ZUJiVF10Xm7NLVRSLUsfRTU/6h1e24VvRnXCx+hG7li58lkzog==
@@ -2587,7 +2599,7 @@
     "@types/linkify-it" "^5"
     "@types/mdurl" "^2"
 
-"@types/mdast@^4.0.0":
+"@types/mdast@^4.0.0", "@types/mdast@^4.0.4":
   version "4.0.4"
   resolved "https://registry.npmjs.org/@types/mdast/-/mdast-4.0.4.tgz"
   integrity sha512-kGaNbPh1k7AFzgpud/gMdvIm5xuECykRR+JnWKQno9TAXVa6WIVCGTPvYGekIDL4uwCZQSYbUxNBSb1aUo79oA==
@@ -3694,6 +3706,11 @@ chalk@^4.0.0:
     ansi-styles "^4.1.0"
     supports-color "^7.1.0"
 
+char-regex@^1.0.2:
+  version "1.0.2"
+  resolved "https://registry.npmjs.org/char-regex/-/char-regex-1.0.2.tgz"
+  integrity sha512-kWWXztvZ5SBQV+eRgKFeh8q5sLuZY2+8WUIzlxWVTg+oGwY14qylx1KbKzHd8P6ZYkAg0xyIDU9JMHhyJMZ1jw==
+
 character-entities-html4@^2.0.0:
   version "2.1.0"
   resolved "https://registry.npmjs.org/character-entities-html4/-/character-entities-html4-2.1.0.tgz"
@@ -3993,6 +4010,52 @@ element-internals-polyfill@^0.1.49:
   resolved "https://registry.npmjs.org/element-internals-polyfill/-/element-internals-polyfill-0.1.55.tgz"
   integrity sha512-clsNGQoOsCs8zlkT3q8Sgk9JcFZgYT0cDuXPEmD7ca8bthrYjhXQ19cIz5JGmo8CfQ+g7+SXJkfqBVw5mWB64w==
 
+emoji-chars@^1.0.0:
+  version "1.0.12"
+  resolved "https://registry.npmjs.org/emoji-chars/-/emoji-chars-1.0.12.tgz"
+  integrity sha512-1t7WbkKzQ1hV4dHWM4u8g0SFHSAbxx+8o/lvXisDLTesljSFaxl2wLgMtx4wH922sNcIuLbFty/AuqUDJORd1A==
+  dependencies:
+    emoji-unicode-map "^1.0.0"
+
+emoji-dictionary@^1.0.11:
+  version "1.0.11"
+  resolved "https://registry.npmjs.org/emoji-dictionary/-/emoji-dictionary-1.0.11.tgz"
+  integrity sha512-pVTiN0StAU2nYy+BtcX/88DavMDjUcONIA6Qsg7/IyDq8xOsRFuC49F7XLUPr7Shlz4bt0/RAqPjuqjpsj3vbA==
+  dependencies:
+    emoji-chars "^1.0.0"
+    emoji-name-map "^1.0.0"
+    emoji-names "^1.0.1"
+    emoji-unicode-map "^1.0.0"
+    emojilib "^2.0.2"
+
+emoji-mart@^5.6.0:
+  version "5.6.0"
+  resolved "https://registry.npmjs.org/emoji-mart/-/emoji-mart-5.6.0.tgz"
+  integrity sha512-eJp3QRe79pjwa+duv+n7+5YsNhRcMl812EcFVwrnRvYKoNPoQb5qxU8DG6Bgwji0akHdp6D4Ln6tYLG58MFSow==
+
+emoji-name-map@^1.0.0, emoji-name-map@^1.1.0:
+  version "1.2.9"
+  resolved "https://registry.npmjs.org/emoji-name-map/-/emoji-name-map-1.2.9.tgz"
+  integrity sha512-MSM8y6koSqh/2uEMI2VoKA+Ac0qL5RkgFGP/pzL6n5FOrOJ7FOZFxgs7+uNpqA+AT+WmdbMPXkd3HnFXXdz4AA==
+  dependencies:
+    emojilib "^2.0.2"
+    iterate-object "^1.3.1"
+    map-o "^2.0.1"
+
+emoji-names@^1.0.1:
+  version "1.0.12"
+  resolved "https://registry.npmjs.org/emoji-names/-/emoji-names-1.0.12.tgz"
+  integrity sha512-ABXVMPYU9h1/0lNNE9VaT9OxxWXXAv/By8gVMzQYIx7jrhWjyLFVyC34CAN+EP/1e+5WZCklvClo5KSklPCAeg==
+  dependencies:
+    emoji-name-map "^1.0.0"
+
+emoji-picker-react@^4.12.0:
+  version "4.12.0"
+  resolved "https://registry.npmjs.org/emoji-picker-react/-/emoji-picker-react-4.12.0.tgz"
+  integrity sha512-q2c8UcZH0eRIMj41bj0k1akTjk69tsu+E7EzkW7giN66iltF6H9LQvQvw6ugscsxdC+1lmt3WZpQkkY65J95tg==
+  dependencies:
+    flairup "1.0.0"
+
 emoji-regex@^8.0.0:
   version "8.0.0"
   resolved "https://registry.npmjs.org/emoji-regex/-/emoji-regex-8.0.0.tgz"
@@ -4002,6 +4065,29 @@ emoji-regex@^9.2.2:
   version "9.2.2"
   resolved "https://registry.npmjs.org/emoji-regex/-/emoji-regex-9.2.2.tgz"
   integrity sha512-L18DaJsXSUk2+42pv8mLs5jJT2hqFkFE4j21wOmgbUqsZ2hL72NsUU785g9RXgo3s0ZNgVl42TiHp3ZtOv/Vyg==
+
+emoji-toolkit@^9.0.1:
+  version "9.0.1"
+  resolved "https://registry.npmjs.org/emoji-toolkit/-/emoji-toolkit-9.0.1.tgz"
+  integrity sha512-sMMNqKNLVHXJfIKoPbrRJwtYuysVNC9GlKetr72zE3SSVbHqoeDLWVrxP0uM0AE0qvdl3hbUk+tJhhwXZrDHaw==
+
+emoji-unicode-map@^1.0.0:
+  version "1.1.11"
+  resolved "https://registry.npmjs.org/emoji-unicode-map/-/emoji-unicode-map-1.1.11.tgz"
+  integrity sha512-GWcWILFyDfR8AU7FRLhKk0lnvcljoEIXejg+XY3Ogz6/ELaQLMo0m4d9R3i79ikIULVEysHBGPsOEcjcFxtN+w==
+  dependencies:
+    emoji-name-map "^1.1.0"
+    iterate-object "^1.3.1"
+
+emojilib@^2.0.2, emojilib@^2.4.0:
+  version "2.4.0"
+  resolved "https://registry.npmjs.org/emojilib/-/emojilib-2.4.0.tgz"
+  integrity sha512-5U0rVMU5Y2n2+ykNLQqMoqklN9ICBT/KsvC1Gz6vqHbz2AXXGkG+Pm5rMWk/8Vjrr/mY9985Hi8DYzn1F09Nyw==
+
+emoticon@^4.0.1:
+  version "4.1.0"
+  resolved "https://registry.npmjs.org/emoticon/-/emoticon-4.1.0.tgz"
+  integrity sha512-VWZfnxqwNcc51hIy/sbOdEem6D+cVtpPzEEtVAFdaas30+1dgkyaOQ4sQ6Bp0tOMqWO1v+HQfYaoodOkdhK6SQ==
 
 entities@^4.4.0, entities@^4.5.0:
   version "4.5.0"
@@ -4315,6 +4401,11 @@ find-up@^5.0.0:
   dependencies:
     locate-path "^6.0.0"
     path-exists "^4.0.0"
+
+flairup@1.0.0:
+  version "1.0.0"
+  resolved "https://registry.npmjs.org/flairup/-/flairup-1.0.0.tgz"
+  integrity sha512-IKlE+pNvL2R+kVL1kEhUYqRxVqeFnjiIvHWDMLFXNaqyUdFXQM2wte44EfMYJNHkW16X991t2Zg8apKkhv7OBA==
 
 flat-cache@^4.0.0:
   version "4.0.1"
@@ -4759,6 +4850,11 @@ isomorphic.js@^0.2.4:
   resolved "https://registry.npmjs.org/isomorphic.js/-/isomorphic.js-0.2.5.tgz"
   integrity sha512-PIeMbHqMt4DnUP3MA/Flc0HElYjMXArsw1qwJZcm9sqR8mq3l8NYizFMty0pWwE/tzIGH3EKK5+jes5mAr85yw==
 
+iterate-object@^1.3.0, iterate-object@^1.3.1:
+  version "1.3.4"
+  resolved "https://registry.npmjs.org/iterate-object/-/iterate-object-1.3.4.tgz"
+  integrity sha512-4dG1D1x/7g8PwHS9aK6QV5V94+ZvyP4+d19qDv43EzImmrndysIl4prmJ1hWWIGCqrZHyaHBm6BSEWHOLnpoNw==
+
 jackspeak@^3.1.2:
   version "3.4.3"
   resolved "https://registry.npmjs.org/jackspeak/-/jackspeak-3.4.3.tgz"
@@ -4948,6 +5044,18 @@ lz-string@^1.4.4:
   resolved "https://registry.npmjs.org/lz-string/-/lz-string-1.5.0.tgz"
   integrity sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==
 
+map-o@^2.0.1:
+  version "2.0.10"
+  resolved "https://registry.npmjs.org/map-o/-/map-o-2.0.10.tgz"
+  integrity sha512-BxazE81fVByHWasyXhqKeo2m7bFKYu+ZbEfiuexMOnklXW+tzDvnlTi/JaklEeuuwqcqJzPaf9q+TWptSGXeLg==
+  dependencies:
+    iterate-object "^1.3.0"
+
+markdown-it-emoji@^3.0.0:
+  version "3.0.0"
+  resolved "https://registry.npmjs.org/markdown-it-emoji/-/markdown-it-emoji-3.0.0.tgz"
+  integrity sha512-+rUD93bXHubA4arpEZO3q80so0qgoFJEKRkRbjKX8RTdca89v2kfyF+xR3i2sQTwql9tpPZPOQN5B+PunspXRg==
+
 markdown-it@^14.0.0:
   version "14.1.0"
   resolved "https://registry.npmjs.org/markdown-it/-/markdown-it-14.1.0.tgz"
@@ -4988,7 +5096,7 @@ mdast-util-directive@^3.0.0:
     stringify-entities "^4.0.0"
     unist-util-visit-parents "^6.0.0"
 
-mdast-util-find-and-replace@^3.0.0:
+mdast-util-find-and-replace@^3.0.0, mdast-util-find-and-replace@^3.0.1:
   version "3.0.1"
   resolved "https://registry.npmjs.org/mdast-util-find-and-replace/-/mdast-util-find-and-replace-3.0.1.tgz"
   integrity sha512-SG21kZHGC3XRTSUhtofZkBzZTJNM5ecCi0SK2IMKmSXR8vO3peL+kb1O0z7Zl83jKtutG4k5Wv/W7V3/YHvzPA==
@@ -5676,6 +5784,16 @@ next-tick@^1.1.0:
   resolved "https://registry.npmjs.org/next-tick/-/next-tick-1.1.0.tgz"
   integrity sha512-CXdUiJembsNjuToQvxayPZF9Vqht7hewsvy2sOWafLvi2awflj9mOC6bHIg50orX8IJvWKY9wYQ/zB2kogPslQ==
 
+node-emoji@^2.1.3:
+  version "2.2.0"
+  resolved "https://registry.npmjs.org/node-emoji/-/node-emoji-2.2.0.tgz"
+  integrity sha512-Z3lTE9pLaJF47NyMhd4ww1yFTAP8YhYI8SleJiHzM46Fgpm5cnNzSl9XfzFNqbaz+VlJrIj3fXQ4DeN1Rjm6cw==
+  dependencies:
+    "@sindresorhus/is" "^4.6.0"
+    char-regex "^1.0.2"
+    emojilib "^2.4.0"
+    skin-tone "^2.0.0"
+
 node-releases@^2.0.19:
   version "2.0.19"
   resolved "https://registry.npmjs.org/node-releases/-/node-releases-2.0.19.tgz"
@@ -6340,7 +6458,7 @@ react-zoom-pan-pinch@^3.4.3:
   resolved "https://registry.npmjs.org/react-zoom-pan-pinch/-/react-zoom-pan-pinch-3.6.1.tgz"
   integrity sha512-SdPqdk7QDSV7u/WulkFOi+cnza8rEZ0XX4ZpeH7vx3UZEg7DoyuAy3MCmm+BWv/idPQL2Oe73VoC0EhfCN+sZQ==
 
-react@*, "react@^16.0.0 || ^17 || ^18", "react@^16.14.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc", "react@^16.5.1 || ^17.0.0 || ^18.0.0", "react@^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc", "react@^16.8.0 || ^17 || ^18", "react@^16.8.0 || ^17 || ^18 || ^19", "react@^16.8.0 || ^17.0.0 || ^18.0.0", "react@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc", "react@^16.x || ^17.x || ^18.x || ^19.0.0 || ^19.0.0-rc", "react@^17.0.0 || ^18.0.0 || ^19.0.0", "react@^18.0.0 || ^19.0.0", react@^18.3.1, "react@>= 0.14.0", "react@>= 16.3.0", "react@>= 18 || >= 19", react@>=16.12.0, react@>=16.13.1, react@>=16.14.0, react@>=16.3.0, react@>=16.8, react@>=16.8.0, react@>=16.8.3, react@>=17.x, react@>=18, react@>=18.0.0, react@>=18.2.0:
+react@*, "react@^16.0.0 || ^17 || ^18", "react@^16.14.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc", "react@^16.5.1 || ^17.0.0 || ^18.0.0", "react@^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc", "react@^16.8.0 || ^17 || ^18", "react@^16.8.0 || ^17 || ^18 || ^19", "react@^16.8.0 || ^17.0.0 || ^18.0.0", "react@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc", "react@^16.x || ^17.x || ^18.x || ^19.0.0 || ^19.0.0-rc", "react@^17.0.0 || ^18.0.0 || ^19.0.0", "react@^18.0.0 || ^19.0.0", react@^18.3.1, "react@>= 0.14.0", "react@>= 16.3.0", "react@>= 18 || >= 19", react@>=16, react@>=16.12.0, react@>=16.13.1, react@>=16.14.0, react@>=16.3.0, react@>=16.8, react@>=16.8.0, react@>=16.8.3, react@>=17.x, react@>=18, react@>=18.0.0, react@>=18.2.0:
   version "18.3.1"
   resolved "https://registry.npmjs.org/react/-/react-18.3.1.tgz"
   integrity sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ==
@@ -6388,6 +6506,17 @@ rehype-raw@^7.0.0:
     "@types/hast" "^3.0.0"
     hast-util-raw "^9.0.0"
     vfile "^6.0.0"
+
+remark-emoji@^5.0.1:
+  version "5.0.1"
+  resolved "https://registry.npmjs.org/remark-emoji/-/remark-emoji-5.0.1.tgz"
+  integrity sha512-QCqTSvcZ65Ym+P+VyBKd4JfJfh7icMl7cIOGVmPMzWkDtdD8pQ0nQG7yxGolVIiMzSx90EZ7SwNiVpYpfTxn7w==
+  dependencies:
+    "@types/mdast" "^4.0.4"
+    emoticon "^4.0.1"
+    mdast-util-find-and-replace "^3.0.1"
+    node-emoji "^2.1.3"
+    unified "^11.0.4"
 
 remark-gfm@^4.0.0:
   version "4.0.0"
@@ -6569,6 +6698,13 @@ signal-exit@^4.0.1:
   version "4.1.0"
   resolved "https://registry.npmjs.org/signal-exit/-/signal-exit-4.1.0.tgz"
   integrity sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==
+
+skin-tone@^2.0.0:
+  version "2.0.0"
+  resolved "https://registry.npmjs.org/skin-tone/-/skin-tone-2.0.0.tgz"
+  integrity sha512-kUMbT1oBJCpgrnKoSr0o6wPtvRWT9W9UKvGLwfJYO2WuahZRHOpEyL1ckyMGgMWh0UdpmaoFqKKD29WTomNEGA==
+  dependencies:
+    unicode-emoji-modifier-base "^1.0.0"
 
 slate-dom@>=0.110.2:
   version "0.111.0"
@@ -6895,6 +7031,11 @@ uc.micro@^2.0.0, uc.micro@^2.1.0:
   resolved "https://registry.npmjs.org/uc.micro/-/uc.micro-2.1.0.tgz"
   integrity sha512-ARDJmphmdvUk6Glw7y9DQ2bFkKBHwQHLi2lsaH6PPmz/Ka9sFOBsBluozhDltWmnv9u/cF6Rt87znRTPV+yp/A==
 
+unicode-emoji-modifier-base@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.npmjs.org/unicode-emoji-modifier-base/-/unicode-emoji-modifier-base-1.0.0.tgz"
+  integrity sha512-yLSH4py7oFH3oG/9K+XWrz1pSi3dfUrWEnInbxMfArOfc1+33BlGPQtLsOYwvdMy11AwUBetYuaRxSPqgkq+8g==
+
 unidiff@^1.0.2:
   version "1.0.4"
   resolved "https://registry.npmjs.org/unidiff/-/unidiff-1.0.4.tgz"
@@ -6902,7 +7043,7 @@ unidiff@^1.0.2:
   dependencies:
     diff "^5.1.0"
 
-unified@^11.0.0, unified@^11.0.3:
+unified@^11.0.0, unified@^11.0.3, unified@^11.0.4:
   version "11.0.5"
   resolved "https://registry.npmjs.org/unified/-/unified-11.0.5.tgz"
   integrity sha512-xKvGhPWw3k84Qjh8bI3ZeJjqnyadK+GEFtazSfZv/rKeTkTjOJho6mFqh2SM96iIcZokxiOpg78GazTSg8+KHA==

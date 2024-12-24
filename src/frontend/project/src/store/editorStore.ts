@@ -21,6 +21,8 @@ interface EditorState {
   setError: (error: string | null) => void;
   fetchPosts: (filters: any, skip?: number, limit?: number) => Promise<void>;
   updateContent: (content: string) => void;
+  updateTwitterPost: (twitter_post: string) => void;
+  updateLinkedinPost: (linkedin_post: string) => void;
   savePost: () => Promise<void>;
   publishPost: () => Promise<void>;
   rejectPost: () => Promise<void>;
@@ -40,14 +42,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   future: [],
   isContentUpdated: false,
   skip: 0,
-  limit: 50,
+  limit: 200,
   totalPosts: 0,
   setCurrentPost: (post) => set({ currentPost: post, history: [], future: [], isContentUpdated: false }),
   toggleTheme: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
   setPosts: (posts) => set({ posts }),
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
-  fetchPosts: async (filters, skip = 0, limit = 50) => {
+  fetchPosts: async (filters, skip = 0, limit = 200) => {
     set({ isLoading: true });
     try {
       const params = { ...filters, skip, limit };
@@ -60,6 +62,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           id: item.blog.id,
           title: item.blog.title || item.blog.content.substring(0, 20),
           content: item.blog.content,
+          twitter_post: item.blog.twitter_post,
+          linkedin_post: item.blog.linkedin_post,
           status: item.blog.status || 'Draft',
           blog_category: item.blog.blog_category,
           tags: item.blog.tags,
@@ -105,6 +109,56 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         ...state,
         currentPost: updatedPost,
         history: [...state.history, state.currentPost.content],
+        future: [],
+        isContentUpdated: true,
+      };
+    });
+  },
+  updateTwitterPost: (twitter_post: string) => {
+    console.log('Updating Twitter post:', { twitter_post });
+    set((state) => {
+      if (!state.currentPost) {
+        console.error('No current post found');
+        return state;
+      }
+
+      const updatedPost = {
+        ...state.currentPost,
+        twitter_post,
+        updatedAt: new Date().toISOString(),
+      };
+
+      console.log('Updated post:', updatedPost);
+
+      return {
+        ...state,
+        currentPost: updatedPost,
+        history: [...state.history, state.currentPost.twitter_post || ''],
+        future: [],
+        isContentUpdated: true,
+      };
+    });
+  },
+  updateLinkedinPost: (linkedin_post: string) => {
+    console.log('Updating LinkedIn post:', { linkedin_post });
+    set((state) => {
+      if (!state.currentPost) {
+        console.error('No current post found');
+        return state;
+      }
+
+      const updatedPost = {
+        ...state.currentPost,
+        linkedin_post,
+        updatedAt: new Date().toISOString(),
+      };
+
+      console.log('Updated post:', updatedPost);
+
+      return {
+        ...state,
+        currentPost: updatedPost,
+        history: [...state.history, state.currentPost.linkedin_post || ''],
         future: [],
         isContentUpdated: true,
       };

@@ -17,6 +17,8 @@ export interface Post {
   createdAt: string;
   updatedAt: string;
   status: string;
+  twitter_post?: string;
+  linkedin_post?: string;
   tweet?: {
     tweet_id: string;
     full_text: string;

@@ -50,6 +50,8 @@ class BlogState:
     completed_sections: Annotated[list, operator.add] # Send() API key
     blog_main_body_sections: str = field(default=None) # Main body sections from research
     final_blog: str = field(default=None) # Final report
+    twitter_post: str = field(default=None) # Twitter post
+    linkedin_post: str = field(default=None) # LinkedIn post
     
 @dataclass(kw_only=True)
 class BlogStateInput:
@@ -59,6 +61,9 @@ class BlogStateInput:
 @dataclass(kw_only=True)
 class BlogStateOutput:
     final_blog: str = field(default=None) # Final report
+    blog_title: str = field(default=None)
+    twitter_post: str = field(default=None)
+    linkedin_post: str = field(default=None)
 
 @dataclass(kw_only=True)
 class SectionState:

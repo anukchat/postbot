@@ -11,7 +11,8 @@ export const App: React.FC = () => {
   const [sidebarSize, setSidebarSize] = useState(20);
   const [isCanvasView, setIsCanvasView] = useState(false);
   const [isPostDetailsView, setIsPostDetailsView] = useState(false);
-  const { isDarkMode } = useEditorStore();
+  const [selectedTab, setSelectedTab] = useState<'blog' | 'twitter' | 'linkedin'>('blog');
+  const { currentPost, isDarkMode, updateContent,updateLinkedinPost,updateTwitterPost } = useEditorStore();
   const contentPanelRef = useRef<any>(null);
   const sidebarPanelRef = useRef<any>(null); // Add ref for sidebar
 
@@ -52,6 +53,44 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('resize', handleWindowResize);
   }, []);
 
+  const handleContentChange = (newContent: string) => {
+    if (!currentPost) return;
+
+    const updatedPost = { ...currentPost };
+
+    switch (selectedTab) {
+      case 'blog':
+        updatedPost.content = newContent;
+        updateContent(updatedPost.content);
+        break;
+      case 'twitter':
+        updatedPost.twitter_post = newContent;
+        updateTwitterPost(updatedPost.twitter_post);
+        break;
+      case 'linkedin':
+        updatedPost.linkedin_post = newContent;
+        updateLinkedinPost(updatedPost.linkedin_post);
+        break;
+    }
+
+    // updateContent(updatedPost.id);
+  };
+
+  const getContent = (): string => {
+    if (!currentPost) return '';
+
+    switch (selectedTab) {
+      case 'blog':
+        return currentPost.content;
+      case 'twitter':
+        return currentPost.twitter_post || '';
+      case 'linkedin':
+        return currentPost.linkedin_post || '';
+      default:
+        return '';
+    }
+  };
+
   return (
     <div className={`h-screen ${isDarkMode ? 'dark' : ''}`}>
       <div className="h-full flex dark:bg-gray-900 dark:text-white">
@@ -80,14 +119,43 @@ export const App: React.FC = () => {
                   onClick={() => {
                     setIsCanvasView(false);
                     setIsPostDetailsView(false);
+                    setSelectedTab('blog');
                   }}
                   className={`px-4 py-2 rounded ${
-                    !isCanvasView && !isPostDetailsView
+                    selectedTab === 'blog'
                       ? 'bg-blue-500 text-white'
                       : 'hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >
-                  Editor
+                  Blog
+                </button>
+                <button
+                  onClick={() => {
+                    setIsCanvasView(false);
+                    setIsPostDetailsView(false);
+                    setSelectedTab('twitter');
+                  }}
+                  className={`px-4 py-2 rounded ${
+                    selectedTab === 'twitter'
+                      ? 'bg-blue-500 text-white'
+                      : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Twitter
+                </button>
+                <button
+                  onClick={() => {
+                    setIsCanvasView(false);
+                    setIsPostDetailsView(false);
+                    setSelectedTab('linkedin');
+                  }}
+                  className={`px-4 py-2 rounded ${
+                    selectedTab === 'linkedin'
+                      ? 'bg-blue-500 text-white'
+                      : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  LinkedIn
                 </button>
                 <button
                   onClick={() => {
@@ -117,7 +185,16 @@ export const App: React.FC = () => {
                 </button>
               </div>
               <div className="flex-1 overflow-auto">
-                {isCanvasView ? <CanvasView /> : isPostDetailsView ? <PostDetails /> : <MarkdownEditor />}
+                {isCanvasView ? (
+                  <CanvasView />
+                ) : isPostDetailsView ? (
+                  <PostDetails />
+                ) : (
+                  <MarkdownEditor
+                    content={getContent()}
+                    onChange={handleContentChange}
+                  />
+                )}
               </div>
             </div>
           </Panel>

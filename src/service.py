@@ -3,14 +3,16 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from db.datamodel import AgentCreate, AgentResponse, BlogStyleUpdateRequest
 from db.sql import AgentStatus,Agent, get_db, Blogs,BlogStatus,BlogStyles, BlogStyleTypes, Tweets  # Import Blog and BlogStyle models
-from db.datamodel import BlogResponse,BlogStyleResponse,BlogStyleCreateRequest,BlogCreateRequest,BlogUpdateRequest,AgentUpdate, BlogWithMetadataResponse
+from db.datamodel import BlogResponse,BlogStyleResponse,BlogStyleCreateRequest,BlogCreateRequest,BlogUpdateRequest,AgentUpdate, BlogWithMetadataResponse,BlogAgentResponse
 from ai.agent.workflow import BlogWorkflow
+from ai.agent.v2.graph import AgentWorkflow
 from typing import Dict, Any
 import uvicorn
 import uuid
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 from fastapi.middleware.cors import CORSMiddleware
+import time
 
 app = FastAPI()
 
@@ -32,12 +34,11 @@ class ResponseModel(BaseModel):
 
 class RequestModel(BaseModel):
     tweet_id: str
-    blog_style: str
 
 
 def get_workflow() -> BlogWorkflow:
     """Dependency to get a BlogWorkflow instance."""
-    return BlogWorkflow()  # Pass the database session to BlogWorkflow
+    return AgentWorkflow()  # Pass the database session to BlogWorkflow
 
 @app.post("/agents", response_model=AgentResponse,tags=["Agents"])
 def create_agent(agent: AgentCreate, db: Session = Depends(get_db)):
@@ -63,6 +64,8 @@ def create_blog(blog: BlogCreateRequest, db: Session = Depends(get_db)):
         db, 
         tweet_id=blog.tweet_id, 
         title=blog.title,
+        twitter_post=blog.twitter_post,
+        linkedin_post=blog.linkedin_post,
         content=blog.content, 
         style_id=blog.style_id,  # Added style_id
         blog_category=blog.blog_category,  # Added blog_category
@@ -113,6 +116,8 @@ def update_blog(blog_id: str, blog: BlogUpdateRequest, db: Session = Depends(get
         db, 
         id=blog_id, 
         # title=blog.title,
+        twitter_post=blog.twitter_post,
+        linkedin_post=blog.linkedin_post,
         content=blog.content, 
         status=blog.status,
         style_id=blog.style_id,
@@ -213,6 +218,35 @@ async def initiate_workflow(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.post("/blogs/generate", response_model=BlogAgentResponse, tags=["Agents"])
+async def generate_blog(
+    payload: RequestModel,
+    workflow: AgentWorkflow = Depends(get_workflow),
+    db: Session = Depends(get_db)
+):
+    """Initiate the workflow with the provided tweet data."""
+    try:
+        result = workflow.run_workflow(payload.model_dump())
+        
+    #         final_blog: str = field(default=None) # Final report
+    # blog_title: str = field(default=None)
+    # twitter_post: str = field(default=None)
+    # linkedin_post: str = field(default=None)
+        # Store the blog in the database with all relevant fields
+        return BlogAgentResponse.model_validate(Blogs.create_blog(
+            db,
+            tweet_id=payload.tweet_id,
+            title=result.blog_title,
+            content=result.final_blog,
+            twitter_post=result.twitter_post,
+            linkedin_post=result.linkedin_post,
+            status=BlogStatus.DRAFT,  # or any other default status
+            style_id=BlogStyles.filter_styles(db, style=BlogStyleTypes.Academic)[0].id,
+        ))
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.get("/agents/{agent_id}/status",tags=["Agents"])
 def get_workflow_status(
     agent_id: str,db: Session = Depends(get_db)
@@ -248,25 +282,26 @@ async def generate_blogs_for_tweets(db: Session = Depends(get_db)):
         # Only proceed if there are URLs available
         if urls:
             # Determine the blog style based on the type of URLs
-            blog_style = "Academic"  # Default style
-            for url in urls:
-                if url.type == "github":
-                    blog_style = "Developer"
-                    break  # No need to check further if we found a GitHub URL
-                elif url.type == "arxiv":
-                    blog_style = "Research"
-                    break  # No need to check further if we found an Arxiv URL
+            # blog_style = "Academic"  # Default style
+            # for url in urls:
+            #     if url.type == "github":
+            #         blog_style = "Developer"
+            #         break  # No need to check further if we found a GitHub URL
+            #     elif url.type == "arxiv":
+            #         blog_style = "Research"
+            #         break  # No need to check further if we found an Arxiv URL
 
-            # Create a new agent for the blog generation
-            agent_response = create_agent(AgentCreate(name=f"Agent for {tweet.tweet_id}"), db)
-            agent_id = agent_response.id
+            # # Create a new agent for the blog generation
+            # agent_response = create_agent(AgentCreate(name=f"Agent for {tweet.tweet_id}"), db)
+            # agent_id = agent_response.id
 
             # Prepare the payload for the workflow
-            payload = RequestModel(tweet_id=tweet.tweet_id, blog_style=blog_style)
+            payload = RequestModel(tweet_id=tweet.tweet_id)
 
             # Call the run_workflow endpoint
-            blog_response = await initiate_workflow(agent_id=agent_id, payload=payload, db=db, workflow=workflow)
+            blog_response = await generate_blog( payload=payload, db=db,workflow=workflow)
             results.append(blog_response)
+            time.sleep(30)
 
     return results
 
