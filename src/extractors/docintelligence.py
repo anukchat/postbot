@@ -1,8 +1,14 @@
 import logging
+import os
 from pathlib import Path
+import re
 import traceback
+from bs4 import BeautifulSoup
 from docling.document_converter import DocumentConverter
+import html2text
 import markdownify
+import requests
+import urllib
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -39,7 +45,7 @@ class DocumentExtractor:
         }
         self.converter= DocumentConverter()
     
-    def extract_pdf(self, input_file, output_file):
+    def extract_pdf(self, input_file, output_file=None):
         """
         Extract PDF content using docling
         
@@ -48,41 +54,50 @@ class DocumentExtractor:
             output_file (Path): Output markdown file path
         """
         try:
-            
-            # Extract markdown
             markdown_content =  self.converter.convert(str(input_file)).document.export_to_markdown()
-            
-            # Ensure output directory exists
-            output_file.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Write markdown content
-            with open(output_file, 'w', encoding='utf-8') as f:
-                f.write(markdown_content)
-            
-            logger.info(f"Successfully extracted markdown from {input_file}")
-            return True
+            if output_file is None:
+                # Extract markdown
+                return markdown_content
+            else:
+                # Ensure output directory exists
+                output_file.parent.mkdir(parents=True, exist_ok=True)
+                
+                # Write markdown content
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    f.write(markdown_content)
+                
+                logger.info(f"Successfully extracted markdown from {input_file}")
+                return True
         
         except Exception as e:
             logger.error(f"Error extracting PDF {input_file}: {e}")
             logger.debug(traceback.format_exc())
             return False
     
-    def extract_html(self, input_file, output_file):
-        
+    def extract_html(self, input_file=None, output_file=None, html_content=None):  
         try:
-            with open(input_file) as f:
-                html_content = f.read()
+
+            # Extract markdown
+            if html_content:
                 markdown_content=markdownify.markdownify(html_content)
-
-            # Ensure output directory exists
-            output_file.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Write markdown content
-            with open(output_file, 'w', encoding='utf-8') as f:
-                f.write(markdown_content)
-
-            logger.info(f"Successfully extracted markdown from {input_file}")
-            return True
+                if not output_file:
+                    return markdown_content
+                else:
+                    output_file.parent.mkdir(parents=True, exist_ok=True)
+                    with open(output_file, 'w', encoding='utf-8') as f:
+                        f.write(markdown_content)
+                    return True
+            else:
+                with open(input_file) as f:
+                    html_content = f.read()
+                    markdown_content=markdownify.markdownify(html_content)
+                if not output_file:
+                    return markdown_content
+                else:
+                    output_file.parent.mkdir(parents=True, exist_ok=True)
+                    with open(output_file, 'w', encoding='utf-8') as f:
+                        f.write(markdown_content)
+                    return True
         except Exception as e:
             logger.error(f"Error extracting html {input_file}: {e}")
             logger.debug(traceback.format_exc())
@@ -141,6 +156,95 @@ class DocumentExtractor:
         """
         self.document_types[doc_type] = extraction_method
 
+    def extract_arxiv_pdf(self,url, output_file=None):
+        """
+        Extract PDF content from an arXiv URL and convert it to Markdown using the docling library.
+        
+        Args:
+            url (str): URL to arXiv abstract page (e.g., https://arxiv.org/abs/2312.01700).
+            output_file (Path): Output markdown file path.
+        
+        Returns:
+            str: Markdown content if successful, False otherwise.
+        """
+        try:
+            # Construct the PDF URL from the arXiv abstract page URL
+            if not url.endswith('.pdf'):
+                paper_id = url.split('/')[-1]
+                pdf_url = f"https://arxiv.org/pdf/{paper_id}.pdf"
+            else:
+                pdf_url = url
+            
+            # Download the PDF content
+            pdf_response = requests.get(pdf_url, timeout=10)
+            pdf_response.raise_for_status()  # Raise an exception for HTTP errors
+            
+            
+            # Convert PDF to Markdown using the docling library
+            markdown_content = self.converter.convert(pdf_url).document.export_to_markdown()
+            
+            # Save markdown content
+            if output_file:
+                output_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    f.write(markdown_content)
+            
+            # Clean up temporary file
+            # temp_pdf_path.unlink()
+            
+            return markdown_content
+        
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error while accessing {url}: {e}")
+        except Exception as e:
+            logger.error(f"Error processing {url}: {e}")
+            logger.debug(traceback.format_exc())
+        
+        return False
+
+    def extract_github_readme(self,repo_url):
+        """
+        Extracts the markdown content of the README file from a GitHub repository URL.
+
+        :param repo_url: The URL of the GitHub repository.
+        :return: The markdown content of the README file.
+        """
+        try:
+            # Extract owner and repo name from the URL
+            parts = repo_url.strip('/').split('/')
+            owner = parts[-2]
+            repo = parts[-1]
+
+            # GitHub API URL to fetch the README
+            api_url = f"https://api.github.com/repos/{owner}/{repo}/readme"
+
+            # Make a request to the GitHub API
+            response = requests.get(api_url, headers={"Accept": "application/vnd.github.v3+json"})
+            response.raise_for_status()
+
+            # Get the download URL for the README
+            download_url = response.json()['download_url']
+
+            # Fetch the README content
+            readme_response = requests.get(download_url)
+            readme_response.raise_for_status()
+
+            # Initialize HTML to Markdown converter
+            h = html2text.HTML2Text()
+            h.ignore_links = False
+            h.ignore_images = False
+            h.body_width = 0  # Disable line wrapping
+            h.unicode_snob = True  # Preserve unicode characters
+
+            # Convert README content to markdown
+            markdown_content = h.handle(readme_response.text)
+
+            return markdown_content
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error fetching README from {repo_url}: {e}")
+            return None
+    
 # def convert_pdfs_to_markdown():
 #     """
 #     Main execution method

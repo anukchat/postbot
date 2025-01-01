@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Optional
 from fastapi.middleware.cors import CORSMiddleware
 import time
+import requests
 
 app = FastAPI()
 
@@ -34,6 +35,28 @@ class ResponseModel(BaseModel):
 
 class RequestModel(BaseModel):
     tweet_id: str
+
+class SchedulePostRequest(BaseModel):
+    platform: str
+    content: str
+    scheduled_at: datetime
+
+class SchedulePostResponse(BaseModel):
+    success: bool
+    message: Optional[str] = None
+
+class GenericBlogGenerationRequestModel(BaseModel):
+    tweet_id: Optional[str] = None
+    url: Optional[str] = None
+    topic: Optional[str] = None
+    thread_id: Optional[str] = None
+    feedback: Optional[str] = None
+    post_types: Optional[List[str]] = None
+
+    # document: Optional[]
+
+BUFFER_API_URL = "https://api.bufferapp.com/1/updates/create.json"
+BUFFER_ACCESS_TOKEN = "your_buffer_access_token"  # Replace with your Buffer access token
 
 
 def get_workflow() -> BlogWorkflow:
@@ -227,17 +250,14 @@ async def generate_blog(
     """Initiate the workflow with the provided tweet data."""
     try:
         result = workflow.run_workflow(payload.model_dump())
-        
-    #         final_blog: str = field(default=None) # Final report
-    # blog_title: str = field(default=None)
-    # twitter_post: str = field(default=None)
-    # linkedin_post: str = field(default=None)
+
         # Store the blog in the database with all relevant fields
         return BlogAgentResponse.model_validate(Blogs.create_blog(
             db,
             tweet_id=payload.tweet_id,
             title=result.blog_title,
             content=result.final_blog,
+            tags=result.tags,
             twitter_post=result.twitter_post,
             linkedin_post=result.linkedin_post,
             status=BlogStatus.DRAFT,  # or any other default status
@@ -246,6 +266,33 @@ async def generate_blog(
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/blogs/generic/generate", response_model=BlogAgentResponse, tags=["Agents"])
+async def generate_generic_blog(
+    payload: GenericBlogGenerationRequestModel,
+    workflow: AgentWorkflow = Depends(get_workflow),
+    db: Session = Depends(get_db)
+):
+    """Initiate the workflow with the provided tweet data."""
+    try:
+        result = workflow.run_generic_workflow(payload.model_dump())
+        
+        # Store the blog in the database with all relevant fields
+        return BlogAgentResponse.model_validate(Blogs.create_blog(
+            db,
+            tweet_id=payload.url,
+            title=result.blog_title,
+            content=result.final_blog,
+            tags=result.tags,
+            twitter_post=result.twitter_post,
+            linkedin_post=result.linkedin_post,
+            status=BlogStatus.DRAFT,  # or any other default status
+            style_id=BlogStyles.filter_styles(db, style=BlogStyleTypes.Academic)[0].id,
+        ))
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 @app.get("/agents/{agent_id}/status",tags=["Agents"])
 def get_workflow_status(
@@ -257,10 +304,15 @@ def get_workflow_status(
     
     return db.query(Agent).filter(Agent.id == agent_id).first()
 
-@app.get("/tweets",tags=["Tweets"])
-def get_tweets(db: Session = Depends(get_db)):
-    """Retrieve all tweets from the database."""
-    tweets = Tweets.get_all(db)  # Use the class method to get all tweets
+@app.get("/tweets", tags=["Tweets"])
+def get_tweets(
+    search_text: Any | None = None,
+    skip: int = 0,
+    limit: int = 10,
+    db: Session = Depends(get_db)
+):
+    """Retrieve all tweets from the database with optional search and pagination."""
+    tweets = Tweets.get_all(db, search_text=search_text, skip=skip, limit=limit)  # Use the class method to get all tweets with search and pagination
     return tweets
 
 @app.post("/generate_blogs_for_tweets", tags=["Agents"])
@@ -304,6 +356,29 @@ async def generate_blogs_for_tweets(db: Session = Depends(get_db)):
             time.sleep(30)
 
     return results
+
+@app.post("/schedule_post", response_model=SchedulePostResponse, tags=["Scheduling"])
+def schedule_post(request: SchedulePostRequest):
+    """Schedule a post on a social media platform."""
+    try:
+        response = requests.post(
+            BUFFER_API_URL,
+            headers={
+                "Authorization": f"Bearer {BUFFER_ACCESS_TOKEN}"
+            },
+            data={
+                "text": request.content,
+                "profile_ids": [request.platform],
+                "scheduled_at": request.scheduled_at.isoformat()
+            }
+        )
+        response_data = response.json()
+        if response.status_code == 200:
+            return SchedulePostResponse(success=True, message="Post scheduled successfully")
+        else:
+            return SchedulePostResponse(success=False, message=response_data.get("message", "Failed to schedule post"))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 app.add_middleware(
     CORSMiddleware,

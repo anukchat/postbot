@@ -32,6 +32,7 @@ class AgentStatus(Enum):
 class BlogStatus(str, Enum):
     ALL= 'All'
     DRAFT = 'Draft'
+    INPROGRESS = 'In Progress'
     PUBLISHED = 'Published'
     SCHEDULED = 'Scheduled'
     ARCHIVED = 'Archived'
@@ -108,10 +109,17 @@ class Tweets(Base):
     possibly_sensitive = Column(Boolean, default=False)
 
     @classmethod
-    def get_all(cls, session):
-        """Retrieve all tweets from the database."""
-        return session.query(cls).all()
-    
+    def get_all(cls, session, search_text=None, skip=0, limit=10):
+        """Retrieve all tweets from the database with optional search, pagination, and sorting."""
+        query = session.query(cls)
+        
+        if search_text:
+            query = query.filter(cls.full_text.ilike(f"%{search_text}%"))
+        
+        query = query.order_by(cls.created_at.desc()).offset(skip).limit(limit)
+        
+        return query.all()
+
     @classmethod
     def read(cls, session, tweet_id=None):
         query = session.query(cls)        
@@ -191,8 +199,8 @@ class Blogs(Base):
     
     # # create blog 
     @classmethod
-    def create_blog(cls, session, tweet_id, title, content, twitter_post, linkedin_post, status, style_id):
-        blog = cls(tweet_id=tweet_id, title=title, content=content,tags=[],blog_category=[] ,twitter_post=twitter_post, linkedin_post=linkedin_post, status=status, style_id=style_id,is_deleted=False,is_archived=False)
+    def create_blog(cls, session, tweet_id, title, content, twitter_post, tags,linkedin_post, status, style_id):
+        blog = cls(tweet_id=tweet_id, title=title, content=content,tags=tags,blog_category=[] ,twitter_post=twitter_post, linkedin_post=linkedin_post, status=status, style_id=style_id,is_deleted=False,is_archived=False)
         session.add(blog)
         session.commit()
         return blog
@@ -211,7 +219,7 @@ class Blogs(Base):
         return query.one_or_none()
 
     @classmethod
-    def update(cls, session, id, content=None, status=None, style_id=None, blog_category=None, tags=None):
+    def update(cls, session, id, content=None, status=None, style_id=None,twitter_post=None,linkedin_post=None, blog_category=None, tags=None):
         blog = session.query(cls).filter(cls.id == id).first()
         if blog:
             if content:
@@ -224,6 +232,10 @@ class Blogs(Base):
                 blog.blog_category = blog_category
             if tags:
                 blog.tags = tags
+            if twitter_post:
+                blog.twitter_post = twitter_post
+            if linkedin_post:
+                blog.linkedin_post = linkedin_post
             session.commit()
             return blog
         return None
@@ -247,13 +259,13 @@ class Blogs(Base):
         return False
 
     @classmethod
-    def get_blogs_with_references(cls, session, search_text=None, tags=None, status=None, created_before=None, created_after=None, url_type=None, domain=None, style_id=None,skip=0, limit=10):
+    def get_blogs_with_references(cls, session, search_text=None, tags=None, status=None, created_before=None, created_after=None, url_type=None, domain=None, style_id=None, skip=0, limit=10):
         """
         Retrieve blog posts along with their associated tweets, URLs, and media data,
         with optional filters and pagination.
 
         :param session: The database session to use.
-        :param blog_id: Optional ID of the blog post to retrieve.
+        :param search_text: Optional text to search in blog titles.
         :param tags: Optional list of tags to filter by.
         :param status: Optional status to filter by.
         :param created_before: Optional date to filter blogs created before this date.
@@ -264,27 +276,22 @@ class Blogs(Base):
         :param limit: Maximum number of records to return for pagination.
         :return: A list of dictionaries containing the blog, tweet, URLs, and media data.
         """
-        query = session.query(cls).filter(cls.is_deleted == False and cls.is_archived == False)
+        query = session.query(cls).filter(cls.is_deleted == False, cls.is_archived == False)
 
-        # Apply optional filter for blog_id
+        # Apply optional filters
         if search_text:
             query = query.filter(cls.title.ilike(f"%{search_text}%"))
 
-        # Apply additional filters to the blog query if provided
         if tags:
-            # Split tags if provided as a string
             if isinstance(tags, str):
                 tags = [tag.strip() for tag in tags.split(',')]
-            query = query.filter(cls.tags.overlap(tags))  # Use PostgreSQL's overlap operator
+            query = query.filter(cls.tags.overlap(tags))
 
         if style_id:
             query = query.filter(cls.style_id == style_id)
 
-        if status:
-            if status=='All':
-                query=query
-            else:
-                query = query.filter(cls.status == status)
+        if status and status != 'All':
+            query = query.filter(cls.status == status)
 
         if created_before:
             query = query.filter(cls.created_at < created_before)
@@ -292,13 +299,13 @@ class Blogs(Base):
         if created_after:
             query = query.filter(cls.created_at > created_after)
 
-        # Apply pagination
-        query = query.offset(skip).limit(limit)
+        # Apply pagination and ordering
+        query = query.order_by(cls.created_at.desc()).offset(skip).limit(limit)
 
         # Retrieve all matching blogs
         blogs = query.all()
         if not blogs:
-            return []  # Return an empty list if no blogs are found
+            return []
 
         # Prepare the results
         results = []
@@ -306,7 +313,6 @@ class Blogs(Base):
             tweet = session.query(Tweets).filter(Tweets.tweet_id == blog.tweet_id).one_or_none()
             urls_query = session.query(Urls).filter(Urls.tweet_id == blog.tweet_id)
 
-            # Apply optional filters to URLs
             if url_type:
                 urls_query = urls_query.filter(Urls.type == url_type)
             if domain:
@@ -315,7 +321,6 @@ class Blogs(Base):
             urls = urls_query.all()
             media = session.query(Medias).filter(Medias.tweet_id == blog.tweet_id).all()
 
-            # Prepare blog data
             blog_data = {
                 "blog": {
                     "id": blog.id,
@@ -363,7 +368,7 @@ class Blogs(Base):
             }
             results.append(blog_data)
 
-        return results  # Return the list of blog data
+        return results
 
 class BlogStyles(Base):
     __tablename__="blogstyles"

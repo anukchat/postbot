@@ -14,14 +14,44 @@ import { Toolbar } from './Toolbar';
 import { CommandPalette, getCommands } from './CommandPalette';
 import Picker from 'emoji-picker-react';
 import emoji from 'emoji-dictionary'; // Add this import
+import { Clipboard, Rocket } from 'lucide-react'; // Add this import
+import Tippy from '@tippyjs/react'; // Add this import
+import 'tippy.js/dist/tippy.css'; // Add this import
+
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Twitter embed error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <div className="p-4 text-red-500">Failed to load tweet</div>;
+    }
+
+    return this.props.children;
+  }
+}
 
 interface MarkdownEditorProps {
   content: string;
   onChange: (newContent: string) => void;
+  selectedTab: 'blog' | 'twitter' | 'linkedin'; // Add selectedTab prop
 }
 
-export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChange }) => {
-  const { currentPost, fetchPosts, undo, redo } = useEditorStore();
+export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChange, selectedTab }) => {
+  const { currentPost, undo, redo } = useEditorStore();  // Get undo and redo from the store
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const isUpdatingRef = useRef(false);
@@ -35,10 +65,12 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
   const commandTriggeredRef = useRef(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 });
+  const previewRef = useRef<HTMLDivElement>(null); // Add this ref
+  const [isCopied, setIsCopied] = useState(false); // Add this state
 
-  useEffect(() => {
-    fetchPosts({});
-  }, [fetchPosts]);
+  // useEffect(() => {
+  //   fetchPosts({});
+  // }, [fetchPosts]);
 
   useEffect(() => {
     if (isEmojiPickerOpen && textAreaRef.current) {
@@ -52,10 +84,19 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
     const textarea = textAreaRef.current;
     const currentScroll = { x: textarea.scrollLeft, y: textarea.scrollTop };
 
-    const newText = textarea.value.substring(0, selection.start - replaceLength) + commandText + textarea.value.substring(selection.end);
-    onChange(newText);
+    let newText;
+    let newCursorPosition;
 
-    const newCursorPosition = selection.start - replaceLength + commandText.length;
+    if (commandText === '**' || commandText === '*' || commandText === '~~') {
+      const selectedText = textarea.value.substring(selection.start, selection.end);
+      newText = textarea.value.substring(0, selection.start) + commandText + selectedText + commandText + textarea.value.substring(selection.end);
+      newCursorPosition = selection.start + commandText.length + selectedText.length;
+    } else {
+      newText = textarea.value.substring(0, selection.start - replaceLength) + commandText + textarea.value.substring(selection.end);
+      newCursorPosition = selection.start - replaceLength + commandText.length;
+    }
+
+    onChange(newText);
 
     requestAnimationFrame(() => {
       if (textAreaRef.current) {
@@ -107,6 +148,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
       textareaScrollRef.current = { x: textAreaRef.current.scrollLeft, y: textAreaRef.current.scrollTop };
     }
     onChange(textarea.value);
+    isUpdatingRef.current = false;
   }, [onChange]);
 
   useEffect(() => {
@@ -265,11 +307,11 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
       switch (e.key) {
         case 'z':
           e.preventDefault();
-          undo();
+          undo(selectedTab);  // Use the undo from store
           break;
         case 'y':
           e.preventDefault();
-          redo();
+          redo(selectedTab);  // Use the redo from store
           break;
         case 'b':
           e.preventDefault();
@@ -326,7 +368,13 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
       const tweetMatch = content.match(/{{< twitter id="([^"]+)" >}}/);
 
       if (tweetMatch) {
-        return <TwitterEmbed tweetId={tweetMatch[1]} />;
+        return (
+          <ErrorBoundary>
+            <div className="relative">
+              <TwitterEmbed tweetId={tweetMatch[1]} />
+            </div>
+          </ErrorBoundary>
+        );
       }
 
       return <p>{children}</p>;
@@ -348,9 +396,33 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
     return content.replace(metadataRegex, '');
   };
 
+  const handleCopy = () => {
+    if (previewRef.current) {
+      const range = document.createRange();
+      range.selectNodeContents(previewRef.current);
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+        const textContent = previewRef.current.innerText; // Get the text content with formatting
+        navigator.clipboard.writeText(textContent).then(() => {
+          setIsCopied(true); // Set copied state to true
+          setTimeout(() => setIsCopied(false), 500); // Reset copied state after 1 second
+        }).catch(err => {
+          console.error('Failed to copy: ', err);
+        });
+        selection.removeAllRanges();
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col h-full" ref={containerRef}>
-      <Toolbar onCommandInsert={handleCommandInsert} />
+      <div className="border-b flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800">
+        <div className="flex items-center space-x-2">
+          <Toolbar onCommandInsert={handleCommandInsert} selectedTab={selectedTab} />
+        </div>
+      </div>
       <div className="flex-1 relative overflow-auto">
         <PanelGroup direction="horizontal">
           <Panel defaultSize={50}>
@@ -390,15 +462,26 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
             )}
           </Panel>
           <PanelResizeHandle className="w-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 cursor-col-resize" />
-          <Panel defaultSize={50}>
-            <div className="h-full overflow-auto p-4 prose dark:prose-invert max-w-none">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm, remarkEmoji]}
-                rehypePlugins={[rehypeRaw]}
-                components={customComponents}
-              >
-                {filterMetadata(content)}
-              </ReactMarkdown>
+            <Panel defaultSize={50}>
+            <div className="h-full overflow-auto p-4 prose dark:prose-invert max-w-none relative">
+              <Tippy content="Copy to clipboard">
+                <button
+                onClick={handleCopy}
+                className={`absolute top-2 right-2 p-1 rounded ${isCopied ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'}`}
+                title="Copy to clipboard"
+                >
+                <Clipboard className="w-4 h-4" />
+                </button>
+              </Tippy>
+              <div ref={previewRef}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm, remarkEmoji]}
+                  rehypePlugins={[rehypeRaw]}
+                  components={customComponents}
+                >
+                  {filterMetadata(content)}
+                </ReactMarkdown>
+              </div>
             </div>
           </Panel>
         </PanelGroup>

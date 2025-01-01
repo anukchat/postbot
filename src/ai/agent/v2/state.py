@@ -42,7 +42,9 @@ class Sections(BaseModel):
 
 @dataclass(kw_only=True)
 class BlogState:
-    tweet: Dict   
+    tweet: Dict
+    input_url: str
+    input_content: str
     # tags: list
     # style: str
     # agent_id:str
@@ -55,7 +57,9 @@ class BlogState:
     
 @dataclass(kw_only=True)
 class BlogStateInput:
-    tweet: Dict # Blog notes
+    tweet: Dict = field(default_factory=dict) # Blog notes
+    input_url: str = field(default=None)
+    input_content: str = field(default=None)
     # urls: List[str] = field(default_factory=list) # List of urls     
 
 @dataclass(kw_only=True)
@@ -64,11 +68,14 @@ class BlogStateOutput:
     blog_title: str = field(default=None)
     twitter_post: str = field(default=None)
     linkedin_post: str = field(default=None)
+    tags: list[str] = field(default_factory=[])
 
 @dataclass(kw_only=True)
 class SectionState:
     section: Section # Report section   
-    tweet: Dict
+    tweet: Dict = field(default_factory=dict)
+    input_url: str = field(default=None)
+    input_content: str = field(default=None)
     urls: List[str] = field(default_factory=list) # List of urls 
     blog_main_body_sections: str = field(default=None) # Main body sections from research
     completed_sections: list[Section] = field(default_factory=list) # Final key we duplicate in outer state for Send() API

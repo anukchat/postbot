@@ -7,4 +7,9 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  build: {
+    minify: 'esbuild', // Use esbuild for faster minification
+    target: 'esnext', // Target modern browsers
+    sourcemap: false, // Disable sourcemaps in production
+  },
 });

@@ -1,9 +1,24 @@
+from datetime import datetime
+import re
+from urllib.parse import urlparse
+import uuid
 import pandas as pd
 import logging
 import json
 import ast
 import urllib
 import mimetypes
+import requests
+from bs4 import BeautifulSoup 
+import tempfile
+import os
+
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+from supabase import create_client, Client
+
 
 # Configure logging
 logging.basicConfig(
@@ -17,6 +32,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def supabase_client():
+    # Initialize the Supabase client
+    supabase_url = os.environ.get("SUPABASE_URL")
+    supabase_key = os.environ.get("SUPABASE_KEY")
+    return create_client(supabase_url, supabase_key)
 
 def safe_json_loads(json_str, default=None):
     """
@@ -42,7 +62,6 @@ def safe_json_loads(json_str, default=None):
         except (ValueError, SyntaxError):
             logger.warning(f"Could not parse: {json_str}")
             return default
-
 
 def safe_convert_to_list(value, default=None):
     """
@@ -129,83 +148,354 @@ def read_tweet_data(csv_path, recent_k=None):
     
     return df_sorted
 
-def detect_file_type(self, file_path=None, content=None, url=None, content_type=None):
-        """
-        Detect file type using multiple methods
-        
-        Args:
-            file_path (str, optional): Path to the file
-            content (bytes, optional): File content
-            url (str, optional): URL of the content
-            content_type (str, optional): HTTP content type header
-        
-        Returns:
-            dict: Detected file type information
-        """
-        # Initialize type detection results
-        file_type_info = {
-            'mime_type': 'application/octet-stream',
-            'extension': '.bin',
-            'category': 'unknown'
-        }
+def classify_url(url):
+    """
+    Classify URL type with enhanced detection and error handling
+    
+    Args:
+        url (str): URL to classify
+    
+    Returns:
+        dict: Detailed URL classification
+    """
+    try:
+        parsed_url = urllib.parse.urlparse(url)
+        domain = parsed_url.netloc.lower()
+        path = parsed_url.path.lower()
 
-        try:
-            # Prioritize different type detection methods
+        # Comprehensive URL type classification
+        url_types = {
+            # Code and Development Platforms
+            'github_code': {
+                'condition': 'github.com' in domain and ('/blob/' in path or '/tree/' in path),
+                'category': 'code'
+            },
+            'github': {
+                'condition': 'github.com' in domain and ('/blob/' not in path or '/tree/' not in path),
+                'category': 'repo'
+            },
+            'gitlab_code': {
+                'condition': 'gitlab.com' in domain and ('/blob/' in path or '/tree/' in path),
+                'category': 'code'
+            },
+            'bitbucket_code': {
+                'condition': 'bitbucket.org' in domain and '/src/' in path,
+                'category': 'code'
+            },
             
-            # 1. HTTP Content-Type header
-            if content_type:
-                mime_type = content_type.split(';')[0].strip().lower()
-                file_type_info['mime_type'] = mime_type
+            # Jupyter and Notebook Platforms
+            'jupyter_notebook': {
+                'condition': (
+                    'nbviewer.jupyter.org' in domain or 
+                    '.ipynb' in path or 
+                    'colab.research.google.com' in domain or
+                    'kaggle.com/notebooks' in domain
+                ),
+                'category': 'code'
+            },
             
-            # 2. Magic library MIME type detection
-            if self.mime and content:
-                try:
-                    mime_type = self.mime.from_buffer(content)
-                    if mime_type:
-                        file_type_info['mime_type'] = mime_type
-                except Exception as e:
-                    logger.warning(f"MIME type detection error: {e}")
+            # Document Types
+            'pdf': {
+                'condition': path.endswith('.pdf'),
+                'category': 'document'
+            },
+            'google_docs': {
+                'condition': 'docs.google.com' in domain,
+                'category': 'document'
+            },
             
-            # 3. URL-based detection
-            if url:
-                # Detect from URL extension
-                parsed_url = urllib.parse.urlparse(url)
-                url_path = parsed_url.path
-                guessed_type, guessed_ext = mimetypes.guess_type(url_path)
-                
-                if guessed_type:
-                    file_type_info['mime_type'] = guessed_type
-                if guessed_ext:
-                    file_type_info['extension'] = guessed_ext
+            # Media and Hosting Platforms
+            'youtube': {
+                'condition': ('youtube.com' in domain or 'youtu.be' in domain) and ('/watch' in path or '/v/' in path),
+                'category': 'video'
+            },
+            'vimeo': {
+                'condition': 'vimeo.com' in domain,
+                'category': 'video'
+            },
             
-            # 4. File path-based detection
-            if file_path:
-                guessed_type, guessed_ext = mimetypes.guess_type(file_path)
-                if guessed_type:
-                    file_type_info['mime_type'] = guessed_type
-                if guessed_ext:
-                    file_type_info['extension'] = guessed_ext
+            # Academic and Research
+            'arxiv': {
+                'condition': 'arxiv.org' in domain,
+                'category': 'document'
+            },
             
-            # Categorize file types
-            mime_type = file_type_info['mime_type']
-            if 'image' in mime_type:
-                file_type_info['category'] = 'image'
-                file_type_info['extension'] = self._get_image_extension(mime_type)
-            elif 'video' in mime_type:
-                file_type_info['category'] = 'video'
-                file_type_info['extension'] = self._get_video_extension(mime_type)
-            elif 'audio' in mime_type:
-                file_type_info['category'] = 'audio'
-                file_type_info['extension'] = self._get_audio_extension(mime_type)
-            elif 'text' in mime_type:
-                file_type_info['category'] = 'text'
-                file_type_info['extension'] = self._get_text_extension(mime_type)
-            elif 'application/pdf' in mime_type:
-                file_type_info['category'] = 'pdf'
-                file_type_info['extension'] = '.pdf'
+            # Web Content
+            'html': {
+                'condition': path.endswith('.html') or not path.endswith(('.pdf', '.ipynb')),
+                'category': 'webpage'
+            },
             
-            return file_type_info
+            # Social Media
+            'tweet': {
+                'condition': ('twitter.com' in domain or 'x.com' in domain) and '/status/' in path,
+                'category': 'metadata'
+            }
+        }
         
-        except Exception as e:
-            logger.warning(f"File type detection error: {e}")
-            return file_type_info
+        # Find the first matching type with most specific conditions
+        matched_type = next(
+            (k for k, v in url_types.items() if v['condition']), 
+            'unknown'
+        )
+        
+        # Log unrecognized URL types
+        if matched_type == 'unknown':
+            logger.info(f"Unrecognized URL type: {url}")
+        
+        return {
+            'type': matched_type,
+            'domain': domain,
+            'path': path,
+            'category': url_types.get(matched_type, {}).get('category', 'unknown')
+        }
+    
+    except Exception as e:
+        logger.error(f"Error classifying URL {url}: {e}")
+        return {
+            'type': 'unknown',
+            'domain': '',
+            'path': '',
+            'category': 'error'
+        }
+      
+def get_url_metadata(url):
+    """
+    Download content from a URL 
+    Args:
+        url (str): URL to download
+        index (int): Index for file naming
+    
+    Returns:
+        dict: Metadata about downloaded content
+    """
+
+    try:
+        # Additional URL validation
+        parsed_url = urllib.parse.urlparse(url)
+        if not parsed_url.scheme or not parsed_url.netloc:
+            logger.warning(f"Invalid URL structure: {url}")
+            return None
+        
+        
+        # Custom headers to handle different content types
+        headers = headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        headers.update({
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Referer': parsed_url.scheme + '://' + parsed_url.netloc
+        })
+        
+        # Download content with enhanced error handling
+        response = requests.get(
+            url, 
+            headers=headers, 
+            timeout=15, 
+            allow_redirects=True,
+            stream=True
+        )
+        
+        # Raise exception for bad status codes
+        response.raise_for_status()
+        
+        # Detect content type
+        content_type = response.headers.get('Content-Type', '').lower()
+
+        # Check if content is a redirect HTML response
+        if 'html' in content_type:
+            content = response.content
+            soup = BeautifulSoup(content, 'html.parser')
+            redirect_url = soup.find('meta', attrs={'http-equiv': 'refresh'})
+            if redirect_url:
+                url = redirect_url.get('content').split('URL=')[1]
+                # Check if the redirected URL is to Twitter
+                if 'twitter.com' in redirect_url:
+                    logger.info(f"Redirect to Twitter detected for {url}, ignoring.")
+                    return None
+                else:
+                    response = requests.get(
+                        url, 
+                        headers=headers, 
+                        timeout=15, 
+                        allow_redirects=True,
+                        stream=True
+                    )
+                    response.raise_for_status()
+
+            #detect url_type
+            url_type = classify_url(url)
+
+            content_type = response.headers.get('Content-Type', '').lower()
+                # # Insert into media table
+                # for media in tweet["media"]:
+                #     supabase_client.table('media').insert({
+                #         "media_id": str(uuid.uuid4()),
+                #         "source_id": source_id,
+                #         "media_url": media["original_url"],
+                #         "media_type": media["type"],
+                #         "created_at": datetime.now().isoformat()
+                #     }).execute()
+
+            # content_type = response.headers.get('Content-Type', '').lower()
+
+            return {"original_url": url, "content":response.content,"content_type": content_type, "type": url_type['type'], "domain": url_type['domain'], "file_category": url_type['category']}
+            
+        else:
+            url_type = classify_url(url)            # # Create a temporary file
+            return {"original_url": url, "content":response.content,"content_type": content_type, "type": url_type['type'], "domain": url_type['domain'], "file_category": url_type['category']}
+   
+    except Exception as e:
+        logger.warning(f"Error downloading URL content: {e}")
+        return None
+
+def get_media_links(url):
+    """
+    Extracts clean media links (images, videos, audio) from a web URL.
+
+    :param url: The URL of the web page.
+    :return: A list of dictionaries containing media type, original URL, and final URL.
+    """
+    try:
+        # Fetch the web page content
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an error for bad status codes
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Define patterns for media file extensions
+        image_pattern = re.compile(r'\.(jpg|jpeg|png|gif|bmp|webp|svg)$', re.IGNORECASE)
+        video_pattern = re.compile(r'\.(mp4|webm|ogg|mov|avi|mkv)$', re.IGNORECASE)
+        audio_pattern = re.compile(r'\.(mp3|wav|ogg|flac|aac)$', re.IGNORECASE)
+
+        # List to store media links
+        media_links = []
+
+        for tag in soup.find_all(['img', 'video', 'audio', 'source', 'a']):
+            media_url = None
+            media_type = None
+            alt_text = None
+
+            if tag.name == 'img' and tag.get('src'):
+                media_url = tag['src']
+                alt_text = tag.get('alt', '')
+                if image_pattern.search(media_url) and not re.search(r'profile|avatar|logo', media_url, re.IGNORECASE):
+                    media_type = 'image'
+            elif tag.name == 'video' and tag.get('src'):
+                media_url = tag['src']
+                if video_pattern.search(media_url):
+                    media_type = 'video'
+            elif tag.name == 'audio' and tag.get('src'):
+                media_url = tag['src']
+                if audio_pattern.search(media_url):
+                    media_type = 'audio'
+            elif tag.name == 'source' and tag.get('src'):
+                media_url = tag['src']
+                if video_pattern.search(media_url):
+                    media_type = 'video'
+                elif audio_pattern.search(media_url):
+                    media_type = 'audio'
+            elif tag.name == 'a' and tag.get('href'):
+                media_url = tag['href']
+                if image_pattern.search(media_url) and not re.search(r'profile|avatar|logo', media_url, re.IGNORECASE):
+                    media_type = 'image'
+                elif video_pattern.search(media_url):
+                    media_type = 'video'
+                elif audio_pattern.search(media_url):
+                    media_type = 'audio'
+
+            if media_url and media_type:
+                # Check if the URL is absolute
+                parsed_url = urlparse(media_url)
+                if parsed_url.scheme and parsed_url.netloc:
+                    media_links.append({
+                        'type': media_type,
+                        'original_url': media_url,
+                        'alt_text': alt_text
+                    })
+
+        # Remove duplicates
+        unique_media_links = []
+        seen_urls = set()
+        for media in media_links:
+            if media['original_url'] not in seen_urls:
+                unique_media_links.append(media)
+                seen_urls.add(media['original_url'])
+
+        return unique_media_links
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching the URL: {e}")
+        return None
+    
+def insert_content(supabase, processed_tweets):
+    """
+    Process a batch of tweets and save comprehensive metadata
+    
+    Args:
+        processed_tweets (list): List of processed tweet metadata
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    # Function to get source_type_id by name
+    def get_source_type_id(source_type_name):
+        result = supabase.table('source_types').select('source_type_id').eq('name', source_type_name).execute()
+        if result.data:
+            return result.data[0]['source_type_id']
+        else:
+            raise ValueError(f"Source type '{source_type_name}' not found in source_types table.")
+
+
+    # Insert data into Supabase tables
+    try:
+        # Get source_type_id for 'twitter'
+        source_type_id = get_source_type_id('twitter')
+        batch_id = str(uuid.uuid4())
+        for tweet in processed_tweets:
+            # Insert into sources table
+            source_id = str(uuid.uuid4())
+            supabase.table('sources').insert({
+                "source_id": source_id,
+                "source_type_id": source_type_id,  # Use source_type_id instead of type
+                "source_identifier": tweet["tweet_id"],
+                "batch_id": batch_id,
+                "created_at": datetime.now().isoformat(),
+                "updated_at": datetime.now().isoformat()
+            }).execute()
+
+            # Insert into metadata table (full_text as metadata)
+            supabase.table('source_metadata').insert({
+                "metadata_id": str(uuid.uuid4()),
+                "source_id": source_id,
+                "key": "full_text",
+                "value": tweet["full_text"],
+                "created_at": datetime.now().isoformat()
+            }).execute()
+
+            # Insert into url_references table
+            for url in tweet["urls"]:
+                supabase.table('url_references').insert({
+                    "url_reference_id": str(uuid.uuid4()),
+                    "source_id": source_id,
+                    "url": url["original_url"],
+                    "type": url["type"],
+                    "domain": url["domain"],
+                    "content_type": url["content_type"],
+                    "file_category": url["file_category"],
+                    "created_at": datetime.now().isoformat()
+                }).execute()
+
+            # Insert into media table
+            for media in tweet["media"]:
+                supabase_client.table('media').insert({
+                    "media_id": str(uuid.uuid4()),
+                    "source_id": source_id,
+                    "media_url": media["original_url"],
+                    "media_type": media["type"],
+                    "created_at": datetime.now().isoformat()
+                }).execute()
+
+        print("Data inserted successfully!")
+    except Exception as e:
+        print(f"Error inserting data: {e}")

@@ -35,4 +35,5 @@ export default {
   plugins: [
     require('@tailwindcss/typography'),
   ],
+  purge: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'], // Enable purging unused styles
 };

@@ -1,25 +1,28 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
+import { Tweet } from 'react-tweet';
 
 interface TwitterEmbedProps {
   tweetId: string;
 }
 
 export const TwitterEmbed: React.FC<TwitterEmbedProps> = ({ tweetId }) => {
-  useEffect(() => {
-    // Load Twitter widget script
-    const script = document.createElement('script');
-    script.src = 'https://platform.twitter.com/widgets.js';
-    script.async = true;
-    document.body.appendChild(script);
+  const containerRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
     return () => {
-      document.body.removeChild(script);
+      // Cleanup Twitter widget before unmounting
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
+      // Remove any Twitter scripts
+      const scripts = document.querySelectorAll('script[src*="twitter"]');
+      scripts.forEach(script => script.remove());
     };
-  }, []);
+  }, [tweetId]);
 
   return (
-    <blockquote className="twitter-tweet">
-      <a href={`https://twitter.com/user/status/${tweetId}`}></a>
-    </blockquote>
+    <div ref={containerRef} className="twitter-embed-container">
+      <Tweet id={tweetId} />
+    </div>
   );
 };

@@ -1,0 +1,21 @@
+profiles
+   |
+   |--- content
+   |       |
+   |       |--- content_types
+   |       |--- content_sources --- sources
+   |       |                       |
+   |       |                       |--- url_references
+   |       |                       |--- media
+   |       |                       |--- metadata
+   |       |                       |--- custom_field_values --- custom_fields
+   |       |
+   |       |--- content_tags --- tags
+   |       |
+   |       |--- content_analytics
+   |
+   |--- subscriptions --- plans
+   |                   |
+   |                   |--- payments
+   |
+   |--- user_activity

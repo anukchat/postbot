@@ -1,5 +1,7 @@
 export interface Post {
   id: string;
+  source_identifier: string
+  thread_id: string;  // Add thread_id
   title: string;
   content: string;
   status: string;

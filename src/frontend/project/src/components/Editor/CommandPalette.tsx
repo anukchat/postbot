@@ -48,7 +48,7 @@ export const getCommands = (currentPost: any): SlashCommand[] => [
         title: 'Image',
         description: 'Insert an image',
         icon: <Image className="w-4 h-4" />,
-        action: () => currentPost?.media?.[0]?.original_url
+        action: () => currentPost?.media?.[0]?.original_url && currentPost?.media?.[0].type === 'photo'
             ? `![](${currentPost.media[0].original_url})\n`
             : '![]()\n',
     },
@@ -134,7 +134,7 @@ export const getCommands = (currentPost: any): SlashCommand[] => [
         description: 'Insert a video embed',
         icon: <Video className="w-4 h-4" />,
         action: () =>
-            currentPost?.media?.[0].original_url
+            currentPost?.media?.[0].original_url && currentPost?.media?.[0].type === 'video'
                 ? `<video src="${currentPost.media[0].original_url}" controls></video>\n`
                 : '<video src="PASTE_VIDEO_URL_HERE" controls></video>\n',
     },

@@ -1,5 +1,7 @@
+from datetime import datetime
 import os
 import sys
+import uuid
 import pandas as pd
 import requests
 import logging
@@ -13,8 +15,11 @@ import mimetypes
 import magic
 import time
 from bs4 import BeautifulSoup 
-from utils import *
-from db.sql import store_tweet_data
+from src.utils import *
+from src.db.sql import store_tweet_data
+from src.db.supabaseclient import supabase_client
+
+
 
 # Configure logging
 logging.basicConfig(
@@ -35,6 +40,8 @@ class TweetMetadataCollector:
         Args:
             output_base_dir (str): Base directory for storing collected data
         """
+
+        self.supabase = supabase_client()
         # Create base output directories
         self.base_dir = Path(output_base_dir)
         self.dirs= {
@@ -565,9 +572,9 @@ class TweetMetadataCollector:
         # Extract and process URLs
         urls = self.extract_urls(tweet_row['full_text'])
         tweet_metadata['urls'] = [
-            self.download_url_content(url, str(tweet_row['id']),index) 
-            for index, url in enumerate(urls)
-            if self.download_url_content(url,str(tweet_row['id']), index)
+            self.get_url_meta(url) 
+            for i,url in enumerate(urls)
+            if self.get_url_meta(url)
         ]
         
         # Process Media
@@ -575,7 +582,94 @@ class TweetMetadataCollector:
         tweet_metadata['media']=self.process_media_without_saving(str(tweet_row['id']),tweet_row['media'])
         
         return tweet_metadata
+    
+    def get_url_meta(self, url):
+        # Validate URL before processing
+        if not url:
+            logger.warning(f"Empty URL ")
+            return None
+        
+        try:
+            # Additional URL validation
+            parsed_url = urllib.parse.urlparse(url)
+            if not parsed_url.scheme or not parsed_url.netloc:
+                logger.warning(f"Invalid URL structure: {url}")
+                return None
+            
+            
+            # Custom headers to handle different content types
+            headers = self.headers.copy()
+            headers.update({
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Referer': parsed_url.scheme + '://' + parsed_url.netloc
+            })
+            
+            # Download content with enhanced error handling
+            try:
+                response = requests.get(
+                    url, 
+                    headers=headers, 
+                    timeout=15, 
+                    allow_redirects=True,
+                    stream=True
+                )
+                
+                # Raise exception for bad status codes
+                response.raise_for_status()
+                
+                # Detect content type
+                content_type = response.headers.get('Content-Type', '').lower()
 
+                # Read content for type detection
+                content = response.content
+                # Check if content is a redirect HTML response
+                if 'html' in content_type:
+                    soup = BeautifulSoup(content, 'html.parser')
+                    redirect_url = soup.find('meta', attrs={'http-equiv': 'refresh'})
+                    if redirect_url:
+                        redirect_url = redirect_url.get('content').split('URL=')[1]
+                        # Check if the redirected URL is to Twitter
+                        if 'twitter.com' in redirect_url:
+                            logger.info(f"Redirect to Twitter detected for {url}, ignoring.")
+                            return None
+                    else:
+                        logger.info(f"No reference to external content for {url}, ignoring.")
+                        return None
+
+                url = redirect_url
+                response = requests.get(
+                    url, 
+                    headers=headers, 
+                    timeout=15, 
+                    allow_redirects=True,
+                    stream=True
+                )
+
+                response.raise_for_status()
+
+                #detect url_type
+                url_type = self.classify_url(redirect_url)
+
+                content_type = response.headers.get('Content-Type', '').lower()
+                
+                return {
+                    'original_url': url,
+                    'type': url_type['type'],
+                    'domain': url_type['domain'],
+                    'content_type': content_type,
+                    'file_category': url_type['category'],
+                    'downloaded_at': time.strftime('%Y-%m-%d %H:%M:%S')
+                }
+            
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Download error for {url}: {e}")
+                return None
+        
+        except Exception as e:
+            logger.error(f"Unexpected error processing {url}: {e}")
+            return None
+        
     def process_tweet_collection(self, tweets_df):
         """
         Process entire tweet collection and generate comprehensive metadata
@@ -728,3 +822,144 @@ class TweetMetadataCollector:
                 'path': '',
                 'category': 'error'
             }
+
+    def collect_tweets_batch(self, tweets_df):
+        """
+        Collect and process a batch of tweets
+        
+        Args:
+            tweets_df (pd.DataFrame): DataFrame of tweets
+        
+        Returns:
+            list: List of processed tweet metadata
+        """
+        processed_tweets = []
+        
+        for _, tweet_row in tweets_df.iterrows():
+            try:
+                tweet_metadata = self.extract_tweet_metadata(tweet_row)
+                processed_tweets.append(tweet_metadata)
+                
+                logger.info(f"Processed tweet: {tweet_metadata['tweet_id']}")
+
+                
+            
+            except Exception as e:
+                logger.error(f"Error processing tweet {tweet_row['id']}: {e}")
+        
+        return processed_tweets
+    
+    def process_tweets_batch(self, processed_tweets):
+        """
+        Process a batch of tweets and save comprehensive metadata
+        
+        Args:
+            processed_tweets (list): List of processed tweet metadata
+        
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        # Function to get source_type_id by name
+        def get_source_type_id(source_type_name):
+            result = self.supabase.table('source_types').select('source_type_id').eq('name', source_type_name).execute()
+            if result.data:
+                return result.data[0]['source_type_id']
+            else:
+                raise ValueError(f"Source type '{source_type_name}' not found in source_types table.")
+
+
+        # Insert data into Supabase tables
+        try:
+            # Get source_type_id for 'twitter'
+            source_type_id = get_source_type_id('twitter')
+            batch_id = str(uuid.uuid4())
+            for tweet in processed_tweets:
+                # Insert into sources table
+                source_id = str(uuid.uuid4())
+                self.supabase.table('sources').insert({
+                    "source_id": source_id,
+                    "source_type_id": source_type_id,  # Use source_type_id instead of type
+                    "source_identifier": tweet["tweet_id"],
+                    "batch_id": batch_id,
+                    "created_at": datetime.now().isoformat(),
+                    "updated_at": datetime.now().isoformat()
+                }).execute()
+
+                # Insert into metadata table (full_text as metadata)
+                self.supabase.table('source_metadata').insert({
+                    "metadata_id": str(uuid.uuid4()),
+                    "source_id": source_id,
+                    "key": "full_text",
+                    "value": tweet["full_text"],
+                    "created_at": datetime.now().isoformat()
+                }).execute()
+
+                # Insert into url_references table
+                for url in tweet["urls"]:
+                    self.supabase.table('url_references').insert({
+                        "url_reference_id": str(uuid.uuid4()),
+                        "source_id": source_id,
+                        "url": url["original_url"],
+                        "type": url["type"],
+                        "domain": url["domain"],
+                        "content_type": url["content_type"],
+                        "file_category": url["file_category"],
+                        "created_at": datetime.now().isoformat()
+                    }).execute()
+
+                # Insert into media table
+                for media in tweet["media"]:
+                    supabase_client.table('media').insert({
+                        "media_id": str(uuid.uuid4()),
+                        "source_id": source_id,
+                        "media_url": media["original_url"],
+                        "media_type": media["type"],
+                        "created_at": datetime.now().isoformat()
+                    }).execute()
+
+            print("Data inserted successfully!")
+        except Exception as e:
+            print(f"Error inserting data: {e}")
+
+
+if __name__ == "__main__":
+    # Create data and output directories if they don't exist
+    Path('data').mkdir(exist_ok=True)
+    Path('tweet_collection').mkdir(exist_ok=True)
+    
+    # Find the most recent Twitter Bookmarks CSV
+    try:
+        csv_files = list(Path('data').glob('twitter-Bookmarks-*.csv'))
+        
+        if not csv_files:
+            logger.error("No Twitter Bookmarks CSV files found in 'data/' directory.")
+            print("Error: Please place your Twitter Bookmarks CSV in the 'data/' directory.")
+            print("Filename should start with 'twitter-Bookmarks-'")
+            sys.exit(1)
+        
+        # Select the most recent CSV file
+        csv_path = max(csv_files, key=os.path.getctime)
+        logger.info(f"Processing CSV file: {csv_path}")
+
+    except Exception as e:
+        logger.error(f"Error finding CSV file: {e}")
+        sys.exit(1)
+    
+    try:
+        # Read tweet data
+        tweets_df = pd.read_csv(csv_path)
+        
+        # Initialize metadata collector
+        collector = TweetMetadataCollector()
+        
+        # Process tweets
+        processed_tweets = collector.collect_tweets_batch(tweets_df)
+        collector.process_tweets_batch(processed_tweets)
+        
+        # Print summary
+        print(f"Processed {len(processed_tweets)} tweets")
+    
+    except Exception as e:
+        logger.error(f"Unexpected error in main execution: {e}")
+        print(f"Error: {e}")
+        sys.exit(1)

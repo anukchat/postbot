@@ -1,18 +1,5 @@
-1. Improve Blog Writing
-    1. Use planner node
-    2. Generate sections
-    3. generate final
-
-2. Enhance for multiple social network
-    1. Blog post
-    2. Twitter post
-    3. Linkedin posts
-
-3. Enhance to support generation given a 1 or more urls
-4. Enhance to support blog post generation for trending topics
-5. Enhance to support human in the the loop for blog generation
-6. Enhance to support web search, scrape based blog generation
-7. Enhance to support style selction by user
-8. Enhance to support source configuration by user for blog generation
-9. Enhance to support publishing calendar and integration with social network
-10. Add authentication in UI
+TODO Tasks
+1. Filter out invalid images to save in database
+2. Search tweet or web_url fixes, given a source_identifier, if it is of type twitter, 
+search in metadata text
+If web_url, search 

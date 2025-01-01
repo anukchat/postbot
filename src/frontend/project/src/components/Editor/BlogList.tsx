@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Post } from '../../types';
 import { useEditorStore } from '../../store/editorStore';
 
@@ -7,7 +7,7 @@ interface BlogListProps {
   onSelect: (post: Post) => void;
 }
 
-export const BlogList: React.FC<BlogListProps> = ({ blogs, onSelect }) => {
+export const BlogList: React.FC<BlogListProps> = memo(({ blogs, onSelect }) => {
 
     console.log("Posts in BlogList:", blogs); // Add this for debugging
 
@@ -27,4 +27,4 @@ export const BlogList: React.FC<BlogListProps> = ({ blogs, onSelect }) => {
       ))}
     </div>
   );
-}; 
+});

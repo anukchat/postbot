@@ -23,59 +23,69 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
       id: 'h1',
       title: 'Heading 1',
       action: () => '# ',
+      description: ''
     },
     {
       id: 'h2',
       title: 'Heading 2',
       action: () => '## ',
+      description: ''
     },
     {
       id: 'twitter',
       title: 'Twitter Embed',
       icon: <Twitter className="w-4 h-4" />,
       action: () => '{{< twitter id="PASTE_TWEET_ID_HERE" >}}\n',
+      description: ''
     },
     {
       id: 'image',
       title: 'Image',
       icon: <Image className="w-4 h-4" />,
       action: () => '![]()\n',
+      description: ''
     },
     {
       id: 'video',
       title: 'Video',
       icon: <Video className="w-4 h-4" />,
       action: () => '{{< video src="" >}}\n',
+      description: ''
     },
     {
       id: 'link',
       title: 'Link',
       icon: <Link className="w-4 h-4" />,
       action: () => '[]()',
+      description: ''
     },
     {
       id: 'quote',
       title: 'Quote',
       icon: <Quote className="w-4 h-4" />,
       action: () => '> ',
+      description: ''
     },
     {
       id: 'ol',
       title: 'Ordered List',
       icon: <ListOrdered className="w-4 h-4" />,
       action: () => '1. ',
+      description: ''
     },
     {
       id: 'ul',
       title: 'Unordered List',
       icon: <List className="w-4 h-4" />,
       action: () => '- ',
+      description: ''
     },
     {
       id: 'tags',
       title: 'Tags',
       icon: <Hash className="w-4 h-4" />,
       action: () => 'tags: []',
+      description: ''
     },
   ];
 

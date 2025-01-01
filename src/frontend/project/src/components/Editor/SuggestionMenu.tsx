@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, memo } from 'react';
 import { SlashCommand } from '../../types';
 
 interface SuggestionMenuProps {
@@ -8,7 +8,7 @@ interface SuggestionMenuProps {
     onClose: () => void;
 }
 
-export const SuggestionMenu: React.FC<SuggestionMenuProps> = ({
+export const SuggestionMenu: React.FC<SuggestionMenuProps> = memo(({
     commands,
     position,
     onSelect,
@@ -62,4 +62,4 @@ export const SuggestionMenu: React.FC<SuggestionMenuProps> = ({
             ))}
         </div>
     );
-};
+});

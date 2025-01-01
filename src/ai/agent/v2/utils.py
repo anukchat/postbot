@@ -24,7 +24,7 @@ def get_reference_content(tweet):
                 media_markdown += f"![]({media['original_url']})\n\n"
             if media["type"] == "video":
                 media_markdown += (
-                    f"<video src={media['final_url']} controls></video>\n\n"
+                    f"<video src=\"{media['final_url']}\" controls/>\n\n"
                 )
     
     return reference_content, reference_link, media_markdown

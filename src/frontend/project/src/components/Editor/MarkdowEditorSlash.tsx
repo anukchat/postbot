@@ -150,11 +150,11 @@ export const MarkdownEditor: React.FC = () => {
             switch (e.key) {
                 case 'z':
                     e.preventDefault();
-                    undo();
+                    undo('content');
                     break;
                 case 'y':
                     e.preventDefault();
-                    redo();
+                    redo('content');
                     break;
             }
         }
@@ -187,7 +187,7 @@ export const MarkdownEditor: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full" ref={containerRef}>
-      <Toolbar onCommandInsert={handleCommandInsert} />
+      <Toolbar onCommandInsert={handleCommandInsert} selectedTab={'blog'} />
       <div className="flex-1 relative overflow-auto">
         <PanelGroup direction="horizontal">
           <Panel defaultSize={50}>
