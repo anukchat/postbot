@@ -9,7 +9,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { session } = useAuth();
 
   if (!session) {
-    return <Navigate to="/signin" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;

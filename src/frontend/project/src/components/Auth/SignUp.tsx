@@ -17,7 +17,7 @@ const SignUp: React.FC = () => {
     setError(null);
     try {
       await signUp(email, password);
-      navigate('/signin');
+      navigate('/login');
       setError('Please check your email to confirm your account');
     } catch (err) {
       setError('Failed to create account');

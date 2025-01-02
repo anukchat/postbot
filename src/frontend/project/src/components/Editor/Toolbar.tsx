@@ -22,6 +22,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onCommandInsert, selectedTab }
   const { currentPost, undo, redo, generatePost, fetchContentByThreadId } = useEditorStore();
 
   const getTwitterEmbed = () => {
+    if (currentPost?.source_type === 'twitter' && currentPost?.source_identifier) {
+      return `{{< twitter id="${currentPost.source_identifier}" >}}\n`;
+    }
     return currentPost?.tweet?.tweet_id
       ? `{{< twitter id="${currentPost.tweet.tweet_id}" >}}\n`
       : '{{< twitter id="PASTE_TWEET_ID_HERE" >}}\n';
@@ -90,25 +93,35 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onCommandInsert, selectedTab }
   };
 
   const handleUrlSelect = (url: Url) => {
-    const insertText = `[${url.title || url.url}](${url.url})`;
+    const insertText = `[${url.url}](${url.url})`;
     onCommandInsert(insertText, 0);
     setShowUrlPicker(false);
   };
 
   const mediaButtons = (
     <div className="flex gap-2">
-      <Tippy content="Insert Image">
+      <Tippy content={currentPost?.media?.some(m => m.type === 'image') ? "Choose Image" : "Insert Blank Image"}>
         <button onClick={() => {
-          setMediaType('image');
-          setShowMediaPicker(true);
+          const hasImages = currentPost?.media?.some(m => m.type === 'image');
+          if (!hasImages) {
+            onCommandInsert('![]()\n', 0);
+          } else {
+            setMediaType('image');
+            setShowMediaPicker(true);
+          }
         }}>
           <Image className={`w-5 h-5 ${iconColor(!!currentPost?.media?.some(m => m.type === 'image'))}`} />
         </button>
       </Tippy>
-      <Tippy content="Insert Video">
+      <Tippy content={currentPost?.media?.some(m => m.type === 'video') ? "Choose Video" : "Insert Blank Video"}>
         <button onClick={() => {
-          setMediaType('video');
-          setShowMediaPicker(true);
+          const hasVideos = currentPost?.media?.some(m => m.type === 'video');
+          if (!hasVideos) {
+            onCommandInsert('<video src="PASTE_VIDEO_URL_HERE" controls></video>\n', 0);
+          } else {
+            setMediaType('video');
+            setShowMediaPicker(true);
+          }
         }}>
           <Video className={`w-5 h-5 ${iconColor(!!currentPost?.media?.some(m => m.type === 'video'))}`} />
         </button>
@@ -130,8 +143,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onCommandInsert, selectedTab }
         <Tippy content="Bold"><button onClick={() => onCommandInsert('**', 0)}><Bold className="w-4 h-4" /></button></Tippy>
         <Tippy content="Italic"><button onClick={() => onCommandInsert('*', 0)}><Italic className="w-4 h-4" /></button></Tippy>
         <Tippy content="Strikethrough"><button onClick={() => onCommandInsert('~~', 0)}><Strikethrough className="w-4 h-4" /></button></Tippy>
-        <Tippy content="Twitter Embed"><button onClick={() => onCommandInsert(getTwitterEmbed(), 0)}><Twitter className={`w-5 h-5 ${iconColor(!!currentPost?.tweet?.tweet_id)}`} /></button></Tippy>
-        <Tippy content="Image"><button onClick={() => onCommandInsert(getImageEmbed(), 0)}><Image className={`w-5 h-5 ${iconColor(!!currentPost?.media?.[0]?.type && ['photo', 'image'].includes(currentPost.media[0].type))}`} /></button></Tippy>
+        <Tippy content="Twitter Embed"><button onClick={() => onCommandInsert(getTwitterEmbed(), 0)}><Twitter className={`w-5 h-5 ${iconColor(currentPost?.source_type === 'twitter')}`} /></button></Tippy>
         <Tippy content="Link"><button onClick={() => setShowUrlPicker(true)}><Link className={`w-5 h-5 ${iconColor(!!currentPost?.urls?.length)}`} /></button></Tippy>
         <Tippy content="Quote"><button onClick={() => onCommandInsert('> ', 0)}><Quote className="w-4 h-4" /></button></Tippy>
         <Tippy content="Code Block"><button onClick={() => onCommandInsert('```\n\n```', 0)}><Code className="w-5 h-5" /></button></Tippy>
@@ -142,7 +154,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onCommandInsert, selectedTab }
         <Tippy content="Unordered List"><button onClick={() => onCommandInsert('- ', 0)}><List className="w-5 h-5" /></button></Tippy>
         <Tippy content="Horizontal Rule"><button onClick={() => onCommandInsert('---\n', 0)}><FileText className="w-5 h-5" /></button></Tippy>
         <Tippy content="Tags"><button onClick={() => onCommandInsert(getTags(), 0)}><Hash className={`w-5 h-5 ${iconColor(!!currentPost?.tags?.length)}`} /></button></Tippy>
-        <Tippy content="Video"><button onClick={() => onCommandInsert(getVideoEmbed(), 0)}><Video className={`w-5 h-5 ${iconColor(currentPost?.media?.[0]?.type === 'video')}`} /></button></Tippy>
+        {/* <Tippy content="Video"><button onClick={() => onCommandInsert(getVideoEmbed(), 0)}><Video className={`w-5 h-5 ${iconColor(currentPost?.media?.[0]?.type === 'video')}`} /></button></Tippy> */}
         <Tippy content="Blog metadata"><button onClick={() => onCommandInsert(getBlogMetadata(), 0)}><Tags className="w-5 h-5 text-green-500" /></button></Tippy>
         {mediaButtons}
         {selectedTab !== 'blog' && (
@@ -154,7 +166,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onCommandInsert, selectedTab }
                 isGenerateDisabled || isGenerating ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
-              <Rocket className={`w-4 h-4 ${isGenerating ? 'animate-bounce' : ''}`} />
+              <Rocket className={`w-5 h-5 ${isGenerating ? 'animate-bounce' : ''}`} />
             </button>
           </Tippy>
         )}

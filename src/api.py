@@ -656,10 +656,11 @@ def filter_sources(
     limit: int = 10, 
     user: dict = Depends(get_current_user)
 ):
-    # First, build the base query without pagination
+    # Build base query with blog content information
     base_query = (
         supabase.table("sources")
-        .select("*, source_types(source_type_id,name)")
+        .select("*,source_types(source_type_id,name),content_sources(content:content_id(content_id,title,thread_id,content_types(name)))")
+        .order("created_at", desc=True)
     )
     
     # Apply filters
@@ -679,51 +680,42 @@ def filter_sources(
     if source_identifier:
         base_query = base_query.ilike("source_identifier", f"%{source_identifier}%")
     
-    # Get total count first
+    # Get total count and paginated data
     count_response = base_query.execute()
     total_count = len(count_response.data)
-    
-    # Then get paginated data
     paginated_response = base_query.range(skip, skip + limit - 1).execute()
     
-    # Transform the response
+    # Transform the response to include blog information
     transformed_data = []
     for item in paginated_response.data:
         source_type_name = item["source_types"]["name"] if item.get("source_types") else None
-        item["source_type"] = source_type_name
-        del item["source_types"]
-        transformed_data.append(item)
+        
+        # Check if blog content exists and get thread_id
+        has_blog = False
+        thread_id = None
+        for content in item.get("content_sources", []):
+            if content.get("content") and content["content"].get("content_types", {}).get("name") == "blog":
+                has_blog = True
+                thread_id = content["content"].get("thread_id")
+                break
+
+        transformed_item = {
+            **item,
+            "source_type": source_type_name,
+            "has_blog": has_blog,
+            "thread_id": thread_id
+        }
+        del transformed_item["source_types"]
+        del transformed_item["content_sources"]
+        
+        transformed_data.append(transformed_item)
         
     return SourceListResponse(
         items=transformed_data,
-        total=total_count,  # Use the actual total count
+        total=total_count,
         page=skip // limit + 1,
         size=limit
     )
-
-@app.put("/sources/{source_id}", response_model=Source, tags=["sources"])
-def update_source(source_id: UUID, source: SourceUpdate, user: dict = Depends(get_current_user)):
-    response = supabase.table("sources").update(source.dict()).eq("source_id", source_id).execute()
-    if not response.data:
-        raise HTTPException(status_code=404, detail="Source not found")
-    return response.data[0]
-
-@app.delete("/sources/{source_id}", tags=["sources"])
-def delete_source(source_id: UUID, user: dict = Depends(get_current_user)):
-    response = supabase.table("sources").delete().eq("source_id", source_id).execute()
-    if not response.data:
-        raise HTTPException(status_code=404, detail="Source not found")
-    return {"message": "Source deleted"}
-
-@app.get("/sources/", tags=["sources"])
-def filter_sources(type: Optional[str] = None, source_identifier: Optional[str] = None, skip: int = 0, limit: int = 10, user: dict = Depends(get_current_user)):
-    query = supabase.table("sources").select("*").range(skip, skip + limit - 1)
-    if type:
-        query = query.eq("type", type)
-    if source_identifier:
-        query = query.ilike("source_identifier", f"%{source_identifier}%")
-    response = query.execute()
-    return response.data
 
 @app.get("/content/thread/{thread_id}", response_model=ContentListItem, tags=["content"])
 async def get_content_by_thread(

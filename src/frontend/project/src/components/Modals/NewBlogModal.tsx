@@ -8,6 +8,9 @@ import Masonry from 'react-masonry-css';
 import api from '../../services/api';
 import { Source } from '../../types';
 import { LinkPreview as CustomLinkPreview } from '../Editor/LinkPreview';
+import { useNavigate } from 'react-router-dom'; // Replace useRouter
+import { SourceCard } from '../Sources/SourceCard';
+import { GenerateLoader } from '../Editor/GenerateLoader';
 
 const LOADING_MESSAGES = {
   blog: [
@@ -37,11 +40,14 @@ const MASONRY_BREAKPOINTS = {
 
 interface SourceData {
   id: string;
+  source_id: string;  // Make this required
   source_identifier: string;
   type: 'twitter' | 'web_url';
+  source_type?: string;  // Add this field
   metadata?: any;
   created_at: string;
-  source_id: string;
+  has_blog: boolean; // Add this field
+  thread_id?: string; // Add this field
 }
 
 type SourceType = 'twitter' | 'web';
@@ -63,6 +69,10 @@ interface CustomUrlForm {
   isValid: boolean;
 }
 
+interface SourceBlogMap {
+  [source_id: string]: string;  // Map of source_id to blog_id
+}
+
 export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) => {
   const [selectedSource, setSelectedSource] = useState<SourceType | null>(null);
   const [selectedIdentifier, setSelectedIdentifier] = useState(''); // Change this to store the unique ID
@@ -78,6 +88,9 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
   const [customUrl, setCustomUrl] = useState<CustomUrlForm>({ url: '', isValid: false });
   const [isCustomUrl, setIsCustomUrl] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
+  const [sourceBlogs, setSourceBlogs] = useState<SourceBlogMap>({});
+  const navigate = useNavigate(); // Replace router
+  const [isGenerating, setIsGenerating] = useState(false); // Add new state for generation
 
   const fetchSources = async () => {
     if (!selectedSource) return;
@@ -92,23 +105,32 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
       };
 
       const response = await api.get<SourceListResponse>('/sources', { params });
-      // Assign source_id to id for unique keys
-      // response.data.items = response.data.items.map(item => ({
-      //   ...item,
-      //   source_id: item.source_id
-      // }));
-
 
       if (response.data) {
         const sourcesWithPreviews = await Promise.all(
           response.data.items.map(async (source) => {
+            // Ensure all required fields are present
+            const sourceData: SourceData = {
+              id: source.source_id,
+              source_id: source.source_id,
+              source_identifier: source.source_identifier,
+              type: source.type,
+              created_at: source.created_at,
+              metadata: source.metadata,
+              has_blog: source.has_blog,
+              thread_id: source.thread_id
+            };
+
             if (source.type === 'web_url') {
               const previewResponse = await api.get('/api/link-preview', {
                 params: { url: source.source_identifier }
               });
-              return { ...source, id: source.source_id, preview: previewResponse.data.data };
+              return { 
+                ...sourceData, 
+                preview: previewResponse.data.data 
+              };
             }
-            return { ...source, id: source.source_id };
+            return sourceData;
           })
         );
         setSources(sourcesWithPreviews);
@@ -175,7 +197,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
         setError('Please enter a valid URL');
         return;
       }
-      setIsLoading(true);
+      setIsGenerating(true); // Use generating state instead of loading
       try {
         const payload = {
           post_types: ["blog"],
@@ -188,7 +210,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
         console.error('Failed to generate blog:', err);
         setError('Failed to generate blog');
       } finally {
-        setIsLoading(false);
+        setIsGenerating(false);
       }
       return;
     }
@@ -198,26 +220,41 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
       return;
     }
 
-    const selectedSource = sources.find(source => getUniqueId(source) === selectedIdentifier);
-    if (!selectedSource) {
+    // Find the selected source data from sources array
+    const sourceData = sources.find(source => getUniqueId(source) === selectedIdentifier);
+    if (!sourceData) {
       setError('Selected source not found');
       return;
     }
 
-    setIsLoading(true);
+    setIsGenerating(true); // Use generating state instead of loading
+    
     try {
       const payload = {
-        post_types: ["blog"],
-        url: selectedSource.source_identifier
+      post_types: ["blog"],
+      [selectedSource === 'twitter' ? 'tweet_id' : 'url']: sourceData.source_identifier
       };
-      await api.post('/content/generate', payload);
-      await fetchPosts({}); // Refresh the posts list
+      
+      console.log('Generate payload:', payload);
+      const response = await api.post('/content/generate', payload);
+      
+      // Wait longer to ensure backend processing is complete
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Force refresh posts with no cache
+      await fetchPosts({ 
+      forceRefresh: true,
+      timestamp: new Date().getTime()
+      
+      })
       onClose();
+      ;
+      
     } catch (err) {
       console.error('Failed to generate blog:', err);
       setError('Failed to generate blog');
     } finally {
-      setIsLoading(false);
+      setIsGenerating(false);
     }
   };
 
@@ -237,14 +274,15 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
     setCurrentPage(prev => prev + 1);
   };
 
+  // Update renderSourceContent to handle source_id
   const renderSourceContent = (source: Source) => {
     if (selectedSource === 'twitter') {
       return (
-      <div className="flex justify-center">
-        <div className="w-[550px] max-w-full">
-          <Tweet id={source.source_identifier} />
+        <div className="flex justify-center p-4">
+          <div className="w-full max-w-[450px]"> {/* Reduced from 550px */}
+            <Tweet id={source.source_identifier} />
+          </div>
         </div>
-      </div>
       );
     }
 
@@ -255,10 +293,9 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
             url={{
               url: source.source_identifier,
               type: 'web_url',
-              domain: new URL(source.source_identifier).hostname,
-              original_url: source.source_identifier
+              domain: new URL(source.source_identifier).hostname
             }}
-            onSelect={() => setSelectedIdentifier(source.source_identifier)}
+            onSelect={() => setSelectedIdentifier(getUniqueId(source))}
           />
         </div>
       </div>
@@ -411,7 +448,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
         </div>
       </div>
       <div className="max-h-[60vh] overflow-y-auto px-4 py-2">
-        {isLoading ? (
+        {isLoading && !isGenerating ? ( // Only show normal loader when not generating
           <div className="flex justify-center py-8">
             <Loader className="h-6 w-6 animate-spin text-blue-500" />
           </div>
@@ -420,37 +457,39 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
             {isGridView ? (
               <Masonry
                 breakpointCols={MASONRY_BREAKPOINTS}
-                className="flex w-auto gap-4"
-                columnClassName="masonry-column"
+                className="flex w-auto -ml-4" // Add negative margin to offset column gap
+                columnClassName="pl-4" // Add padding to create gap between columns
               >
                 {sources.map((source) => (
-                  <div
+                  <SourceCard
                     key={getUniqueId(source)}
-                    onClick={() => setSelectedIdentifier(getUniqueId(source))}
-                    className={`mb-4 cursor-pointer transition-all ${
-                      selectedIdentifier === getUniqueId(source)
-                        ? 'ring-2 ring-blue-500' 
-                        : 'hover:ring-1 hover:ring-blue-300'
-                    }`}
+                    source={source}
+                    isSelected={selectedIdentifier === getUniqueId(source)}
+                    onSelect={() => setSelectedIdentifier(getUniqueId(source))}
+                    hasExistingBlog={source.has_blog} // Use the has_blog property from the API
+                    existingBlogId={source.thread_id} // Use thread_id from the API
+                    onViewBlog={handleViewBlog}
+                    className="mb-4"  // Add bottom margin for vertical spacing
                   >
                     {renderSourceContent(source)}
-                  </div>
+                  </SourceCard>
                 ))}
               </Masonry>
             ) : (
               <div className="flex flex-col gap-4">
                 {sources.map((source) => (
-                  <div
+                  <SourceCard
                     key={getUniqueId(source)}
-                    onClick={() => setSelectedIdentifier(getUniqueId(source))}
-                    className={`cursor-pointer transition-all ${
-                      selectedIdentifier === getUniqueId(source)
-                        ? 'ring-2 ring-blue-500' 
-                        : 'hover:ring-1 hover:ring-blue-300'
-                    }`}
+                    source={source}
+                    isSelected={selectedIdentifier === getUniqueId(source)}
+                    onSelect={() => setSelectedIdentifier(getUniqueId(source))}
+                    hasExistingBlog={Boolean(source.has_blog)}
+                    existingBlogId={source.thread_id}
+                    onViewBlog={handleViewBlog}
+                    className="mb-4"
                   >
                     {renderSourceContent(source)}
-                  </div>
+                  </SourceCard>
                 ))}
               </div>
             )}
@@ -465,23 +504,21 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
     </div>
   );
 
-  const renderLoadingState = () => (
-    <div className="flex items-center gap-2">
-      <Loader className="h-4 w-4 animate-spin" />
-      <span>{loadingMessage || 'Generating...'}</span>
-    </div>
-  );
+  // Add handler for viewing blog
+  const handleViewBlog = (blogId: string) => {
+    navigate(`/editor/${blogId}`);
+    onClose();
+  };
 
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">
       {/* Dark overlay */}
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" aria-hidden="true" />
 
-      {/* Full-screen scrollable container */}
-      <div className="fixed inset-0 overflow-y-auto">
-        {/* Container to center the panel */}
+      {/* Update container z-index */}
+      <div className="fixed inset-0 overflow-y-auto z-[50]">
         <div className="flex min-h-full items-center justify-center p-4">
-          <Dialog.Panel className="w-full max-w-4xl rounded-xl bg-white dark:bg-gray-800 shadow-xl transition-all">
+          <Dialog.Panel className="w-full max-w-4xl rounded-xl bg-white dark:bg-gray-800 shadow-xl transition-all relative">
             {/* Modal header */}
             <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
               <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -522,13 +559,16 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
                   disabled={isLoading || (!selectedIdentifier && !customUrl.isValid)}
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  {isLoading ? renderLoadingState() : 'Generate Blog'}
+                  Generate Blog
                 </button>
               </div>
             )}
           </Dialog.Panel>
         </div>
       </div>
+      {isGenerating && (
+        <GenerateLoader platform={'blog'} />
+      )}
     </Dialog>
   );
 };

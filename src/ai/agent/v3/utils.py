@@ -21,36 +21,43 @@ def process_url_content(url_meta):
     else:
         return url_meta["content"]
 
-def get_reference_content(tweet):
+def get_tweet_reference_content(tweet_urls):
         
     reference_content=""
     reference_link=""
     media_markdown = ""
     # Process URLs
-    for url in tweet["urls"]:
-        if url["type"]=="html":
-            response = requests.get(url['url'])
-            if response.status_code == 200:
-                url['content'] = response.text
-            else:
-                url['content'] = "" 
-        else:    
-            url['content'] = ""
+    if tweet_urls:
+        for url in tweet_urls:
+            if url["type"]=="html":
+                response = requests.get(url['url'])
+                if response.status_code == 200:
+                    url['content'] = response.text
+                else:
+                    url['content'] = "" 
+            else:    
+                url['content'] = ""
+                
+            reference_content += process_url_content(url)
+            reference_link += url["url"]
             
         reference_content += process_url_content(url)
         reference_link += url["url"]
-                
-    # media_markdown = ""
-    if tweet.get("media"):
-        for media in tweet["media"]:
+
+    return reference_content, reference_link
+        
+
+def get_tweet_media(media_list):
+    media_markdown = ""
+    if media_list:
+        for media in media_list:
             if media["media_type"] in ["photo","image"]:
                 media_markdown += f"![]({media['media_url']})\n\n"
             if media["media_type"] == "video":
                 media_markdown += (
                     f"<video src=\"{media['media_url']}\" controls/>\n\n"
                 )
-    
-    return reference_content, reference_link, media_markdown
+    return media_markdown
 
 def get_media_content_url(media_meta):
     

@@ -16,7 +16,7 @@
 
 /* Masonry Grid Styles */
 .masonry-column {
-  padding-left: 0 !important;  /* Overrides default padding */
+  padding-left: 1rem !important;  /* 16px gap between columns */
   background-clip: padding-box;
 }
 
@@ -69,4 +69,16 @@
 .link-preview-card:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Tweet card styles */
+.tweet-card {
+  margin-bottom: 1rem;  /* 16px gap between rows */
+  background-color: white;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.dark .tweet-card {
+  background-color: #1f2937;
 }

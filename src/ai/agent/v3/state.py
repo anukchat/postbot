@@ -24,7 +24,6 @@ class BlogState:
     linkedin_post: Optional[str] = field(default=None)
     tags: Optional[List[str]] = field(default=None)
     feedback: Optional[str] = field(default=None)
-    tweet: Optional[Dict] = field(default_factory=dict)
     input_url: Optional[str] = field(default=None)
     input_content: Optional[str] = field(default=None)
     urls: Optional[List[str]] = field(default_factory=list)
@@ -37,7 +36,6 @@ class BlogState:
 
 @dataclass
 class BlogStateInput:
-    tweet: Optional[Dict] = field(default_factory=dict)
     input_url: Optional[str] = field(default=None)
     input_content: Optional[str] = field(default=None)
     post_types: List[str] = field(default_factory=list)
@@ -60,7 +58,6 @@ class BlogStateOutput:
 @dataclass
 class SectionState:
     section: Section
-    tweet: Optional[Dict] = field(default_factory=dict)
     input_url: Optional[str] = field(default=None)
     input_content: Optional[str] = field(default=None)
     urls: Optional[List[str]] = field(default_factory=list)

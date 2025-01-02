@@ -20,7 +20,7 @@ const funnyMessages = [
 ];
 
 interface GenerateLoaderProps {
-  platform: 'twitter' | 'linkedin';
+  platform: 'twitter' | 'linkedin' | 'blog';
 }
 
 export const GenerateLoader: React.FC<GenerateLoaderProps> = ({ platform }) => {
@@ -42,7 +42,7 @@ export const GenerateLoader: React.FC<GenerateLoaderProps> = ({ platform }) => {
           <BrainCircuit className="w-12 h-12 text-blue-500 animate-pulse" />
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Generating {platform === 'twitter' ? 'Tweet' : 'LinkedIn Post'}
+            Generating {platform === 'twitter' ? 'Tweet' :  platform=='blog'? 'Blog': 'LinkedIn Post'}
           </h3>
           <p className="text-gray-500 dark:text-gray-300 text-center animate-fade-in">
             {message}

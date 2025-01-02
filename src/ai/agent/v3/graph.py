@@ -14,7 +14,6 @@ from src.ai.agent.v3.state import Sections, BlogState, BlogStateInput, BlogState
 from src.ai.agent.v3.prompts import blog_planner_instructions, main_body_section_writer_instructions, intro_conclusion_instructions, linkedin_post_instructions, twitter_post_instructions, tags_generator
 from src.ai.agent.v3 import configuration
 from src.ai.service import get_gemini
-from src.ai.agent.v3.utils import get_reference_content
 import json
 import re
 import ast
@@ -116,7 +115,6 @@ class AgentWorkflow:
         return [
             Send("write_section", SectionState(
                 section=s,
-                tweet=state.tweet,
                 input_url=state.input_url,
                 input_content=state.input_content,
                 media_markdown=state.media_markdown,
@@ -137,7 +135,6 @@ class AgentWorkflow:
         """ This is the "map" step when we kick off research on any sections that require it using the Send API """    
         return [
             Send("write_final_sections", SectionState(
-                tweet=state.tweet,
                 input_url=state.input_url,
                 input_content=state.input_content,
                 section=s,
@@ -282,11 +279,27 @@ class AgentWorkflow:
             # 1. Initial Database Setup
             def setup_initial_records(payload):
                 if payload.get("url"):
-                    # Get source type ID for web_url
+                    # Check if source already exists for this URL
+                    existing_source = supabase.table("sources").select("*").eq("source_identifier", payload["url"]).execute()
+                    
+                    if existing_source.data:
+                        # Check if content exists for this source
+                        source_id = existing_source.data[0]["source_id"]
+                        existing_content = supabase.table("content_sources").select("*").eq("source_id", source_id).execute()
+                        
+                        if existing_content.data:
+                            raise ValueError("Content already exists for this URL")
+                        
+                        # Use existing source if no content exists
+                        url_meta = utils.get_url_metadata(payload["url"])
+                        media_meta = utils.get_media_links(payload["url"])
+                        return source_id, url_meta, media_meta
+
+                    # Create new source if it doesn't exist
                     source_type = supabase.table("source_types").select("*").eq("name", "web_url").execute()
                     url_meta = utils.get_url_metadata(payload["url"])
                     media_meta = utils.get_media_links(payload["url"])
-                    # Create source record
+                    
                     source_data = {
                         "source_type_id": source_type.data[0]["source_type_id"],
                         "source_identifier": payload["url"],
@@ -317,6 +330,64 @@ class AgentWorkflow:
                             supabase.table("media").insert(media_data).execute()
                     
                     return source_id, url_meta, media_meta
+
+                elif payload.get("tweet_id"):
+                    # Check if source already exists for this tweet
+                    existing_source = supabase.table("sources").select("*").eq("source_identifier", payload["tweet_id"]).execute()
+                    
+                    if existing_source.data:
+                        # Check if content exists for this source
+                        source_id = existing_source.data[0]["source_id"]
+                        existing_content = supabase.table("content_sources").select("*").eq("source_id", source_id).execute()
+                        
+                        if existing_content.data:
+                            raise ValueError("Content already exists for this tweet")
+                            
+                        # Use existing source if no content exists
+                        tweet_data = self.fetch_urls_and_media(payload["tweet_id"])
+                        # Handle cases where tweet may not have urls or media
+                        url_data = tweet_data.get("urls", [])
+                        media_data = tweet_data.get("media", [])
+                        
+                        
+                        return source_id, url_data, media_data
+
+                    # Create new source if it doesn't exist
+                    source_type = supabase.table("source_types").select("*").eq("name", "twitter").execute()
+                    tweet_data = self.fetch_urls_and_media(payload["tweet_id"])
+                    
+                    source_data = {
+                        "source_type_id": source_type.data[0]["source_type_id"],
+                        "source_identifier": payload["tweet_id"],
+                        "batch_id": thread_id
+                    }
+                    source = supabase.table("sources").insert(source_data).execute()
+                    source_id = source.data[0]["source_id"]
+                    
+                    # Insert URL references
+                    if tweet_data.get("urls"):
+                        for url in tweet_data["urls"]:
+                            url_ref_data = {
+                                "source_id": source_id,
+                                "url": url["original_url"],
+                                "type": url["type"],
+                                "domain": url["domain"],
+                                "content_type": url.get("content_type"),
+                                "file_category": url.get("file_category")
+                            }
+                            supabase.table("url_references").insert(url_ref_data).execute()
+                    
+                    # Insert media
+                    if tweet_data.get("media"):
+                        for media in tweet_data["media"]:
+                            media_data = {
+                                "source_id": source_id,
+                                "media_url": media["original_url"],
+                                "media_type": media["type"]
+                            }
+                            supabase.table("media").insert(media_data).execute()
+                    
+                    return source_id, tweet_data.get("urls", []), tweet_data.get("media", [])
                     
                 return None, None, None
 
@@ -387,14 +458,13 @@ class AgentWorkflow:
                         media_markdown=media_markdown
                     )
                 elif payload.get("tweet_id"):
-                    tweet = self.fetch_urls_and_media(payload["tweet_id"])
-
-                    reference_content, reference_link, media_markdown=get_reference_content(tweet)
+                    # tweet = self.fetch_urls_and_media(payload["tweet_id"])
+                    reference_content, reference_link= get_tweet_reference_content(url_meta)
+                    media_markdown = get_tweet_media(media_meta)
                     test_input = BlogStateInput(
                         input_url=reference_link,
                         input_content=reference_content,
                         media_markdown=media_markdown,
-                        tweet=tweet,
                         post_types=payload.get("post_types", ["blog"]),
                         thread_id=thread_id
                     )

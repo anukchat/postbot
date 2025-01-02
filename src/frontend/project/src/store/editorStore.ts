@@ -111,6 +111,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       }
       
       const response = await api.get('/content/filter', { params });
+      console.log('API Response:', response.data); // Add logging
       
       if (response.data && response.data.items) {
         const formattedBlogs = response.data.items.map((item: any) => ({
@@ -118,17 +119,19 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           thread_id: item.thread_id,
           title: item.title,
           content: item.content,
-          twitter_post: item.twitter_post,
-          linkedin_post: item.linkedin_post,
+          twitter_post: item.twitter_post || '',
+          linkedin_post: item.linkedin_post || '',
           status: item.status || 'Draft',
-          tags: item.tags,
+          tags: item.tags || [],
           createdAt: item.createdAt,
           updatedAt: item.updatedAt,
-          urls: item.urls,
-          media: item.media,
-          source_type: item.source_type, // Include source_type
+          urls: item.urls || [],
+          media: item.media || [],
+          source_type: item.source_type,
           source_identifier: item.source_identifier
         }));
+
+        console.log('Formatted blogs:', formattedBlogs); // Add logging
 
         const isLastPage = formattedBlogs.length < limit;
         const currentTotal = Math.max(

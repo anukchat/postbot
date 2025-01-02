@@ -20,10 +20,7 @@ export interface Url {
   url: string;
   type: string;
   domain: string;
-  title?: string;
-  description?: string;
-  thumbnail?: string;
-  original_url: string;
+  original_url?: string;
   final_url?: string;
   meta?: {
     og_title?: string;
@@ -116,12 +113,12 @@ export interface BlogStatus {
   url: string;
 }
 
-
 export interface Source {
-
-  source_id: string;
+  id: string;           // Make id required
+  source_id: string;    // Make source_id required
   source_identifier: string;
   type: 'twitter' | 'web_url';
+  source_type?: string;
   metadata?: any;
   created_at: string;
   preview?: {
@@ -129,8 +126,6 @@ export interface Source {
     description: string;
     image?: string;
   };
-  existing_blog?: {
-    thread_id: string;
-    title: string;
-  };
+  has_blog: boolean;
+  thread_id?: string;
 }
