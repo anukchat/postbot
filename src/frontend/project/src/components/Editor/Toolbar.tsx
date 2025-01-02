@@ -99,7 +99,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onCommandInsert, selectedTab }
   };
 
   const mediaButtons = (
-    <div className="flex gap-2">
+    <div className="flex gap-5">
       <Tippy content={currentPost?.media?.some(m => m.type === 'image') ? "Choose Image" : "Insert Blank Image"}>
         <button onClick={() => {
           const hasImages = currentPost?.media?.some(m => m.type === 'image');
@@ -156,20 +156,22 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onCommandInsert, selectedTab }
         <Tippy content="Tags"><button onClick={() => onCommandInsert(getTags(), 0)}><Hash className={`w-5 h-5 ${iconColor(!!currentPost?.tags?.length)}`} /></button></Tippy>
         {/* <Tippy content="Video"><button onClick={() => onCommandInsert(getVideoEmbed(), 0)}><Video className={`w-5 h-5 ${iconColor(currentPost?.media?.[0]?.type === 'video')}`} /></button></Tippy> */}
         <Tippy content="Blog metadata"><button onClick={() => onCommandInsert(getBlogMetadata(), 0)}><Tags className="w-5 h-5 text-green-500" /></button></Tippy>
-        {mediaButtons}
-        {selectedTab !== 'blog' && (
-          <Tippy content={isGenerateDisabled ? 'Content already exists' : `Generate ${selectedTab} post`}>
-            <button
-              onClick={handleGenerate}
-              disabled={isGenerateDisabled || isGenerating}
-              className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${
-                isGenerateDisabled || isGenerating ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              <Rocket className={`w-5 h-5 ${isGenerating ? 'animate-bounce' : ''}`} />
-            </button>
-          </Tippy>
-        )}
+        <div className="flex gap-2 items-center">
+          {mediaButtons}
+          {selectedTab !== 'blog' && (
+            <Tippy content={isGenerateDisabled ? 'Content already exists' : `Generate ${selectedTab} post`}>
+              <button
+          onClick={handleGenerate}
+          disabled={isGenerateDisabled || isGenerating}
+          className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${
+            isGenerateDisabled || isGenerating ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+              >
+          <Rocket className={`w-5 h-5 ${isGenerating ? 'animate-bounce' : ''}`} />
+              </button>
+            </Tippy>
+          )}
+        </div>
       </div>
       {showMediaPicker && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
