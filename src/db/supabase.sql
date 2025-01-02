@@ -195,3 +195,58 @@ INSERT INTO content_types (name) VALUES
 ('short_post'),
 ('twitter_post'),
 ('linkedin_post');
+
+CREATE OR REPLACE FUNCTION filter_content_by_domain(domain_text TEXT)
+RETURNS TABLE (
+    content_id UUID,
+    title TEXT,
+    body TEXT,
+    status TEXT,
+    created_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ,
+    published_at TIMESTAMPTZ,
+    thread_id UUID,
+    content_type_id UUID,
+    content_type_name TEXT,
+    tag_id UUID,
+    tag_name TEXT,
+    content_source_id UUID,
+    source_id UUID,
+    source_identifier TEXT,
+    source_type_name TEXT,
+    url_references JSONB,
+    media JSONB
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        c.content_id,
+        c.title,
+        c.body,
+        c.status,
+        c.created_at,
+        c.updated_at,
+        c.published_at,
+        c.thread_id,
+        ct.content_type_id,
+        ct.name AS content_type_name,
+        t.tag_id,
+        t.name AS tag_name,
+        cs.content_source_id,
+        s.source_id,
+        s.source_identifier,
+        st.name AS source_type_name,
+        s.url_references,
+        s.media
+    FROM
+        content c
+        LEFT JOIN content_types ct ON c.content_type_id = ct.content_type_id
+        LEFT JOIN content_tags ctg ON c.content_id = ctg.content_id
+        LEFT JOIN tags t ON ctg.tag_id = t.tag_id
+        LEFT JOIN content_sources cs ON c.content_id = cs.content_id
+        LEFT JOIN sources s ON cs.source_id = s.source_id
+        LEFT JOIN source_types st ON s.source_type_id = st.source_type_id
+    WHERE
+        s.url_references @> jsonb_build_object('domain', domain_text);
+END;
+$$ LANGUAGE plpgsql;

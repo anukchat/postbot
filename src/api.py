@@ -431,8 +431,7 @@ async def filter_content(
 ):
     # Base query with updated select to properly get source_identifier
     query = supabase.table("content").select("*, content_types:content_type_id(content_type_id, name), content_tags(tag_id, tags:tag_id(name)), content_sources!inner(content_source_id, source:source_id(source_id, source_identifier, source_types(name), url_references(*), media(*)))"
-                                             ).order('created_at', desc=True).range(skip, skip + limit)
-
+                                             ).order('created_at', desc=True)
     # Apply filters
     if title_contains:
         query = query.ilike("title", f"%{title_contains}%")  # Case-insensitive title search
@@ -458,6 +457,8 @@ async def filter_content(
         query = query.eq("content_sources.source.media.media_type", media_type)
     if url_type:
         query = query.eq("content_sources.source.url_references.type", url_type)
+
+    query=query.range(skip, skip + limit)
 
     response = query.execute()
 
