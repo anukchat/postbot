@@ -8,10 +8,8 @@ import uvicorn
 from src.agents.graph import AgentWorkflow
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from linkpreview import link_preview
 from typing import Dict, Any
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
 
 # Get settings from environment variables
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
@@ -106,38 +104,6 @@ def get_workflow() -> AgentWorkflow:
     return AgentWorkflow()
 
 
-def fetch_preview(url: str) -> Dict[str, Any]:
-    preview = link_preview(url)
-    return {
-        "title": preview.title,
-        "description": preview.description,
-        "image": preview.image,
-        "force_title": preview.force_title,
-        "absolute_image": preview.absolute_image,
-        "url": url
-    }
-
-@app.get("/api/link-preview", tags=["utils"])
-async def get_link_preview(url: str):
-    try:
-        # Run link_preview in a thread pool since it's blocking
-        with ThreadPoolExecutor() as executor:
-            preview_data = await asyncio.get_event_loop().run_in_executor(
-                executor, 
-                fetch_preview, 
-                url
-            )
-        
-        return {
-            "success": True,
-            "data": preview_data
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
-    
 # Authentication Dependency
 def get_current_user(credentials: HTTPAuthorizationCredentials = Security(security)):
     token = credentials.credentials

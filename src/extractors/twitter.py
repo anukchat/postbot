@@ -11,14 +11,10 @@ import urllib.parse
 from pathlib import Path
 import hashlib
 import ast
-import mimetypes
 import magic
 import time
 from bs4 import BeautifulSoup 
-from src.utils import *
 from src.db.supabaseclient import supabase_client
-
-
 
 # Configure logging
 logging.basicConfig(
@@ -84,6 +80,31 @@ class TweetMetadataCollector:
         except Exception as e:
             logger.warning(f"Could not initialize MIME type detection: {e}")
             self.mime = None
+
+    def safe_json_loads(self,json_str, default=None):
+        """
+        Safely parse JSON or string-represented list/dict
+        
+        Args:
+            json_str: Input string to parse
+            default: Default value if parsing fails
+        
+        Returns:
+            Parsed data or default
+        """
+        if pd.isna(json_str) or not isinstance(json_str, str):
+            return default
+        
+        try:
+            # Try JSON parsing first
+            return json.loads(json_str.replace("'", '"'))
+        except json.JSONDecodeError:
+            try:
+                # Fallback to ast.literal_eval for string representations
+                return ast.literal_eval(json_str)
+            except (ValueError, SyntaxError):
+                logger.warning(f"Could not parse: {json_str}")
+                return default
 
     def preprocess_url(self, url):
         """
@@ -420,7 +441,7 @@ class TweetMetadataCollector:
             list: Processed media metadata
         """
         # Safely parse media string
-        media_list = safe_json_loads(media_str, [])
+        media_list = self.safe_json_loads(media_str, [])
         
         processed_media = []
         for media in media_list:
@@ -499,7 +520,7 @@ class TweetMetadataCollector:
     def process_media_without_saving(self, tweet_id,media_str):
 
          # Safely parse media string
-        media_list = safe_json_loads(media_str, [])
+        media_list = self.safe_json_loads(media_str, [])
         
         processed_media = []
         for media in media_list:
@@ -877,7 +898,6 @@ class TweetMetadataCollector:
             print("Data inserted successfully!")
         except Exception as e:
             print(f"Error inserting data: {e}")
-
 
 if __name__ == "__main__":
     # Create data and output directories if they don't exist

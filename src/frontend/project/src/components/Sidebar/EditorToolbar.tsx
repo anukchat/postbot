@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { Save, FileDown, Send, FileUp, Sun, Moon, Plus, ChevronRight, ChevronLeft, XCircle, Home } from 'lucide-react';
+import { Save, FileDown, Send, Sun, Moon, Plus, ChevronRight, ChevronLeft, XCircle, Home } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import Tippy from '@tippyjs/react';
 import 'tippy.js/dist/tippy.css';
-import { PublishModal } from '../Editor/PublishModal';
 import { NewBlogModal } from '../Modals/NewBlogModal';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
@@ -15,9 +14,7 @@ interface EditorToolbarProps {
 
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isCollapsed, onToggleCollapse }) => {
   const { savePost, publishPost, rejectPost, downloadMarkdown, toggleTheme, isDarkMode, currentPost, isContentUpdated, fetchPosts } = useEditorStore();
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNewBlogModalOpen, setIsNewBlogModalOpen] = useState(false);
-
   const saveIconColor = isContentUpdated ? 'text-green-500' : '';
   const publishIconColor = currentPost?.status && ['Published', 'Rejected'].includes(currentPost.status) ? 'text-gray-300' : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-green-500 ';
   const rejectIconColor = currentPost?.status =='Rejected' ? 'text-gray-300' : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-red-500 ';

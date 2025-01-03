@@ -11,10 +11,10 @@ import { TwitterEmbed } from './TwitterEmbed';
 import { ScrollPosition } from '../../types';
 import rehypeRaw from 'rehype-raw';
 import { Toolbar } from './Toolbar';
-import { CommandPalette, getCommands } from './CommandPalette';
+import { getCommands } from './CommandPalette';
 import Picker from 'emoji-picker-react';
 import emoji from 'emoji-dictionary'; // Add this import
-import { Clipboard, Rocket } from 'lucide-react'; // Add this import
+import { Clipboard } from 'lucide-react'; // Add this import
 import Tippy from '@tippyjs/react'; // Add this import
 import 'tippy.js/dist/tippy.css'; // Add this import
 import TurndownService from 'turndown';
@@ -65,7 +65,6 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
   const [commandPalettePosition, setCommandPalettePosition] = useState({ x: 0, y: 0 });
   const [filteredCommands, setFilteredCommands] = useState(getCommands(currentPost));
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const commandPaletteRef = useRef<HTMLDivElement>(null);
   const commandTriggeredRef = useRef(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 });

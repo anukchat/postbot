@@ -3,3 +3,32 @@ TODO Tasks
 2. Search tweet or web_url fixes, given a source_identifier, if it is of type twitter, 
 search in metadata text
 If web_url, search 
+
+
+TODO:
+1. use ai suite for llm management
+2. Extractor: Try more extractors, microsoft markdownit, make pluggable 
+3. Try firecrawl
+4. Add Topic based generation
+5. Add Top Trends
+6. Add configurable style and blog type [Technical, fun etc] or Agentic based style
+ determination
+7. Dockerize
+8. Host using coolify
+9. Add first person asking like style [e.g, do not say our work, say this work]
+10. Learn more about react, authentication
+11. Add Scheduling features
+    - Configurable integration with twitter, linkedin, medium, substack, etc
+    - Day and time based scheduling
+12. Add social media analytics
+13. Add different options for styles to users while getting feedback for regeneration.
+14 replace native supabase queries with postgres/sqlalchemy or sql queries
+
+
+Refactoring:
+1. Remove unnecessary packages and imports
+2. Refactor code to make it more generic
+3. Increase performance
+4. Remove unnecessary code and optimize.
+
+

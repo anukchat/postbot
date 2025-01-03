@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Image, Link, Video, Quote, ListOrdered, List, Hash, Twitter, Code, Code2, Table, Check, Heading1, Heading2, Heading3, FileText, Undo, Redo, Tags, Bold, Italic, Strikethrough, User, Rocket, MessageSquare } from 'lucide-react';
+import { Image, Link, Video, Quote, ListOrdered, List, Hash, Twitter, Code, Code2, Table, Check, Heading1, Heading2, Heading3, FileText, Undo, Redo, Tags, Bold, Italic, Strikethrough, Rocket, MessageSquare } from 'lucide-react';
 import 'tippy.js/dist/tippy.css';
 import Tippy from '@tippyjs/react';
 import { useEditorStore } from '../../store/editorStore';
@@ -33,23 +33,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onCommandInsert, selectedTab }
       : '{{< twitter id="PASTE_TWEET_ID_HERE" >}}\n';
   };
 
-  const getImageEmbed = () => {
-    return currentPost?.media?.[0]?.type && ['photo', 'image'].includes(currentPost.media[0].type)
-      ? `![](${currentPost.media[0].original_url})\n`
-      : '![]()\n';
-  };
-
-  const getLinkEmbed = () => {
-    return currentPost?.urls?.[0]?.original_url
-      ? `[${currentPost.urls[0].original_url}](${currentPost.urls[0].original_url})`
-      : '[]()';
-  };
-
-  const getVideoEmbed = () => {
-    return currentPost?.media?.[0]?.type === 'video'
-      ? `<video src="${currentPost.media[0].original_url}" controls></video>\n`
-      : '<video src="PASTE_VIDEO_URL_HERE" controls></video>\n';
-  };
 
   const getBlogMetadata = () => {
     if (!currentPost) {

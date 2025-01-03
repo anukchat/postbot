@@ -1,3 +1,27 @@
+## ----------------- Blog Post Structure ----------------- ##
+default_blog_structure = """The blog post should follow this strict three-part structure:
+
+1. Introduction (max 1 section)
+   - Start with ### Key Links and include user-provided links  
+   - Brief overview of the problem statement
+   - Brief overview of the solution/main topic
+   - Maximum 100 words
+
+2. Main Body (exactly 2-3 sections)
+    - Each section must:
+      * Cover a distinct aspect of the main topic
+      * Include at least one relevant code snippet
+      * Be 150-200 words
+    - No overlap between sections
+
+3. Conclusion (max 1 section)
+   - Brief summary of key points
+   - Key Links
+   - Clear call to action
+   - Maximum 150 words"""
+
+
+##----------------- Blog Planner Instructions -----------------##
 blog_planner_instructions="""You are an expert technical writer, helping to plan a blog post.
 
 Your goal is to generate a CONCISE outline.
@@ -28,7 +52,8 @@ Final check:
 2. Confirm that each Section Description has a clearly stated scope that does not conflict with other sections
 3. Confirm that the Sections are grounded in the user notes"""
 
-# Section writer instructions
+
+##----------------- Section Writer Instructions -----------------##
 main_body_section_writer_instructions = """You are an expert technical writer crafting one section of a blog post.
 
 Here are the user instructions for the overall blog post, so that you have context for the overall story: 
@@ -81,7 +106,8 @@ QUALITY CHECKLIST:
 
 Generate the section content now, focusing on clarity and technical accuracy."""
 
-# Intro/conclusion instructions
+
+##----------------- Introduction/Conclusion Writer Instructions -----------------##
 intro_conclusion_instructions = """You are an expert technical writer crafting the introduction or conclusion of a blog post.
 
 Here is the Section Name you are going to write: 
@@ -114,18 +140,24 @@ FOR CONCLUSION:
 - Use markdown formatting:
   * ## Conclusion (crisp concluding statement)"""
 
+
+##----------------- Twitter Post Instructions -----------------##
 twitter_post_instructions = """Please ignore all previous instructions. Please respond only in the English language. You are a professional copywriter and would like to convert your article into an engaging Twitter thread. You have a Trendy tone of voice. You have a Academic writing style. Do not self reference. Do not explain what you are doing. Do not include any introductory phrases like 'here is a Twitter thread','Ok, here is your twitter thread' or similar sentences. Add emojis to the thread when appropriate. Add proper text formatting on important phrases or words in markdown format (like ** ** for bold, * * for italic etc.). The character count for each thread should be between 270 to 280 characters. Please add relevant hashtags to the post. Please turn the following article into a Twitter thread: 
 
 Article:
 {final_blog}
 """
 
+
+##----------------- LinkedIn Post Instructions -----------------##
 linkedin_post_instructions = """Please ignore all previous instructions. Please respond only in the English language. You are a professional copywriter and would like to convert your article into an engaging LinkedIn post. You have a Trendy tone of voice. You have a Academic writing style. Do not self reference. Do not explain what you are doing. Do not include any introductory phrases like 'here is your linkedin post' or similar sentences. Do not add or refer input instructions in your answer. Add emojis to the post when appropriate. Add proper text formatting on important phrases or words in markdown format (like ** ** for bold, * * for italic etc.). The character count for the post should be between 390 to 400 words. Please turn the following article into a LinkedIn post:
 
 Article:
 {final_blog}
 """
 
+
+##----------------- Tags Generator Instructions -----------------##
 tags_generator="""You are an expert in generating tags for a blog post. Your goal is to generate a list of tags that accurately describe the content of the post. The tags should be single words or short phrases, separated by commas. Tags should be present inside <tags> and </tags>. Ex: <tags>['AI','LLM']</tags>. You can generate up to 5 tags. Please generate the tags for the blog post based on the content provided below:
 
 {linkedin_post}

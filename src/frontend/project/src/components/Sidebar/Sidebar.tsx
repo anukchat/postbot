@@ -1,13 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Search,
-  Plus,
-  Moon,
-  Sun,
   Filter,
-  ChevronRight,
-  ChevronLeft,
-  AlertCircle,
   Loader // Add the Loader icon
 } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
@@ -34,11 +28,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse 
     posts, 
     currentPost, 
     setCurrentPost, 
-    isDarkMode, 
-    toggleTheme, 
     fetchPosts, 
     fetchMorePosts, 
-    skip, 
     limit, 
     totalPosts, 
     isLoading,
@@ -54,7 +45,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse 
     created_after: '',
     created_before: ''
   });
-  const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const handleLoadMore = useCallback(() => {

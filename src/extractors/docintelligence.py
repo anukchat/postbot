@@ -1,14 +1,11 @@
 import logging
-import os
 from pathlib import Path
-import re
 import traceback
-from bs4 import BeautifulSoup
 from docling.document_converter import DocumentConverter
 import html2text
 import markdownify
 import requests
-import urllib
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,

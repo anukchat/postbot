@@ -3,12 +3,10 @@ import { ArrowRight, Bot, Sparkles, Twitter, Brain, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Navbar } from './Navbar';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
 
 const LandingPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const { signIn } = useAuth();
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

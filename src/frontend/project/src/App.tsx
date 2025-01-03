@@ -134,12 +134,6 @@ const MainAppLayout: React.FC = () => {
     }
   };
 
-  // Add function for tooltip
-  const renderTooltip = (text: string) => (
-    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-2 py-1 rounded text-xs whitespace-nowrap">
-      {text}
-    </div>
-  );
 
   return (
     <div className={`h-screen ${isDarkMode ? 'dark' : ''}`}>

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog } from '@headlessui/react';
 import { Twitter, Globe, X, Loader, Search, ChevronLeft, Grid2X2, LayoutList } from 'lucide-react';
 import { Tweet } from 'react-tweet';
-import { LinkPreview } from '@dhaiwat10/react-link-preview';
 import { useEditorStore } from '../../store/editorStore';
 import Masonry from 'react-masonry-css';
 import api from '../../services/api';
@@ -12,6 +11,7 @@ import { useNavigate } from 'react-router-dom'; // Replace useRouter
 import { SourceCard } from '../Sources/SourceCard';
 import { GenerateLoader } from '../Editor/GenerateLoader';
 import Tippy from '@tippyjs/react';
+import MicrolinkCard from '@microlink/react';
 
 const LOADING_MESSAGES = {
   blog: [
@@ -71,8 +71,12 @@ interface CustomUrlForm {
   isValid: boolean;
 }
 
-interface SourceBlogMap {
-  [source_id: string]: string;  // Map of source_id to blog_id
+interface PreviewData {
+  title?: string;
+  description?: string;
+  image?: string;
+  siteName?: string;
+  url: string;
 }
 
 export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) => {
@@ -86,14 +90,13 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const itemsPerPage = 10;
-  const { generatePost, fetchPosts } = useEditorStore();
+  const { fetchPosts } = useEditorStore();
   const [customUrl, setCustomUrl] = useState<CustomUrlForm>({ url: '', isValid: false });
   const [isCustomUrl, setIsCustomUrl] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
-  const [sourceBlogs, setSourceBlogs] = useState<SourceBlogMap>({});
   const navigate = useNavigate(); // Replace router
   const [isGenerating, setIsGenerating] = useState(false); // Add new state for generation
- 
+
   const fetchSources = async () => {
     if (!selectedSource) return;
 
@@ -109,34 +112,19 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
       const response = await api.get<SourceListResponse>('/sources', { params });
 
       if (response.data) {
-        const sourcesWithPreviews = await Promise.all(
-          response.data.items.map(async (source) => {
-            // Ensure all required fields are present
-            const sourceData: SourceData = {
-              id: source.source_id,
-              source_id: source.source_id,
-              source_identifier: source.source_identifier,
-              source_type: source.source_type,
-              created_at: source.created_at,
-              metadata: source.metadata,
-              has_blog: source.has_blog,
-              thread_id: source.thread_id,
-              has_url: source.has_url
-            };
-
-            if (source.source_type === 'web_url') {
-              const previewResponse = await api.get('/api/link-preview', {
-                params: { url: source.source_identifier }
-              });
-              return { 
-                ...sourceData, 
-                preview: previewResponse.data.data 
-              };
-            }
-            return sourceData;
-          })
-        );
-        setSources(sourcesWithPreviews);
+        const sourcesData = response.data.items.map(source => ({
+          id: source.source_id,
+          source_id: source.source_id,
+          source_identifier: source.source_identifier,
+          source_type: source.source_type,
+          created_at: source.created_at,
+          metadata: source.metadata,
+          has_blog: source.has_blog,
+          thread_id: source.thread_id,
+          has_url: source.has_url
+        }));
+        
+        setSources(sourcesData);
         setTotalItems(response.data.total);
       }
     } catch (err) {
@@ -269,48 +257,41 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
     }
   };
 
-  const handlePreviousPage = () => {
-    setCurrentPage(prev => Math.max(0, prev - 1));
-  };
-
-  const handleNextPage = () => {
-    setCurrentPage(prev => prev + 1);
-  };
-
-  // Update renderSourceContent to handle source_id
+  // Remove the fetchLinkPreview function and urlPreviews state
+  // Remove the existing renderSourceContent function and replace with this:
+  
   const renderSourceContent = (source: Source) => {
     if (selectedSource === 'twitter') {
       return (
         <div className="flex justify-center p-4">
-          <div className="w-full max-w-[450px]"> {/* Reduced from 550px */}
+          <div className="w-full max-w-[400px]">
             <Tweet id={source.source_identifier} />
           </div>
         </div>
       );
     }
 
-    // If URL is invalid, don't render anything
-    if (!source.source_identifier || !isValidUrl(source.source_identifier)) {
-      return null;
-    }
-
-    // Get domain safely
-    const domain = new URL(source.source_identifier).hostname;
-
-    return (
-      <div className="flex justify-center">
-        <div className="w-full max-w-xl">
-          <CustomLinkPreview
-            url={{
-              url: source.source_identifier,
-              type: 'web_url',
-              domain: domain
-            }}
-            onSelect={() => setSelectedIdentifier(getUniqueId(source))}
+    // For web URLs, use MicrolinkCard with smaller size
+    if (source.source_type === 'web_url' && source.source_identifier) {
+      return (
+        <div 
+          className="cursor-pointer w-full overflow-hidden p-2" // Added padding
+          onClick={() => setSelectedIdentifier(getUniqueId(source))}
+        >
+          <MicrolinkCard 
+            url={source.source_identifier}
+            contrast
+            size="large" // Changed from large to small
+            media={['image', 'logo']}
+            mediaSize="contain" // Changed to contain to prevent zoom
+            className="!rounded-lg !border !border-gray-200 dark:!border-gray-700 pointer-events-none !max-w-full !transform !scale-90" // Added scale down
+            style={{ objectFit: 'contain' }} // Added object-fit contain
           />
         </div>
-      </div>
-    );
+      );
+    }
+
+    return null;
   };
 
   const renderPagination = () => (

@@ -85,7 +85,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   fetchPosts: async (filters, skip = 0, limit = 20) => {
     console.log('fetchPosts called', { filters, skip, limit });
-    const { isLoading, totalPosts, posts, lastLoadedSkip, hasReachedEnd } = get();
+    const { isLoading, posts, hasReachedEnd } = get();
     
     if (isLoading || hasReachedEnd) {
       console.log('Skip fetch - loading or reached end:', { isLoading, hasReachedEnd });

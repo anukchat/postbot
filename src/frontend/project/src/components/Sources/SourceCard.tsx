@@ -32,6 +32,16 @@ export const SourceCard: React.FC<SourceCardProps> = ({
     }
   };
 
+  const handleOpenOriginal = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const isTwitterUrl = source.source_identifier.includes('twitter.com');
+    if (isTwitterUrl) {
+      window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(source.source_identifier)}`, '_blank');
+    } else {
+      window.open(source.source_identifier, '_blank');
+    }
+  };
+
   return (
     <div 
       className={`relative group ${
@@ -86,17 +96,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({
               )}
               <DropdownMenu.Item 
                 className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                 
-                const isTwitterUrl = source.source_identifier.includes('twitter.com');
-                if (isTwitterUrl) {
-                    window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(source.source_identifier)}`, '_blank');
-                }
-                else {
-                    window.open(source.source_identifier, '_blank');
-                }
-                }}
+                onClick={handleOpenOriginal}
               >
                 <ArrowUpRight className="w-4 h-4" />
                 Open Original
