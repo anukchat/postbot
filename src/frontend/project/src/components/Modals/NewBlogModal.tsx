@@ -275,17 +275,18 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
     if (source.source_type === 'web_url' && source.source_identifier) {
       return (
         <div 
-          className="cursor-pointer w-full overflow-hidden p-2" // Added padding
+          className="cursor-pointer w-full overflow-hidden p-2" // Added flex-[0.8]
           onClick={() => setSelectedIdentifier(getUniqueId(source))}
         >
           <MicrolinkCard 
             url={source.source_identifier}
             contrast
+            fetchdata
+            lazy={{ threshold: 0.2 }}
             size="large" // Changed from large to small
             media={['image', 'logo']}
-            mediaSize="contain" // Changed to contain to prevent zoom
             className="!rounded-lg !border !border-gray-200 dark:!border-gray-700 pointer-events-none !max-w-full !transform !scale-90" // Added scale down
-            style={{ objectFit: 'contain' }} // Added object-fit contain
+            style={{ objectFit: 'contain' }} // Removed flex: 0.8
           />
         </div>
       );
