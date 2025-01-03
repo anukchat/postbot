@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS content (
     content_type_id UUID REFERENCES content_types(content_type_id) ON DELETE CASCADE,
     title TEXT,
     body TEXT,
-    status TEXT CHECK (status IN ('draft', 'published', 'archived')) DEFAULT 'draft',
+    status TEXT CHECK (status IN ('Draft', 'Published', 'Archived','Scheduled','Archived')) DEFAULT 'Draft',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     published_at TIMESTAMPTZ,

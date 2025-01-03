@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog } from '@headlessui/react';
 import { Twitter, Globe, X, Loader, Search, ChevronLeft, Grid2X2, LayoutList } from 'lucide-react';
 import { Tweet } from 'react-tweet';
@@ -11,6 +11,7 @@ import { LinkPreview as CustomLinkPreview } from '../Editor/LinkPreview';
 import { useNavigate } from 'react-router-dom'; // Replace useRouter
 import { SourceCard } from '../Sources/SourceCard';
 import { GenerateLoader } from '../Editor/GenerateLoader';
+import Tippy from '@tippyjs/react';
 
 const LOADING_MESSAGES = {
   blog: [
@@ -40,14 +41,14 @@ const MASONRY_BREAKPOINTS = {
 
 interface SourceData {
   id: string;
-  source_id: string;  // Make this required
+  source_id: string;
   source_identifier: string;
-  type: 'twitter' | 'web_url';
-  source_type?: string;  // Add this field
+  source_type: string;
   metadata?: any;
   created_at: string;
-  has_blog: boolean; // Add this field
-  thread_id?: string; // Add this field
+  has_blog: boolean;
+  thread_id?: string;
+  has_url: boolean;  // Changed from optional to required, defaults to false
 }
 
 type SourceType = 'twitter' | 'web';
@@ -55,6 +56,7 @@ type SourceType = 'twitter' | 'web';
 interface NewBlogModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onGenerate: (tweetId: string) => Promise<void>;
 }
 
 interface SourceListResponse {
@@ -91,7 +93,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
   const [sourceBlogs, setSourceBlogs] = useState<SourceBlogMap>({});
   const navigate = useNavigate(); // Replace router
   const [isGenerating, setIsGenerating] = useState(false); // Add new state for generation
-
+ 
   const fetchSources = async () => {
     if (!selectedSource) return;
 
@@ -114,14 +116,15 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
               id: source.source_id,
               source_id: source.source_id,
               source_identifier: source.source_identifier,
-              type: source.type,
+              source_type: source.source_type,
               created_at: source.created_at,
               metadata: source.metadata,
               has_blog: source.has_blog,
-              thread_id: source.thread_id
+              thread_id: source.thread_id,
+              has_url: source.has_url
             };
 
-            if (source.type === 'web_url') {
+            if (source.source_type === 'web_url') {
               const previewResponse = await api.get('/api/link-preview', {
                 params: { url: source.source_identifier }
               });
@@ -286,6 +289,14 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
       );
     }
 
+    // If URL is invalid, don't render anything
+    if (!source.source_identifier || !isValidUrl(source.source_identifier)) {
+      return null;
+    }
+
+    // Get domain safely
+    const domain = new URL(source.source_identifier).hostname;
+
     return (
       <div className="flex justify-center">
         <div className="w-full max-w-xl">
@@ -293,7 +304,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
             url={{
               url: source.source_identifier,
               type: 'web_url',
-              domain: new URL(source.source_identifier).hostname
+              domain: domain
             }}
             onSelect={() => setSelectedIdentifier(getUniqueId(source))}
           />
@@ -510,6 +521,38 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
     onClose();
   };
 
+  // Update the isGenerateDisabled function with null checks
+  const isGenerateDisabled = useCallback((source?: SourceData) => {
+    // For custom URL case
+    if (isCustomUrl) {
+      return !customUrl.isValid || isGenerating;
+    }
+    
+    // For regular sources
+    if (!source) return true;
+    
+    return isGenerating || 
+           !selectedIdentifier || 
+           (source.source_type === 'twitter' && !source.has_url);
+  }, [isGenerating, selectedIdentifier, isCustomUrl, customUrl.isValid]);
+
+  const getGenerateButtonTooltip = useCallback((source?: SourceData) => {
+    // For custom URL case
+    if (isCustomUrl) {
+      if (!customUrl.isValid) return 'Please enter a valid URL';
+      if (isGenerating) return 'Generation in progress...';
+      return 'Generate Blog';
+    }
+    
+    // For regular sources
+    if (isGenerating) return 'Generation in progress...';
+    if (!selectedIdentifier) return 'Please select a source';
+    if (source?.source_type === 'twitter' && !source.has_url) {
+      return 'This tweet has no URLs for content generation';
+    }
+    return 'Generate Blog';
+  }, [isGenerating, selectedIdentifier, isCustomUrl, customUrl.isValid]);
+
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">
       {/* Dark overlay */}
@@ -554,13 +597,20 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
                 >
                   Cancel
                 </button>
-                <button
-                  onClick={handleGenerate}
-                  disabled={isLoading || (!selectedIdentifier && !customUrl.isValid)}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  Generate Blog
-                </button>
+                <Tippy content={getGenerateButtonTooltip(
+                  isCustomUrl ? undefined : sources.find(s => getUniqueId(s) === selectedIdentifier)
+                )}>
+                  <button
+                    onClick={handleGenerate}
+                    disabled={isCustomUrl 
+                      ? !customUrl.isValid || isGenerating
+                      : isGenerateDisabled(sources.find(s => getUniqueId(s) === selectedIdentifier))
+                    }
+                    className={`px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2`}
+                  >
+                    Generate Blog
+                  </button>
+                </Tippy>
               </div>
             )}
           </Dialog.Panel>

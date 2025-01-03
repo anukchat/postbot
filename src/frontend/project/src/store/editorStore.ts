@@ -35,9 +35,17 @@ interface EditorState {
   lastLoadedSkip: number;
   hasReachedEnd: boolean;
   fetchContentByThreadId: (thread_id: string, post_type?: string) => Promise<void>;
-  generatePost: (post_types: string[], thread_id: string) => Promise<void>;
+  generatePost: (post_types: string[], thread_id: string, payload?: GeneratePayload) => Promise<void>;
   currentTab: 'blog' | 'twitter' | 'linkedin';
   setCurrentTab: (tab: 'blog' | 'twitter' | 'linkedin') => void;
+}
+
+interface GeneratePayload {
+  thread_id?: string;
+  post_types: string[];
+  feedback?: string;
+  tweet_id?: string;
+  url?: string;
 }
 
 export const useEditorStore = create<EditorState>((set, get) => ({
@@ -389,8 +397,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             content: currentPost.content,
             twitter_post: currentPost.twitter_post,
             linkedin_post: currentPost.linkedin_post,
-            status: 'Draft',
-            tags: currentPost.tags
+            status: 'Draft'
         });
 
         if (response.data) {
@@ -408,8 +415,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     try {
         set({ isLoading: true });
-        const response = await api.put(`/content/thread/${currentPost.thread_id}/publish`, {
-            status: 'published'
+        const response = await api.put(`/content/thread/${currentPost.thread_id}/save`, {
+          ...currentPost,
+          status: 'Published'
         });
 
         if (response.data) {
@@ -428,8 +436,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     try {
         set({ isLoading: true });
-        const response = await api.put(`/content/thread/${currentPost.thread_id}/reject`, {
-            status: 'rejected'
+        const response = await api.put(`/content/thread/${currentPost.thread_id}/save`, {
+          ...currentPost,
+          status: 'Rejected'
         });
 
         if (response.data) {
@@ -505,24 +514,25 @@ ${content}`;
     }
   },
 
-  generatePost: async (post_types: string[], thread_id: string) => {
+  generatePost: async (post_types: string[], thread_id: string, payload?: GeneratePayload) => {
     const { currentPost, fetchContentByThreadId } = get();
     if (!currentPost) return;
 
     set({ isLoading: true });
     try {
-      let payload: any = { 
+      let payloadData: any = { 
         post_types: post_types.map(type => type === 'twitter' ? 'twitter' : type === 'linkedin' ? 'linkedin' : type),
-        thread_id 
+        thread_id,
+        ...payload
       };
 
       if (currentPost.source_type === 'twitter') {
-        payload.tweet_id = currentPost.source_identifier;
+        payloadData.tweet_id = currentPost.source_identifier;
       } else if (currentPost.source_type === 'web_url') {
-        payload.url = currentPost.source_identifier;
+        payloadData.url = currentPost.source_identifier;
       }
 
-      const response = await api.post('/content/generate', payload);
+      const response = await api.post('/content/generate', payloadData);
       if (response.data) {
         // Refresh content after generation
         await fetchContentByThreadId(thread_id, post_types[0]);

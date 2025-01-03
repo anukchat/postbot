@@ -16,7 +16,6 @@ import magic
 import time
 from bs4 import BeautifulSoup 
 from src.utils import *
-from src.db.sql import store_tweet_data
 from src.db.supabaseclient import supabase_client
 
 
@@ -670,48 +669,6 @@ class TweetMetadataCollector:
             logger.error(f"Unexpected error processing {url}: {e}")
             return None
         
-    def process_tweet_collection(self, tweets_df):
-        """
-        Process entire tweet collection and generate comprehensive metadata
-        
-        Args:
-            tweets_df (pd.DataFrame): DataFrame of tweets
-        
-        Returns:
-            list: List of processed tweet metadata
-        """
-        processed_tweets = []
-        
-        for _, tweet_row in tweets_df.iterrows():
-            try:
-                tweet_metadata = self.extract_tweet_metadata(tweet_row)
-                processed_tweets.append(tweet_metadata)
-                
-                logger.info(f"Processed tweet: {tweet_metadata['tweet_id']}")
-                # Optional: Save individual tweet metadata
-                # tweet_metadata_path = self.dirs['metadata'] / f"{tweet_metadata['tweet_id']}_metadata.json"
-                # with open(tweet_metadata_path, 'w') as f:
-                #     json.dump(tweet_metadata, f, indent=2)
-            
-            except Exception as e:
-                logger.error(f"Error processing tweet {tweet_row['id']}: {e}")
-        
-        # Save comprehensive metadata
-        logger.info("Saving metadata file")
-        comprehensive_metadata_path = self.dirs['metadata'] / 'comprehensive_metadata.json'
-        # Convert Timestamp objects to string format
-        for tweet in processed_tweets:
-            if 'created_at' in tweet and isinstance(tweet['created_at'], pd.Timestamp):
-                tweet['created_at'] = tweet['created_at'].isoformat()  # Convert to ISO format
-        
-        store_tweet_data(processed_tweets)
-
-        # Save the processed tweets to database from sql.py
-        with open(comprehensive_metadata_path, 'w') as f:
-            json.dump(processed_tweets, f, indent=2)
-        
-        return processed_tweets
-
     def classify_url(self, url):
         """
         Classify URL type with enhanced detection and error handling
@@ -909,7 +866,7 @@ class TweetMetadataCollector:
 
                 # Insert into media table
                 for media in tweet["media"]:
-                    supabase_client.table('media').insert({
+                    self.supabase.table('media').insert({
                         "media_id": str(uuid.uuid4()),
                         "source_id": source_id,
                         "media_url": media["original_url"],

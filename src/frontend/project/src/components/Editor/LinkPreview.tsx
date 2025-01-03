@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Url } from '../../types';
 import { Globe, Link as LinkIcon, Loader } from 'lucide-react';
-import { getLinkPreview } from 'link-preview-js';
 import api from '../../services/api';
 import { getLinkPreviewFromCache, setLinkPreviewInCache } from '../../utils/cache';
 
@@ -22,10 +21,24 @@ interface PreviewData {
 export const LinkPreview: React.FC<LinkPreviewProps> = ({ url, onSelect }) => {
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState('');
+
+  const isValidUrl = (urlString: string): boolean => {
+    try {
+      new URL(urlString);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
 
   useEffect(() => {
     const fetchPreview = async () => {
+      if (!url.url || !isValidUrl(url.url)) {
+        setError('Invalid URL');
+        return;
+      }
+
       // Try to get from cache first
       const cached = getLinkPreviewFromCache(url.url);
       if (cached) {
@@ -41,10 +54,10 @@ export const LinkPreview: React.FC<LinkPreviewProps> = ({ url, onSelect }) => {
         const data = response.data.data;
         setPreviewData(data);
         setLinkPreviewInCache(url.url, data);
-        setError(false);
+        setError('');
       } catch (err) {
         console.error('Failed to fetch preview:', err);
-        setError(true);
+        setError('Error loading preview');
       } finally {
         setIsLoading(false);
       }
@@ -62,6 +75,11 @@ export const LinkPreview: React.FC<LinkPreviewProps> = ({ url, onSelect }) => {
       fetchPreview();
     }
   }, [url.url]);
+
+  // Handle invalid URL by returning null instead of error UI
+  if (!url.url || !isValidUrl(url.url)) {
+    return null;
+  }
 
   // Immediate preview while loading
   return (

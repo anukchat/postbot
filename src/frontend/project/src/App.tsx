@@ -19,7 +19,6 @@ import Settings from './pages/Settings';
 import { Toaster } from 'react-hot-toast'; // Add Toaster import
 import UserMenu from './components/Auth/UserMenu'; // Add this import
 import AuthCallback from './components/Auth/AuthCallback';
-import { Rocket } from 'lucide-react'; // Add import for generate icon
 import Modal from 'react-modal'; // Add Modal import
 
 // Add this line before the App component

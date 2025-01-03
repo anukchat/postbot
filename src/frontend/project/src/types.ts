@@ -117,8 +117,7 @@ export interface Source {
   id: string;           // Make id required
   source_id: string;    // Make source_id required
   source_identifier: string;
-  type: 'twitter' | 'web_url';
-  source_type?: string;
+  source_type: string;
   metadata?: any;
   created_at: string;
   preview?: {
@@ -128,4 +127,5 @@ export interface Source {
   };
   has_blog: boolean;
   thread_id?: string;
+  has_url: boolean;
 }

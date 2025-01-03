@@ -17,6 +17,10 @@ import emoji from 'emoji-dictionary'; // Add this import
 import { Clipboard, Rocket } from 'lucide-react'; // Add this import
 import Tippy from '@tippyjs/react'; // Add this import
 import 'tippy.js/dist/tippy.css'; // Add this import
+import TurndownService from 'turndown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -67,6 +71,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
   const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 });
   const previewRef = useRef<HTMLDivElement>(null); // Add this ref
   const [isCopied, setIsCopied] = useState(false); // Add this state
+  const turndownService = new TurndownService();
 
   // useEffect(() => {
   //   fetchPosts({});
@@ -398,28 +403,29 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
 
   const handleCopy = () => {
     if (previewRef.current) {
-      const range = document.createRange();
-      range.selectNodeContents(previewRef.current);
-      const selection = window.getSelection();
-      if (selection) {
-        selection.removeAllRanges();
-        selection.addRange(range);
-        const textContent = previewRef.current.innerText; // Get the text content with formatting
-        navigator.clipboard.writeText(textContent).then(() => {
-          setIsCopied(true); // Set copied state to true
-          setTimeout(() => setIsCopied(false), 500); // Reset copied state after 1 second
-        }).catch(err => {
-          console.error('Failed to copy: ', err);
-        });
-        selection.removeAllRanges();
-      }
+      const htmlContent = previewRef.current.innerHTML;
+      // Convert HTML to Markdown
+      const markdownContent = turndownService.turndown(htmlContent);
+      
+      // Create a temporary element to hold both formats
+      const clipboardData = new ClipboardItem({
+        'text/plain': new Blob([markdownContent], { type: 'text/plain' }),
+        'text/html': new Blob([htmlContent], { type: 'text/html' })
+      });
+
+      navigator.clipboard.write([clipboardData]).then(() => {
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 1500);
+      }).catch(err => {
+        console.error('Failed to copy: ', err);
+      });
     }
   };
 
   return (
     <div className="flex flex-col h-full" ref={containerRef}>
       <div className="border-b flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800">
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 h-[68px]">
           <Toolbar onCommandInsert={handleCommandInsert} selectedTab={selectedTab} />
         </div>
       </div>
@@ -475,8 +481,8 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
               </Tippy>
               <div ref={previewRef}>
                 <ReactMarkdown
-                  remarkPlugins={[remarkGfm, remarkEmoji]}
-                  rehypePlugins={[rehypeRaw]}
+                  remarkPlugins={[remarkGfm, remarkEmoji, remarkMath]}
+                  rehypePlugins={[rehypeRaw, rehypeKatex]}
                   components={customComponents}
                 >
                   {filterMetadata(content)}

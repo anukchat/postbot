@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Image, Link, Video, Quote, ListOrdered, List, Hash, Twitter, Code, Code2, Table, Check, Heading1, Heading2, Heading3, FileText, Undo, Redo, Tags, Bold, Italic, Strikethrough, User, Rocket } from 'lucide-react';
+import { Image, Link, Video, Quote, ListOrdered, List, Hash, Twitter, Code, Code2, Table, Check, Heading1, Heading2, Heading3, FileText, Undo, Redo, Tags, Bold, Italic, Strikethrough, User, Rocket, MessageSquare } from 'lucide-react';
 import 'tippy.js/dist/tippy.css';
 import Tippy from '@tippyjs/react';
 import { useEditorStore } from '../../store/editorStore';
@@ -8,6 +8,7 @@ import { ImagePicker } from './ImagePicker';
 import { VideoPicker } from './VideoPicker';
 import { UrlPicker } from './UrlPicker';
 import { Media, Url } from '../../types';
+import { FeedbackModal } from '../Modals/FeedbackModal';
 
 interface ToolbarProps {
   onCommandInsert: (commandText: string, replaceLength: number) => void;
@@ -19,6 +20,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onCommandInsert, selectedTab }
   const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
   const [showUrlPicker, setShowUrlPicker] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedback, setFeedback] = useState('');
   const { currentPost, undo, redo, generatePost, fetchContentByThreadId } = useEditorStore();
 
   const getTwitterEmbed = () => {
@@ -32,9 +35,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onCommandInsert, selectedTab }
 
   const getImageEmbed = () => {
     return currentPost?.media?.[0]?.type && ['photo', 'image'].includes(currentPost.media[0].type)
-        ? `![](${currentPost.media[0].original_url})\n`
-        : '![]()\n';
-    };
+      ? `![](${currentPost.media[0].original_url})\n`
+      : '![]()\n';
+  };
 
   const getLinkEmbed = () => {
     return currentPost?.urls?.[0]?.original_url
@@ -48,16 +51,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onCommandInsert, selectedTab }
       : '<video src="PASTE_VIDEO_URL_HERE" controls></video>\n';
   };
 
-  const getBlogMetadata = () => {     
+  const getBlogMetadata = () => {
     if (!currentPost) {
-        return '';
+      return '';
     }
     const date = new Date(currentPost.createdAt);
     const formattedDate = date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-    });   
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
     return `---\nblogpost: true\ncategory: LLM\ndate: ${formattedDate} \nauthor: Anukool Chaturvedi\ntags: ${currentPost.tags.join(', ')} \nlanguage: English\nexcerpt: 1\n---`;
   }
   // # Add for Tags
@@ -98,40 +101,37 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onCommandInsert, selectedTab }
     setShowUrlPicker(false);
   };
 
-  const mediaButtons = (
-    <div className="flex gap-5">
-      <Tippy content={currentPost?.media?.some(m => m.type === 'image') ? "Choose Image" : "Insert Blank Image"}>
-        <button onClick={() => {
-          const hasImages = currentPost?.media?.some(m => m.type === 'image');
-          if (!hasImages) {
-            onCommandInsert('![]()\n', 0);
-          } else {
-            setMediaType('image');
-            setShowMediaPicker(true);
-          }
-        }}>
-          <Image className={`w-5 h-5 ${iconColor(!!currentPost?.media?.some(m => m.type === 'image'))}`} />
-        </button>
-      </Tippy>
-      <Tippy content={currentPost?.media?.some(m => m.type === 'video') ? "Choose Video" : "Insert Blank Video"}>
-        <button onClick={() => {
-          const hasVideos = currentPost?.media?.some(m => m.type === 'video');
-          if (!hasVideos) {
-            onCommandInsert('<video src="PASTE_VIDEO_URL_HERE" controls></video>\n', 0);
-          } else {
-            setMediaType('video');
-            setShowMediaPicker(true);
-          }
-        }}>
-          <Video className={`w-5 h-5 ${iconColor(!!currentPost?.media?.some(m => m.type === 'video'))}`} />
-        </button>
-      </Tippy>
-    </div>
-  );
+  const handleFeedbackSubmit = async () => {
+    if (!feedback.trim() || !currentPost?.thread_id) return;
+    
+    setIsGenerating(true);
+    try {
+      const payload = {
+        thread_id: currentPost.thread_id,
+        post_types: [selectedTab],
+        feedback: feedback,
+        ...(currentPost.source_type === 'twitter' ? { tweet_id: currentPost.source_identifier } : {}),
+        ...(currentPost.source_type === 'web_url' ? { url: currentPost.source_identifier } : {})
+      };
+      
+      await generatePost([selectedTab], currentPost.thread_id, payload);
+      await fetchContentByThreadId(currentPost.thread_id, selectedTab);
+      setShowFeedbackModal(false);
+      setFeedback('');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
-  const isGenerateDisabled: boolean = selectedTab === 'blog' || 
-    (selectedTab === 'twitter' && !!currentPost?.twitter_post) || 
+  const isGenerateDisabled: boolean = selectedTab === 'blog' ||
+    (selectedTab === 'twitter' && !!currentPost?.twitter_post) ||
     (selectedTab === 'linkedin' && !!currentPost?.linkedin_post);
+
+  const shouldShowFeedback = currentPost && (
+    (selectedTab === 'blog' && currentPost.content) ||
+    (selectedTab === 'twitter' && currentPost.twitter_post) ||
+    (selectedTab === 'linkedin' && currentPost.linkedin_post)
+  );
 
   return (
     <>
@@ -157,27 +157,63 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onCommandInsert, selectedTab }
         {/* <Tippy content="Video"><button onClick={() => onCommandInsert(getVideoEmbed(), 0)}><Video className={`w-5 h-5 ${iconColor(currentPost?.media?.[0]?.type === 'video')}`} /></button></Tippy> */}
         <Tippy content="Blog metadata"><button onClick={() => onCommandInsert(getBlogMetadata(), 0)}><Tags className="w-5 h-5 text-green-500" /></button></Tippy>
         <div className="flex gap-2 items-center">
-          {mediaButtons}
-          {selectedTab !== 'blog' && (
-            <Tippy content={isGenerateDisabled ? 'Content already exists' : `Generate ${selectedTab} post`}>
-              <button
-          onClick={handleGenerate}
-          disabled={isGenerateDisabled || isGenerating}
-          className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${
-            isGenerateDisabled || isGenerating ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
-              >
-          <Rocket className={`w-5 h-5 ${isGenerating ? 'animate-bounce' : ''}`} />
+          <div className="flex gap-5">
+            <Tippy content={currentPost?.media?.some(m => m.type === 'image') ? "Choose Image" : "Insert Blank Image"}>
+              <button onClick={() => {
+                const hasImages = currentPost?.media?.some(m => m.type === 'image');
+                if (!hasImages) {
+                  onCommandInsert('![]()\n', 0);
+                } else {
+                  setMediaType('image');
+                  setShowMediaPicker(true);
+                }
+              }}>
+                <Image className={`w-5 h-5 ${iconColor(!!currentPost?.media?.some(m => m.type === 'image'))}`} />
               </button>
             </Tippy>
-          )}
+            <Tippy content={currentPost?.media?.some(m => m.type === 'video') ? "Choose Video" : "Insert Blank Video"}>
+              <button onClick={() => {
+                const hasVideos = currentPost?.media?.some(m => m.type === 'video');
+                if (!hasVideos) {
+                  onCommandInsert('<video src="PASTE_VIDEO_URL_HERE" controls></video>\n', 0);
+                } else {
+                  setMediaType('video');
+                  setShowMediaPicker(true);
+                }
+              }}>
+                <Video className={`w-5 h-5 ${iconColor(!!currentPost?.media?.some(m => m.type === 'video'))}`} />
+              </button>
+            </Tippy>
+            {selectedTab !== 'blog' && (
+              <Tippy content={isGenerateDisabled ? 'Content already exists' : `Generate ${selectedTab} post`}>
+                <button
+                  onClick={handleGenerate}
+                  disabled={isGenerateDisabled || isGenerating}
+                  className={`rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${isGenerateDisabled || isGenerating ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                >
+                  <Rocket className={`w-5 h-5 ${isGenerating ? 'animate-bounce' : ''}`} />
+                </button>
+              </Tippy>
+            )}
+            {shouldShowFeedback && (
+              <Tippy content="Provide feedback">
+                <button
+                  onClick={() => setShowFeedbackModal(true)}
+                  className="hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded-lg"
+                >
+                  <MessageSquare className="w-5 h-5" />
+                </button>
+              </Tippy>
+            )}
+          </div>
         </div>
       </div>
       {showMediaPicker && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 max-w-2xl max-h-[80vh] overflow-auto">
             {mediaType === 'image' ? (
-              <ImagePicker 
+              <ImagePicker
                 media={currentPost?.media.filter(m => m.type === 'image') || []}
                 onSelect={handleMediaSelect}
                 onClose={() => setShowMediaPicker(false)}
@@ -198,6 +234,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onCommandInsert, selectedTab }
         urls={currentPost?.urls || []}
         onSelect={handleUrlSelect}
       />
+      {showFeedbackModal && (
+        <FeedbackModal
+          feedback={feedback}
+          setFeedback={setFeedback}
+          handleFeedbackSubmit={handleFeedbackSubmit}
+          setShowFeedbackModal={setShowFeedbackModal}
+        />
+      )}
       {isGenerating && (
         <GenerateLoader platform={selectedTab as 'twitter' | 'linkedin'} />
       )}

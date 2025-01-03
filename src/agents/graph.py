@@ -2,22 +2,20 @@ from fastapi import HTTPException
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from src import utils
-from src.ai.agent.v3.utils import *
+from src.agents.utils import *
 from langgraph.constants import Send
 from langgraph.graph import START, END, StateGraph
 from langgraph.checkpoint.postgres import PostgresSaver
 from supabase import create_client, Client
 import os
 import logging
-
-from src.ai.agent.v3.state import Sections, BlogState, BlogStateInput, BlogStateOutput, SectionState
-from src.ai.agent.v3.prompts import blog_planner_instructions, main_body_section_writer_instructions, intro_conclusion_instructions, linkedin_post_instructions, twitter_post_instructions, tags_generator
-from src.ai.agent.v3 import configuration
-from src.ai.service import get_gemini
+from src.agents.state import Sections, BlogState, BlogStateInput, BlogStateOutput, SectionState
+from src.agents.prompts import blog_planner_instructions, main_body_section_writer_instructions, intro_conclusion_instructions, linkedin_post_instructions, twitter_post_instructions, tags_generator
+from src.agents import configuration
+from src.agents.service import get_gemini
 import json
 import re
 import ast
-from src.db.sql import get_tweet_by_id
 # from src.db.supabaseclient import supabase_client
 from src.extractors.docintelligence import DocumentExtractor
 import uuid
@@ -421,7 +419,7 @@ class AgentWorkflow:
                             content_data = {
                                 "content_type_id": content_type.data[0]["content_type_id"],
                                 "body": content_body,
-                                "status": "draft",
+                                "status": "Draft",
                                 "thread_id": thread_id
                             }
                             supabase.table("content").insert(content_data).execute()
@@ -439,7 +437,7 @@ class AgentWorkflow:
                         content_type = supabase.table("content_types").select("*").eq("name", post_type).execute()
                         content_data = {
                             "body": content_body,
-                            "status": "draft"
+                            "status": "Draft"
                         }
                         supabase.table("content").update(content_data).eq("thread_id", thread_id).eq("content_type_id", content_type.data[0]["content_type_id"]).execute()
             
@@ -485,7 +483,7 @@ class AgentWorkflow:
                             "content_type_id": content_type.data[0]["content_type_id"],
                             "title": result.get('blog_title') if post_type == "blog" else None,
                             "body": result.get('final_blog' if post_type == "blog" else f"{post_type}_post"),
-                            "status": "draft",
+                            "status": "Draft",
                             "thread_id": thread_id
                         }
                         

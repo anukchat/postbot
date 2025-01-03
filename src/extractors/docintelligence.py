@@ -244,29 +244,3 @@ class DocumentExtractor:
         except requests.exceptions.RequestException as e:
             logger.error(f"Error fetching README from {repo_url}: {e}")
             return None
-    
-# def convert_pdfs_to_markdown():
-#     """
-#     Main execution method
-#     """
-#     extractor = DocumentExtractor()
-    
-#     # Process all supported document types
-#     extractor.process_documents()
-
-#     # Optionally, process a specific type
-#     # extractor.process_documents('pdf')
-
-#     # Example of adding a custom extraction method
-#     # def custom_txt_extractor(input_file, output_file):
-#     #     with open(input_file, 'r') as f:
-#     #         content = f.read()
-#     #     with open(output_file, 'w') as f:
-#     #         f.write(content)
-#     # 
-#     # extractor.add_document_type('txt', custom_txt_extractor)
-
-
-
-# if __name__ == "__main__":
-    # convert_pdfs_to_markdown()

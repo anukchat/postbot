@@ -82,3 +82,13 @@
 .dark .tweet-card {
   background-color: #1f2937;
 }
+
+/* Add this to your global CSS file */
+.math-inline {
+  padding: 0 0.2em;
+}
+
+.math-display {
+  overflow-x: auto;
+  padding: 1em 0;
+}

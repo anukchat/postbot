@@ -1,6 +1,7 @@
 import React from 'react';
-import { MoreVertical, Eye, ArrowUpRight } from 'lucide-react';
+import { MoreVertical, Eye, ArrowUpRight, AlertCircle } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import Tippy from '@tippyjs/react';
 import { Source } from '../../types';
 
 interface SourceCardProps {
@@ -11,7 +12,7 @@ interface SourceCardProps {
   existingBlogId?: string;
   onViewBlog: (blogId: string) => void;
   className?: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 export const SourceCard: React.FC<SourceCardProps> = ({
@@ -38,9 +39,18 @@ export const SourceCard: React.FC<SourceCardProps> = ({
       } ${className}`}
       onClick={onSelect}
     >
-      {/* Update the blog availability indicator */}
+      {/* Warning indicator - Update z-index and positioning */}
+      {source?.source_type === 'twitter' && source.has_url === false && (
+        <Tippy content="This tweet has no URLs. Content generation may be limited.">
+          <div className="absolute top-2 right-2 z-[80]">
+            <AlertCircle className="w-5 h-5 text-amber-500" />
+          </div>
+        </Tippy>
+      )}
+
+      {/* Blog availability indicator - Adjust left position to avoid overlap */}
       {hasExistingBlog && (
-        <div className="absolute top-2 left-2 z-[60]">
+        <div className="absolute top-2 left-2 z-[70]">
           <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900/80 dark:text-green-300 shadow-sm backdrop-blur-sm transition-opacity duration-200">
             <Eye className="w-3.5 h-3.5" />
             <span>Blog Available</span>
@@ -48,8 +58,8 @@ export const SourceCard: React.FC<SourceCardProps> = ({
         </div>
       )}
 
-      {/* Context Menu */}
-      <div className="absolute top-2 right-2 z-[60] opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Context Menu - Move it slightly to avoid overlap with warning */}
+      <div className="absolute top-2 right-10 z-[60] opacity-0 group-hover:opacity-100 transition-opacity">
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
             <button 

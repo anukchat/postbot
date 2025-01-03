@@ -5,8 +5,7 @@ from db.supabaseclient import supabase_client
 from db.supabasedatamodel import *
 from typing import List, Optional
 import uvicorn
-from src.ai.agent.v3.graph import AgentWorkflow
-from src.service import GenericBlogGenerationRequestModel
+from src.agents.graph import AgentWorkflow
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from linkpreview import link_preview
@@ -73,13 +72,12 @@ class ContentListResponse(BaseModel):
     size: int
 
 class SaveContentRequest(BaseModel):
-    thread_id: UUID
+    # thread_id: UUID
     title: Optional[str] = None
     content: Optional[str] = None
     twitter_post: Optional[str] = None
     linkedin_post: Optional[str] = None
-    status: str = "draft"
-    tags: List[str] = []
+    status: str = "Draft"
 
 class ScheduleContentRequest(BaseModel):
     thread_id: UUID
@@ -92,6 +90,7 @@ class GeneratePostRequestModel(BaseModel):
     post_types: List[str]
     tweet_id: Optional[str] = None
     url: Optional[str] = None
+    feedback: Optional[str] = None  # Add this field
 
 # First, define a response model
 class SourceListResponse(BaseModel):
@@ -357,6 +356,7 @@ async def generate_generic_blog(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
 @app.get("/content/list", response_model=ContentListResponse)
 async def list_content(skip: int = 0, limit: int = 10):
     # Fetch content with nested relationships
@@ -434,13 +434,13 @@ async def filter_content(
                                              ).order('created_at', desc=True)
     # Apply filters
     if title_contains:
-        query = query.ilike("title", f"%{title_contains}%")  # Case-insensitive title search
+        query = query.ilike("title", f"\"%{title_contains}%\"")  # Case-insensitive title search
     if post_type:
         query = query.eq("content_types.name", post_type)
     if status:
         query = query.eq("status", status)
     if domain:
-        query = query.contains("content_sources.source.url_references.domain", [domain])
+        query = query.ilike("content_sources.source.url_references.domain", f"\"%{domain}%\"")
     if tag_name:
         query = query.contains("content_tags.tags.name", [tag_name])
     if source_type:
@@ -462,7 +462,7 @@ async def filter_content(
 
     response = query.execute()
 
-    # Updated parsing of response with source_identifier
+    # Add null checks when parsing response
     items = [
         ContentListItem(
             id=item["content_id"],
@@ -473,29 +473,29 @@ async def filter_content(
                 if source.get("source") and source["source"].get("source_identifier")),
                 ""
             ),
-            title=item["title"] if item["content_types"]["name"] == "blog" else "",
-            content=item["body"] if item["content_types"]["name"] == "blog" else "",
+            title=item.get("title", "") if item.get("content_types", {}).get("name") == "blog" else "",
+            content=item.get("body", "") if item.get("content_types", {}).get("name") == "blog" else "",
             tags=[tag["tags"]["name"] for tag in item.get("content_tags", []) if tag.get("tags")],
             createdAt=item["created_at"],
             updatedAt=item["updated_at"],
             status=item["status"],
-            twitter_post=item["body"] if item["content_types"]["name"] == "twitter_post" else "",
-            linkedin_post=item["body"] if item["content_types"]["name"] == "linkedin_post" else "",
+            twitter_post=item.get("body", "") if item.get("content_types", {}).get("name") == "twitter_post" else "",
+            linkedin_post=item.get("body", "") if item.get("content_types", {}).get("name") == "linkedin_post" else "",
             urls=[{
                 "url": ref["url"],
-                "type": ref["type"],
-                "domain": ref["domain"]
+                "type": ref.get("type"),
+                "domain": ref.get("domain")
             } for source in item.get("content_sources", [])
                 if source.get("source") and source["source"].get("url_references")
                 for ref in source["source"]["url_references"]
-                if item["content_types"]["name"] == "blog"],
+                if item.get("content_types", {}).get("name") == "blog"],
             media=[{
                 "url": media["media_url"],
                 "type": media["media_type"]
             } for source in item.get("content_sources", [])
                 if source.get("source") and source["source"].get("media")
                 for media in source["source"]["media"]
-                if item["content_types"]["name"] == "blog"],
+                if item.get("content_types", {}).get("name") == "blog"],
             source_type=next((source["source"]["source_types"]["name"]
                 for source in item.get("content_sources", [])
                 if source.get("source") and source["source"].get("source_types")), None)
@@ -535,63 +535,42 @@ def delete_content(content_id: UUID, user: dict = Depends(get_current_user)):
 async def save_thread_content(thread_id: UUID, payload: SaveContentRequest, user: dict = Depends(get_current_user)):
     """Save all content types for a thread in a single transaction"""
     try:
-        async with supabase.pool.acquire() as connection:
-            async with connection.transaction():
-                # Get all content records for this thread
-                content_types = await supabase.table("content_types").select("*").in_("name", ["blog", "twitter_post", "linkedin_post"]).execute()
-                content_type_map = {ct["name"]: ct["content_type_id"] for ct in content_types.data}
-                
-                thread_content = await supabase.table("content").select("*").eq("thread_id", thread_id).execute()
-                content_by_type = {item["content_type_id"]: item for item in thread_content.data}
+        # Get all content records for this thread
+        content_types = supabase.table("content_types").select("*").in_("name", ["blog", "twitter", "linkedin"]).execute()
+        content_type_map = {ct["name"]: ct["content_type_id"] for ct in content_types.data}
+        
+        thread_content = supabase.table("content").select("*").eq("thread_id", thread_id).execute()
+        content_by_type = {item["content_type_id"]: item for item in thread_content.data}
+        
+        # Update blog content
+        if payload.content:
+            blog_content = content_by_type.get(content_type_map["blog"])
+            if blog_content:
+                supabase.table("content").update({
+                    "title": payload.title,
+                    "body": payload.content,
+                    "status": payload.status
+                }).eq("content_id", blog_content["content_id"]).execute()
 
-                # Update blog content
-                if payload.content:
-                    blog_content = content_by_type.get(content_type_map["blog"])
-                    if blog_content:
-                        await supabase.table("content").update({
-                            "title": payload.title,
-                            "body": payload.content,
-                            "status": payload.status
-                        }).eq("content_id", blog_content["content_id"]).execute()
+        # Update Twitter post
+        if payload.twitter_post:
+            twitter_content = content_by_type.get(content_type_map["twitter"])
+            if twitter_content:
+                supabase.table("content").update({
+                    "body": payload.twitter_post,
+                    "status": payload.status
+                }).eq("content_id", twitter_content["content_id"]).execute()
 
-                # Update Twitter post
-                if payload.twitter_post:
-                    twitter_content = content_by_type.get(content_type_map["twitter_post"])
-                    if twitter_content:
-                        await supabase.table("content").update({
-                            "body": payload.twitter_post,
-                            "status": payload.status
-                        }).eq("content_id", twitter_content["content_id"]).execute()
+        # Update LinkedIn post
+        if payload.linkedin_post:
+            linkedin_content = content_by_type.get(content_type_map["linkedin"])
+            if linkedin_content:
+                supabase.table("content").update({
+                    "body": payload.linkedin_post,
+                    "status": payload.status
+                }).eq("content_id", linkedin_content["content_id"]).execute()
 
-                # Update LinkedIn post
-                if payload.linkedin_post:
-                    linkedin_content = content_by_type.get(content_type_map["linkedin_post"])
-                    if linkedin_content:
-                        await supabase.table("content").update({
-                            "body": payload.linkedin_post,
-                            "status": payload.status
-                        }).eq("content_id", linkedin_content["content_id"]).execute()
-
-                # Update tags if provided
-                if payload.tags:
-                    # Get the blog content_id
-                    blog_content = content_by_type.get(content_type_map["blog"])
-                    if blog_content:
-                        # Delete existing tags
-                        await supabase.table("content_tags").delete().eq("content_id", blog_content["content_id"]).execute()
-                        
-                        # Add new tags
-                        for tag_name in payload.tags:
-                            tag = await supabase.table("tags").select("*").eq("name", tag_name).execute()
-                            if not tag.data:
-                                tag = await supabase.table("tags").insert({"name": tag_name}).execute()
-                            tag_id = tag.data[0]["tag_id"]
-                            
-                            await supabase.table("content_tags").insert({
-                                "content_id": blog_content["content_id"],
-                                "tag_id": tag_id
-                            }).execute()
-
+        
         return {"message": "Content saved successfully"}
 
     except Exception as e:
@@ -657,10 +636,10 @@ def filter_sources(
     limit: int = 10, 
     user: dict = Depends(get_current_user)
 ):
-    # Build base query with blog content information
+    # Build base query with blog content information and url references
     base_query = (
         supabase.table("sources")
-        .select("*,source_types(source_type_id,name),content_sources(content:content_id(content_id,title,thread_id,content_types(name)))")
+        .select("*,source_types(source_type_id,name),content_sources(content:content_id(content_id,title,thread_id,content_types(name))),url_references(*)")
         .order("created_at", desc=True)
     )
     
@@ -686,7 +665,7 @@ def filter_sources(
     total_count = len(count_response.data)
     paginated_response = base_query.range(skip, skip + limit - 1).execute()
     
-    # Transform the response to include blog information
+    # Transform the response to include blog information and has_url
     transformed_data = []
     for item in paginated_response.data:
         source_type_name = item["source_types"]["name"] if item.get("source_types") else None
@@ -700,14 +679,19 @@ def filter_sources(
                 thread_id = content["content"].get("thread_id")
                 break
 
+        # Check if source has any URL references
+        has_url = bool(item.get("url_references") and len(item["url_references"]) > 0)
+
         transformed_item = {
             **item,
             "source_type": source_type_name,
             "has_blog": has_blog,
+            "has_url": has_url,
             "thread_id": thread_id
         }
         del transformed_item["source_types"]
         del transformed_item["content_sources"]
+        del transformed_item["url_references"]
         
         transformed_data.append(transformed_item)
         
