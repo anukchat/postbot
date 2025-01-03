@@ -62,7 +62,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaScrollRef = useRef<ScrollPosition>({ x: 0, y: 0 });
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
-  const [commandPalettePosition, setCommandPalettePosition] = useState({ x: 0, y: 0 });
+  // const [commandPalettePosition, setCommandPalettePosition] = useState({ x: 0, y: 0 });
   const [filteredCommands, setFilteredCommands] = useState(getCommands(currentPost));
   const [selectedIndex, setSelectedIndex] = useState(0);
   const commandTriggeredRef = useRef(false);
@@ -228,7 +228,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
       x = viewportWidth - 330; // Adjust to fit within the viewport
     }
 
-    setCommandPalettePosition({ x, y });
+    // setCommandPalettePosition({ x, y });
   };
 
   const handleKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

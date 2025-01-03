@@ -6,7 +6,6 @@ import { useEditorStore } from '../../store/editorStore';
 import Masonry from 'react-masonry-css';
 import api from '../../services/api';
 import { Source } from '../../types';
-import { LinkPreview as CustomLinkPreview } from '../Editor/LinkPreview';
 import { useNavigate } from 'react-router-dom'; // Replace useRouter
 import { SourceCard } from '../Sources/SourceCard';
 import { GenerateLoader } from '../Editor/GenerateLoader';
@@ -71,13 +70,6 @@ interface CustomUrlForm {
   isValid: boolean;
 }
 
-interface PreviewData {
-  title?: string;
-  description?: string;
-  image?: string;
-  siteName?: string;
-  url: string;
-}
 
 export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) => {
   const [selectedSource, setSelectedSource] = useState<SourceType | null>(null);
@@ -246,14 +238,6 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
       setError('Failed to generate blog');
     } finally {
       setIsGenerating(false);
-    }
-  };
-
-  const isValidUrl = (urlString: string): boolean => {
-    try {
-      return Boolean(new URL(urlString));
-    } catch (e) {
-      return false;
     }
   };
 
