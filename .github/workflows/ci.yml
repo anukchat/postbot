@@ -3,6 +3,9 @@ name: CI/CD Pipeline
 permissions:
   contents: read
   packages: write
+  actions: write    # Add this
+  deployments: write # Add this
+  id-token: write   # Add this for better security
 
 on:
   push:
