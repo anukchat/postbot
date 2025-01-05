@@ -14,8 +14,8 @@ from psycopg import Connection
 from supabase import Client
 
 # from src.agents import configuration
-from src.agents.llm import get_gemini
-from src.agents.prompts import (
+from agents.llm import get_gemini
+from agents.prompts import (
     default_blog_structure,
     blog_planner_instructions,
     main_body_section_writer_instructions,
@@ -24,10 +24,10 @@ from src.agents.prompts import (
     twitter_post_instructions,
     tags_generator,
 )
-from src.agents.state import BlogState, BlogStateInput, BlogStateOutput, SectionState
-from src.agents.utils import *
-from src.db.supabaseclient import supabase_client
-from src.extractors.docintelligence import DocumentExtractor
+from agents.state import BlogState, BlogStateInput, BlogStateOutput, SectionState
+from agents.utils import *
+from db.supabaseclient import supabase_client
+from extractors.docintelligence import DocumentExtractor
 
 supabase: Client = supabase_client()
 logging.basicConfig(level=logging.ERROR)
