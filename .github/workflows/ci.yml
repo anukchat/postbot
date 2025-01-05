@@ -1,6 +1,5 @@
 name: CI/CD Pipeline
 
-# Add permissions block at the top level
 permissions:
   contents: read
   packages: write
@@ -15,8 +14,11 @@ on:
       deploy:
         description: 'Deploy to production?'
         required: true
-        type: boolean
-        default: false
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
+        default: 'no'
 
 jobs:
   build-backend:
@@ -80,7 +82,9 @@ jobs:
 
   deploy:
     needs: [build-backend, build-frontend]
-    if: github.event.inputs.deploy == 'true'
+    if: |
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.deploy == 'yes'
     runs-on: ubuntu-latest
     environment: production
     
