@@ -1,12 +1,9 @@
-docling
-langchain
-qdrant_client
-langgraph
-openai
-python-dotenv
-langchain-core>=0.1.0
-langgraph>=0.0.15
+langchain==0.1.0
+langchain-core==0.1.0
+langgraph==0.0.15
 langgraph-checkpoint-postgres
-google-generativeai
-pypandoc
-markdownify
+google-generativeai==0.3.0
+markdownify==0.11.6
+
+# Removed: docling, openai, python-dotenv as they appear unused
+# Removed redundant langgraph specification

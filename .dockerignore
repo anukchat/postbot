@@ -1,0 +1,16 @@
+**/.git
+**/.gitignore
+**/.vscode
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.Python
+**/.env
+**/npm-debug.log
+**/dist
+**/.coverage
+**/.pytest_cache
+**/.DS_Store
+**/README.md

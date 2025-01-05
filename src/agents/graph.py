@@ -10,7 +10,6 @@ from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.constants import Send
 from langgraph.graph import START, END, StateGraph
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_core.runnables import RunnableConfig
 from psycopg import Connection
 from supabase import Client
 
