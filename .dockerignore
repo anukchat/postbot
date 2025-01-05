@@ -23,4 +23,3 @@ dist
 .env
 .env.local
 .env.*.local
-!src/frontend/project/lib
