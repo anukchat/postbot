@@ -1,4 +1,4 @@
-TODO Tasks
+Tasks
 1. Filter out invalid images to save in database
 2. Search tweet or web_url fixes, given a source_identifier, if it is of type twitter, 
 search in metadata text
@@ -7,7 +7,9 @@ If web_url, search
 
 TODO:
 1. use ai suite for llm management
-2. Extractor: Try more extractors, microsoft markdownit, make pluggable 
+2. Extractor: Try more extractors, microsoft markdownit, make it pluggable 
+    - Crawl4AI
+    - FireCrawl
 3. Try firecrawl
 4. Add Topic based generation
 5. Add Top Trends
