@@ -11,8 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      SUPABASE_URL: ${{ env.SUPABASE_URL }}
-      SUPABASE_KEY: ${{ env.SUPABASE_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
     steps:
       - uses: actions/checkout@v3
 
@@ -30,8 +30,8 @@ jobs:
   build-frontend:
     runs-on: ubuntu-latest
     env:
-      SUPABASE_URL: ${{ env.SUPABASE_URL }}
-      SUPABASE_KEY: ${{ env.SUPABASE_KEY }}
+      VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_KEY }}
     steps:
       - uses: actions/checkout@v3
 
@@ -49,8 +49,4 @@ jobs:
 
       - name: Build frontend
         working-directory: ./src/frontend/project
-        env:
-          SUPABASE_URL: ${{ env.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ env.SUPABASE_KEY }}
-        run: |
-          npm run build
+        run: npm run build
