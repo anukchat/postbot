@@ -13,7 +13,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from psycopg import Connection
 from supabase import Client
 
-from src.agents import configuration
+# from src.agents import configuration
 from src.agents.llm import get_gemini
 from src.agents.prompts import (
     default_blog_structure,
@@ -42,8 +42,8 @@ class AgentWorkflow:
         self.builder = StateGraph(
             BlogState,
             input=BlogStateInput,
-            output=BlogStateOutput,
-            config_schema=configuration.Configuration,
+            output=BlogStateOutput
+            # config_schema=configuration.Configuration,
         )
         dsn = os.getenv("SUPABASE_POSTGRES_DSN", "")
         connection_kwargs = {

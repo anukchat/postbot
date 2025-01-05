@@ -809,7 +809,7 @@
   dependencies:
     defer-to-connect "^2.0.0"
 
-"@tailwindcss/typography@^0.5.10":
+"@tailwindcss/typography@^0.5.15":
   version "0.5.15"
   resolved "https://registry.npmjs.org/@tailwindcss/typography/-/typography-0.5.15.tgz"
   integrity sha512-AqhlCXl+8grUz8uqExv5OTtgpjuVIwFTSXTrh8y9/pw6q2ek7fJ+Y8ZEVw7EB2DCcuCOtEjf9w3+J3rzts01uA==
