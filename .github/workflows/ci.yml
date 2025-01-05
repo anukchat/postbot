@@ -49,4 +49,6 @@ jobs:
 
       - name: Build frontend
         working-directory: ./src/frontend/project
-        run: npm run build
+        run: |
+          npm run typecheck
+          npm run build
