@@ -16,22 +16,19 @@ COPY src/frontend/project/package*.json ./
 # Install dependencies
 RUN npm install
 
-# Copy the entire frontend project including lib directory
+# Create directory structure
+RUN mkdir -p lib
+
+# Copy the entire frontend project
 COPY src/frontend/project/ ./
 
-# Add debug statements
-RUN echo "Current directory contents:" && \
-    ls -la && \
-    echo "Node version:" && \
-    node --version && \
-    echo "NPM version:" && \
-    npm --version
+# Explicitly copy lib directory
+COPY src/frontend/project/lib/ ./lib/
 
-# Create necessary directories if they don't exist
-RUN mkdir -p lib ./
-
-# List contents of lib directory
-RUN echo "Contents of lib directory:" && ls -la lib/
+# Verify contents after copying
+RUN ls -la lib/ && \
+    echo "Node version: $(node --version)" && \
+    echo "NPM version: $(npm --version)"
 
 # Build the application
 RUN npm run build
