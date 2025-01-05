@@ -2,6 +2,14 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# Accept build args
+ARG SUPABASE_URL
+ARG SUPABASE_KEY
+
+# Make them environment variables
+ENV VITE_SUPABASE_URL=$SUPABASE_URL
+ENV VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY
+
 # Copy package files first
 COPY src/frontend/project/package*.json ./
 
@@ -22,7 +30,8 @@ RUN echo "Current directory contents:" && \
 # Create necessary directories if they don't exist
 RUN mkdir -p lib ./lib
 
-RUN echo "Directory structure after mkdir:" && ls -R
+# List contents of lib directory
+RUN echo "Contents of lib directory:" && ls -la lib/
 
 # Build the application
 RUN npm run build

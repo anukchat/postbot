@@ -20,7 +20,7 @@ jobs:
       - name: Build Docker Images
         run: |
           docker build -t postbot-backend -f Dockerfile.backend . --build-arg GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-          docker build -t postbot-frontend -f Dockerfile.frontend . --build-arg SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          docker build -t postbot-frontend -f Dockerfile.frontend . --build-arg SUPABASE_URL=${{ secrets.SUPABASE_URL }} --build-arg SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
 
       - name: Deploy to Vercel
         env:
