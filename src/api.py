@@ -117,11 +117,12 @@ def generate_token(token_request: TokenRequest):
     provider = token_request.provider
     try:
         # Prepare the credentials dictionary
+        redirect_url = os.getenv("VITE_API_URL", "http://localhost:8000")
         credentials = {
             "provider": provider,
             "options": {
-                "redirect_to": "http://localhost:8000/callback",  # Optional: Add a redirect URL
-                # Add other options if needed, e.g., "scopes" or "query_params"
+            "redirect_to": f"{redirect_url}/callback",  # Use environment variable if available
+            # Add other options if needed, e.g., "scopes" or "query_params"
             }
         }
 
