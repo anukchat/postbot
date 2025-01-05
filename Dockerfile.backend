@@ -1,0 +1,30 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements files
+COPY requirements*.txt ./
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements_llm.txt
+
+# Copy the application code
+COPY src/ ./src/
+
+# Set environment variables
+ENV PORT=8000
+ENV MODULE_NAME=src.api
+ENV VARIABLE_NAME=app
+
+# Expose the port
+EXPOSE 8000
+
+# Start the application with uvicorn
+CMD ["sh", "-c", "uvicorn ${MODULE_NAME}:${VARIABLE_NAME} --host 0.0.0.0 --port ${PORT}"]

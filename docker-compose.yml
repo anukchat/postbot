@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - SUPABASE_POSTGRES_DSN=${SUPABASE_POSTGRES_DSN}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    volumes:
+      - ./src:/app/src
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    volumes:
+      - ./src/frontend/project:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    restart: unless-stopped

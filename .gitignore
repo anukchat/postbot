@@ -51,3 +51,8 @@ data/*
 posts/*
 .DS_Store
 node_modules/
+
+# Docker
+.docker/
+docker-compose.override.yml
+.vercel
