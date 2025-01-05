@@ -20,7 +20,9 @@ RUN echo "Current directory contents:" && \
     npm --version
 
 # Create necessary directories if they don't exist
-RUN mkdir -p lib src/lib
+RUN mkdir -p lib ./lib
+
+RUN echo "Directory structure after mkdir:" && ls -R
 
 # Build the application
 RUN npm run build
