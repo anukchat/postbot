@@ -1,7 +1,8 @@
 import logging
 from pathlib import Path
 import traceback
-from docling.document_converter import DocumentConverter
+# from docling.document_converter import DocumentConverter
+from markitdown import MarkItDown 
 import html2text
 import markdownify
 import requests
@@ -40,7 +41,7 @@ class DocumentExtractor:
             # 'docx': self.extract_docx,
             # 'txt': self.extract_txt,
         }
-        self.converter= DocumentConverter()
+        self.converter= MarkItDown()
     
     def extract_pdf(self, input_file, output_file=None):
         """
@@ -51,7 +52,7 @@ class DocumentExtractor:
             output_file (Path): Output markdown file path
         """
         try:
-            markdown_content =  self.converter.convert(str(input_file)).document.export_to_markdown()
+            markdown_content =  self.converter.convert(str(input_file)).text_content#.document.export_to_markdown()
             if output_file is None:
                 # Extract markdown
                 return markdown_content
@@ -178,7 +179,7 @@ class DocumentExtractor:
             
             
             # Convert PDF to Markdown using the docling library
-            markdown_content = self.converter.convert(pdf_url).document.export_to_markdown()
+            markdown_content = self.converter.convert(pdf_url).text_content#.document.export_to_markdown()
             
             # Save markdown content
             if output_file:

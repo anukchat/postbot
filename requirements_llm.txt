@@ -1,4 +1,4 @@
-docling
+markitdown
 langchain
 langgraph
 openai
