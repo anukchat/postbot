@@ -2,14 +2,25 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files first
 COPY src/frontend/project/package*.json ./
 
 # Install dependencies
 RUN npm install
 
-# Copy the rest of the frontend code
+# Copy the entire frontend project including lib directory
 COPY src/frontend/project/ ./
+
+# Add debug statements
+RUN echo "Current directory contents:" && \
+    ls -la && \
+    echo "Node version:" && \
+    node --version && \
+    echo "NPM version:" && \
+    npm --version
+
+# Create necessary directories if they don't exist
+RUN mkdir -p lib src/lib
 
 # Build the application
 RUN npm run build
