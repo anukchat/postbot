@@ -60,6 +60,9 @@ jobs:
 
       - name: Deploy Frontend to Render
         uses: johnbeynon/render-deploy-action@v0.0.8
+        env:
+          VITE_API_URL: https://postbot-4977.onrender.com/
+          VITE_REDIRECT_URL: https://postbot-frontend.onrender.com/app
         with:
           service-id: ${{ secrets.RENDER_FRONTEND_SERVICE_ID }}
           api-key: ${{ secrets.RENDER_API_KEY }}

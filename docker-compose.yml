@@ -34,8 +34,8 @@ services:
     environment:
       - VITE_SUPABASE_URL
       - VITE_SUPABASE_ANON_KEY
-      - VITE_API_URL=http://backend:8000
-      - VITE_REDIRECT_URL
+      - VITE_API_URL=https://postbot-4977.onrender.com/
+      - VITE_REDIRECT_URL=https://postbot-frontend.onrender.com/app
       - VITE_ENV=production
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
