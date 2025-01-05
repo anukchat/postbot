@@ -107,7 +107,8 @@ jobs:
         run: |
           vercel pull --yes \
             --environment=production \
-            --token=${{ secrets.VERCEL_TOKEN }}
+            --token=${{ secrets.VERCEL_TOKEN }} \
+            --scope=${{ secrets.VERCEL_TEAM_ID }}
 
       - name: Deploy Frontend to Vercel
         run: |
@@ -116,13 +117,8 @@ jobs:
             --yes \
             --prod \
             --token=${{ secrets.VERCEL_TOKEN }} \
-            --scope=${{ secrets.VERCEL_ORG_ID }} \
-            --confirm \
-            --build-env VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
-            --build-env VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }} \
-            --build-env VITE_API_URL=${{ secrets.API_URL }} \
-            --build-env VITE_REDIRECT_URL=${{ secrets.REDIRECT_URL }} \
-            --build-env VITE_ENV=production
+            --scope=${{ secrets.VERCEL_TEAM_ID }} \
+            --confirm
 
       - name: Deploy Backend to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v1
