@@ -249,16 +249,13 @@ export const App: React.FC = () => {
         <Toaster position="top-right" />
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<SignIn />} /> {/* Keep using /login */}
+          <Route path="/login" element={<SignIn />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
-          <Route
-            path="/app/*"
-            element={
-              <ProtectedRoute>
-                <MainAppLayout />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/app" element={
+            <ProtectedRoute>
+              <MainAppLayout />
+            </ProtectedRoute>
+          } />
           <Route path="/features" element={<Features />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/about" element={<About />} />

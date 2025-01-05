@@ -43,7 +43,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     password?: string;
   }) => {
     try {
-      if (provider === 'magic-link' && options?.email) {
+      if (provider === 'google') {
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`
+          }
+        });
+        if (error) throw error;
+      } else if (provider === 'magic-link' && options?.email) {
         const { error } = await supabaseClient.auth.signInWithOtp({
           email: options.email,
           options: {
@@ -55,14 +63,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { error } = await supabaseClient.auth.signInWithPassword({
           email: options.email,
           password: options.password,
-        });
-        if (error) throw error;
-      } else if (provider === 'google') {
-        const { error } = await supabaseClient.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: import.meta.env.VITE_REDIRECT_URL
-          }
         });
         if (error) throw error;
       }

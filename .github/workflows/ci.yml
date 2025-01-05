@@ -42,4 +42,4 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-            VITE_SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
+            VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}
