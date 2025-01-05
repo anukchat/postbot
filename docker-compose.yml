@@ -2,36 +2,31 @@ version: '3.8'
 
 services:
   backend:
+    image: ghcr.io/${GITHUB_REPOSITORY:-anukchat/postbot}/backend:${GITHUB_SHA:-latest}
     build:
       context: .
       dockerfile: Dockerfile.backend
     ports:
       - "8000:8000"
     environment:
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_KEY=${SUPABASE_KEY}
-      - SUPABASE_POSTGRES_DSN=${SUPABASE_POSTGRES_DSN}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-    volumes:
-      - ./src:/app/src
+      - SUPABASE_URL
+      - SUPABASE_KEY
+      - GEMINI_API_KEY
     restart: unless-stopped
 
   frontend:
+    image: ghcr.io/${GITHUB_REPOSITORY:-anukchat/postbot}/frontend:${GITHUB_SHA:-latest}
     build:
       context: .
       dockerfile: Dockerfile.frontend
     ports:
       - "3000:3000"
     environment:
-      - VITE_API_URL=http://localhost:8000
-      - VITE_SUPABASE_URL=${SUPABASE_URL}
-      - VITE_SUPABASE_ANON_KEY=${SUPABASE_KEY}
-      - VITE_REDIRECT_URL=${REDIRECT_URL:-http://localhost:5173/app}
-      - VITE_ENV=${NODE_ENV:-development}
-    volumes:
-      - ./src/frontend/project:/app
-      - ./src/frontend/project/lib:/app/lib
-      - /app/node_modules
+      - VITE_SUPABASE_URL
+      - VITE_SUPABASE_ANON_KEY
+      - VITE_API_URL
+      - VITE_REDIRECT_URL
+      - VITE_ENV=production
     depends_on:
       - backend
     restart: unless-stopped
