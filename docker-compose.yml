@@ -6,12 +6,19 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
+      args:
+        - GEMINI_API_KEY=${GEMINI_API_KEY}
     ports:
       - "8000:8000"
     environment:
       - SUPABASE_URL
       - SUPABASE_KEY
       - GEMINI_API_KEY
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     restart: unless-stopped
 
   frontend:
@@ -19,14 +26,23 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      args:
+        - SUPABASE_URL=${VITE_SUPABASE_URL}
+        - SUPABASE_KEY=${VITE_SUPABASE_ANON_KEY}
     ports:
       - "3000:3000"
     environment:
       - VITE_SUPABASE_URL
       - VITE_SUPABASE_ANON_KEY
-      - VITE_API_URL
+      - VITE_API_URL=http://backend:8000
       - VITE_REDIRECT_URL
       - VITE_ENV=production
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped

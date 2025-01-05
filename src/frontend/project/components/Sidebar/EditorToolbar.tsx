@@ -6,6 +6,7 @@ import 'tippy.js/dist/tippy.css';
 import { NewBlogModal } from '../Modals/NewBlogModal';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
+import api from '../../services/api';
 
 interface EditorToolbarProps {
   isCollapsed: boolean;
@@ -23,7 +24,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isCollapsed, onTog
 
   const handleGenerateBlog = async (tweetId: string) => {
     try {
-      await axios.post('http://localhost:8000/blogs/generate', {
+      await api.post('/blogs/generate', {
         tweet_id: tweetId
       });
       

@@ -3,9 +3,9 @@ name: CI/CD Pipeline
 permissions:
   contents: read
   packages: write
-  actions: write    # Add this
-  deployments: write # Add this
-  id-token: write   # Add this for better security
+  actions: write
+  deployments: write
+  id-token: write
 
 on:
   push:
@@ -16,9 +16,7 @@ on:
         description: 'Deploy to production?'
         required: true
         type: choice
-        options:
-          - 'yes'
-          - 'no'
+        options: ['yes', 'no']
         default: 'no'
 
 jobs:
@@ -38,6 +36,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push images
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
         run: |
           docker compose build
           docker compose push
@@ -49,9 +50,16 @@ jobs:
       github.event.inputs.deploy == 'yes' ||
       github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
+    environment: production
     steps:
-      - name: Deploy to Render
+      - name: Deploy Backend to Render
         uses: johnbeynon/render-deploy-action@v0.0.8
         with:
-          service-id: ${{ secrets.RENDER_SERVICE_ID }}
+          service-id: ${{ secrets.RENDER_BACKEND_SERVICE_ID }}
+          api-key: ${{ secrets.RENDER_API_KEY }}
+
+      - name: Deploy Frontend to Render
+        uses: johnbeynon/render-deploy-action@v0.0.8
+        with:
+          service-id: ${{ secrets.RENDER_FRONTEND_SERVICE_ID }}
           api-key: ${{ secrets.RENDER_API_KEY }}
