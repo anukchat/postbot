@@ -5,7 +5,7 @@ from db.supabaseclient import supabase_client
 from db.supabasedatamodel import *
 from typing import List, Optional
 import uvicorn
-from src.agents.graph import AgentWorkflow
+from agents.graph import AgentWorkflow
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any

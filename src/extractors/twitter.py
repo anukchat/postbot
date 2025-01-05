@@ -14,7 +14,7 @@ import ast
 import magic
 import time
 from bs4 import BeautifulSoup 
-from src.db.supabaseclient import supabase_client
+from db.supabaseclient import supabase_client
 
 # Configure logging
 logging.basicConfig(

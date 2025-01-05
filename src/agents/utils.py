@@ -1,6 +1,6 @@
 import urllib
-from src.agents.state import Section
-from src.extractors.docintelligence import DocumentExtractor
+from agents.state import Section
+from extractors.docintelligence import DocumentExtractor
 import requests
 import re
 import logging
