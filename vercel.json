@@ -2,23 +2,22 @@
   "version": 2,
   "builds": [
     {
-      "src": "src/api.py",
-      "use": "@vercel/python"
+      "src": "Dockerfile.backend",
+      "use": "@vercel/docker"
     },
     {
-      "src": "src/frontend/project/package.json",
-      "use": "@vercel/static-build",
-      "config": { "distDir": "dist" }
+      "src": "Dockerfile.frontend",
+      "use": "@vercel/docker"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "src/api.py"
+      "dest": "Dockerfile.backend"
     },
     {
       "src": "/(.*)",
-      "dest": "src/frontend/project/dist/$1"
+      "dest": "Dockerfile.frontend"
     }
   ]
 }
