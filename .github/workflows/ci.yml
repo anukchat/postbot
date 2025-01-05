@@ -98,24 +98,27 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: frontend-dist
-          path: ./dist
+          path: ./src/frontend/project/dist
 
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
-      - name: Deploy to Vercel
-        run: |
-          vercel deploy ./dist \
-            --token=${{ secrets.VERCEL_TOKEN }} \
-            --prod \
-            --yes \
-            --env VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
-            --env VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }} \
-            --env VITE_API_URL=${{ secrets.API_URL }} \
-            --env VITE_REDIRECT_URL=${{ secrets.REDIRECT_URL }}
+      - name: Pull Vercel Project Settings
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
-      - name: Deploy Backend
-        if: success()
+      - name: Deploy Frontend to Vercel
         run: |
-          # Add your backend deployment steps here
-          echo "Backend image to deploy: ghcr.io/${{ github.repository }}/backend:${{ github.sha }}"
+          cd src/frontend/project
+          vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy Backend to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v1
+        with:
+          image: ghcr.io/${{ github.repository }}/backend:${{ github.sha }}
+          service: postbot-backend
+          region: us-central1
+          credentials: ${{ secrets.GCP_SA_KEY }}
+          env_vars: |
+            SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+            SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
