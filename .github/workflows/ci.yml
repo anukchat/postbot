@@ -43,3 +43,6 @@ jobs:
           build-args: |
             VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
             VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}
+            VITE_API_URL=http://localhost:8000
+            VITE_REDIRECT_URL=http://localhost:5173/app
+            VITE_ENV=production

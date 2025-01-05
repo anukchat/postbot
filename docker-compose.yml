@@ -24,6 +24,10 @@ services:
       - "3000:3000"
     environment:
       - VITE_API_URL=http://localhost:8000
+      - VITE_SUPABASE_URL=${SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${SUPABASE_KEY}
+      - VITE_REDIRECT_URL=${REDIRECT_URL:-http://localhost:5173/app}
+      - VITE_ENV=${NODE_ENV:-development}
     volumes:
       - ./src/frontend/project:/app
       - /app/node_modules
