@@ -32,11 +32,15 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: ./src/frontend/project
-        run: npm install
+        run: |
+          npm install
+          npm install -D autoprefixer postcss tailwindcss
+          npx tailwindcss init -p
 
       - name: Build frontend
         working-directory: ./src/frontend/project
-        run: npm run build
+        run: |
+          npm run build
 
       - name: Run backend tests
         env:
