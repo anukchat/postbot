@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from '../components/Landing/Navbar';
 import { useAuth } from '../contexts/AuthContext';
-import { supabaseClient } from '../lib/supabase';
+import { supabaseClient } from '../lib/supaclient';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/Tabs';  // Fix import
 import { toast } from 'react-hot-toast';
 import { User, Lock, Bell, Palette } from 'lucide-react';
