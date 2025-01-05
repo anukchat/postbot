@@ -60,7 +60,7 @@ jobs:
     needs: [build-frontend]
     if: |
       github.event_name == 'workflow_dispatch' && github.event.inputs.deploy == 'yes' ||
-      github.event_name == 'push' && github.ref == 'refs/heads/main'
+      github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: production
     
