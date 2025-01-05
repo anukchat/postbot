@@ -10,6 +10,9 @@ ARG SUPABASE_KEY
 ENV VITE_SUPABASE_URL=$SUPABASE_URL
 ENV VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY
 
+# Echo current working directory for debugging
+RUN pwd
+
 # Copy package files first
 COPY src/frontend/project/package*.json ./
 
