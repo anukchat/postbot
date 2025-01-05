@@ -3,6 +3,7 @@ export default {
   content: [
     './**/*.{js,jsx,ts,tsx}',
     './index.html',
+    '!**/node_modules/**',
   ],
   darkMode: 'class',
   theme: {

@@ -28,7 +28,7 @@ RUN echo "Current directory contents:" && \
     npm --version
 
 # Create necessary directories if they don't exist
-RUN mkdir -p lib ./lib
+RUN mkdir -p lib ./
 
 # List contents of lib directory
 RUN echo "Contents of lib directory:" && ls -la lib/
