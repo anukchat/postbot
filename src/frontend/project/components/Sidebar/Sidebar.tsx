@@ -5,7 +5,7 @@ import {
   Loader // Add the Loader icon
 } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
-import { EditorToolbar } from '../Sidebar/EditorToolbar';
+import { EditorToolbar } from './EditorToolbar';
 import debounce from 'lodash.debounce'; // Add this import
 import { Post } from '../../types';
 
