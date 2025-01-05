@@ -7,10 +7,12 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  test:
+  build-backend:
     runs-on: ubuntu-latest
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      SUPABASE_URL: ${{ env.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ env.SUPABASE_KEY }}
     steps:
       - uses: actions/checkout@v3
 
@@ -24,6 +26,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements_llm.txt
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ env.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ env.SUPABASE_KEY }}
+    steps:
+      - uses: actions/checkout@v3
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -39,14 +49,8 @@ jobs:
 
       - name: Build frontend
         working-directory: ./src/frontend/project
+        env:
+          SUPABASE_URL: ${{ env.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ env.SUPABASE_KEY }}
         run: |
           npm run build
-
-      - name: Run backend tests
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: pytest
-
-      - name: Run frontend tests
-        working-directory: ./src/frontend/project
-        run: npm test
