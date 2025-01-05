@@ -1,18 +1,32 @@
-FROM python:3.11-slim as builder
+FROM python:3.10-slim
 
 WORKDIR /app
-COPY requirements.txt requirements_llm.txt ./
 
-RUN pip install --no-cache-dir --user -r requirements.txt -r requirements_llm.txt
+# Install system dependencies including PostgreSQL
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    python3-dev \
+    libpq-dev \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
 
-FROM python:3.11-slim
+# Copy requirements files
+COPY requirements*.txt ./
 
-WORKDIR /app
-COPY --from=builder /root/.local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY . .
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements_llm.txt
 
-ARG GEMINI_API_KEY
-ENV GEMINI_API_KEY=$GEMINI_API_KEY
+# Copy the application code
+COPY src/ ./src/
 
+# Set environment variables
+ENV PORT=8000
+ENV MODULE_NAME=src.api
+ENV VARIABLE_NAME=app
+
+# Expose the port
 EXPOSE 8000
-CMD ["uvicorn", "src.backend.api:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# Start the application with uvicorn
+CMD ["sh", "-c", "uvicorn ${MODULE_NAME}:${VARIABLE_NAME} --host 0.0.0.0 --port ${PORT}"]

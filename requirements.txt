@@ -1,11 +1,9 @@
-pandas==2.1.4
-requests==2.31.0
-beautifulsoup4==4.12.2
-html2text==2024.2.26
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-psycopg2-binary==2.9.9  # Using binary version for better compatibility
-supabase==2.3.0
-
-# Removed: python-magic as it's typically used for file type detection
-# Consider using mimetypes from standard library instead
+pandas
+requests
+beautifulsoup4
+python-magic
+html2text
+fastapi
+uvicorn
+psycopg2
+supabase
