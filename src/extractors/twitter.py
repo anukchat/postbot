@@ -855,6 +855,7 @@ class TweetMetadataCollector:
                 # Insert into sources table
                 source_id = str(uuid.uuid4())
                 self.supabase.table('sources').insert({
+                    "profile_id":"56f6f71f-2381-435a-b89f-ec08d6068876",
                     "source_id": source_id,
                     "source_type_id": source_type_id,  # Use source_type_id instead of type
                     "source_identifier": tweet["tweet_id"],
@@ -899,6 +900,32 @@ class TweetMetadataCollector:
         except Exception as e:
             print(f"Error inserting data: {e}")
 
+
+    def read_tweet_data(self,csv_path, recent_k=None):
+        """
+        Read tweet data from a CSV file.
+        
+        Args:
+            csv_path (str): Path to the CSV file.
+            recent_k (int, optional): Number of most recent tweets to return. 
+                                    If None, returns all tweets.
+        
+        Returns:
+            pd.DataFrame: DataFrame containing tweet data.
+        """
+        # Read the entire CSV
+        df = pd.read_csv(csv_path)
+        
+        # Sort by created_at in descending order to get most recent tweets first
+        df['created_at'] = pd.to_datetime(df['created_at'])
+        df_sorted = df.sort_values('created_at', ascending=False)
+        
+        # Return recent_k tweets if specified, otherwise return all
+        if recent_k is not None:
+            return df_sorted.head(recent_k)
+        
+        return df_sorted
+
 if __name__ == "__main__":
     # Create data and output directories if they don't exist
     Path('data').mkdir(exist_ok=True)
@@ -923,12 +950,14 @@ if __name__ == "__main__":
         sys.exit(1)
     
     try:
-        # Read tweet data
-        tweets_df = pd.read_csv(csv_path)
         
+        # tweets_df = pd.read_csv(csv_path)
+
         # Initialize metadata collector
         collector = TweetMetadataCollector()
-        
+
+        # Read tweet data
+        tweets_df=collector.read_tweet_data(csv_path,recent_k=200)
         # Process tweets
         processed_tweets = collector.collect_tweets_batch(tweets_df)
         collector.process_tweets_batch(processed_tweets)

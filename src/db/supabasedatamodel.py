@@ -50,12 +50,14 @@ class ContentType(ContentTypeBase):
 
 # Content Pydantic Model
 class ContentBase(BaseModel):
-    profile_id: Optional[UUID]= None
+    profile_id: UUID  # Changed from Optional[UUID] to required UUID
     content_type_id: UUID
     title: Optional[str] = None
     body: Optional[str] = None
     status: str = "draft"
     thread_id: Optional[UUID] = None
+    is_public: bool = False  # New field for public/private visibility
+    shared_with: List[UUID] = []  # New field for specific user sharing
 
 class ContentCreate(ContentBase):
     pass

@@ -33,7 +33,7 @@ export const Navbar: React.FC = () => {
           <div className="ml-auto flex items-center space-x-4">
             {session ? (
               <>
-                <Link to="/app" className="mr-4 text-gray-500 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-3 py-2">
+                <Link to="/dashboard" className="mr-4 text-gray-500 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-3 py-2">
                   Dashboard
                 </Link>
                 <UserMenu />

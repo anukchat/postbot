@@ -180,14 +180,33 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
         setError('Please enter a valid URL');
         return;
       }
-      setIsGenerating(true); // Use generating state instead of loading
+      setIsGenerating(true);
       try {
         const payload = {
           post_types: ["blog"],
           url: customUrl.url
         };
         await api.post('/content/generate', payload);
-        await fetchPosts({}); // Refresh the posts list
+        
+        // Increased wait time and added multiple refresh attempts
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // First refresh
+        await fetchPosts({
+          forceRefresh: true,
+          timestamp: Date.now(),
+          reset: true
+        }, 0, 20);
+
+        // Second refresh after a short delay
+        setTimeout(async () => {
+          await fetchPosts({
+            forceRefresh: true,
+            timestamp: Date.now(),
+            reset: true
+          }, 0, 20);
+        }, 2000);
+        
         onClose();
       } catch (err) {
         console.error('Failed to generate blog:', err);
@@ -198,41 +217,48 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
       return;
     }
 
+    // For non-custom URL sources
     if (!selectedIdentifier) {
       setError('Please select a source');
       return;
     }
 
-    // Find the selected source data from sources array
     const sourceData = sources.find(source => getUniqueId(source) === selectedIdentifier);
     if (!sourceData) {
       setError('Selected source not found');
       return;
     }
 
-    setIsGenerating(true); // Use generating state instead of loading
+    setIsGenerating(true);
     
     try {
       const payload = {
-      post_types: ["blog"],
-      [selectedSource === 'twitter' ? 'tweet_id' : 'url']: sourceData.source_identifier
+        post_types: ["blog"],
+        [selectedSource === 'twitter' ? 'tweet_id' : 'url']: sourceData.source_identifier
       };
       
-      console.log('Generate payload:', payload);
-      const response = await api.post('/content/generate', payload);
+      await api.post('/content/generate', payload);
       
-      // Wait longer to ensure backend processing is complete
+      // Increased wait time and added multiple refresh attempts
       await new Promise(resolve => setTimeout(resolve, 3000));
       
-      // Force refresh posts with no cache
-      await fetchPosts({ 
-      forceRefresh: true,
-      timestamp: new Date().getTime()
+      // First refresh
+      await fetchPosts({
+        forceRefresh: true,
+        timestamp: Date.now(),
+        reset: true
+      }, 0, 20);
+
+      // Second refresh after a short delay
+      setTimeout(async () => {
+        await fetchPosts({
+          forceRefresh: true,
+          timestamp: Date.now(),
+          reset: true
+        }, 0, 20);
+      }, 2000);
       
-      })
       onClose();
-      ;
-      
     } catch (err) {
       console.error('Failed to generate blog:', err);
       setError('Failed to generate blog');

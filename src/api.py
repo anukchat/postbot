@@ -105,12 +105,18 @@ def get_workflow() -> AgentWorkflow:
 
 
 # Authentication Dependency
-def get_current_user(credentials: HTTPAuthorizationCredentials = Security(security)):
+async def get_current_user_profile(credentials: HTTPAuthorizationCredentials = Security(security)):
     token = credentials.credentials
     user = supabase.auth.get_user(token)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
-    return user
+    
+    # Get associated profile
+    profile = supabase.table("profiles").select("*").eq("user_id", user.user.id).single().execute()
+    if not profile.data:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    
+    return profile.data
 
 @app.post("/token", response_model=TokenResponse, tags=["auth"])
 def generate_token(token_request: TokenRequest):
@@ -126,6 +132,10 @@ def generate_token(token_request: TokenRequest):
             }
         }
 
+        # For Google sign-in, request additional scopes
+        if provider == 'google':
+            credentials['options']['scopes'] = ['email', 'profile']
+
         # Sign in with the OAuth provider
         response = supabase.auth.sign_in_with_oauth(credentials)
 
@@ -138,8 +148,9 @@ def generate_token(token_request: TokenRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+# Update callback to use correct profile schema
 @app.get("/callback", response_model=CallbackResponse, tags=["auth"])
-def oauth_callback(code: str, state: Optional[str] = None):
+async def oauth_callback(code: str, state: Optional[str] = None):
     try:
         # Prepare the parameters for exchange_code_for_session
         params = {
@@ -157,6 +168,33 @@ def oauth_callback(code: str, state: Optional[str] = None):
         if not response or not response.session or not response.session.access_token:
             raise HTTPException(status_code=401, detail="Failed to exchange code for token")
 
+        if response and response.session:
+            user = response.session.user
+            
+            # For Google Auth, create/update profile
+            if user.app_metadata.get('provider') == 'google':
+                # Get user info from Google
+                user_info = response.session.user.user_metadata
+                
+                # Create/update profile
+                profile_data = {
+                    "user_id": user.id,
+                    "full_name": user_info.get('full_name'),
+                    "avatar_url": user_info.get('avatar_url'),
+                    "role": "free",  # Set default role
+                    "subscription_status": "none"  # Set default subscription
+                }
+                
+                supabase.table('profiles').upsert(profile_data).execute()
+            else:
+                # For email registration, create basic profile
+                profile_data = {
+                    "user_id": user.id,
+                    "role": "free",
+                    "subscription_status": "none"
+                }
+                supabase.table('profiles').upsert(profile_data).execute()
+
         # Return the access token to the client
         return {"access_token": response.session.access_token, "token_type": "bearer"}
     except Exception as e:
@@ -165,9 +203,61 @@ def oauth_callback(code: str, state: Optional[str] = None):
 @app.post("/auth/signup", tags=["auth"])
 async def signup(email: str, password: str):
     try:
-        response = supabase.auth.sign_up({"email": email, "password": password})
-        return response
+        # Create auth user
+        auth_response = supabase.auth.sign_up({
+            "email": email,
+            "password": password
+        })
+        
+        if auth_response.error:
+            raise HTTPException(status_code=400, detail=str(auth_response.error))
+
+        if auth_response.user:
+            # Create profile
+            profile_response = supabase.table('profiles').insert({
+                "user_id": auth_response.user.id,
+                "email": email,
+                "role": "free",
+                "subscription_status": "none"
+            }).execute()
+            
+            if profile_response.error:
+                # Rollback user creation if profile creation fails
+                await supabase.auth.admin.delete_user(auth_response.user.id)
+                raise HTTPException(status_code=400, detail="Failed to create profile")
+
+        return auth_response
     except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/auth/callback", response_model=CallbackResponse, tags=["auth"])
+async def oauth_callback(code: str):
+    try:
+        # Exchange code for session
+        response = await supabase.auth.exchange_code_for_session({"auth_code": code})
+        
+        if response.error:
+            raise HTTPException(status_code=401, detail=str(response.error))
+
+        # Create/update profile for Google user
+        if response.user and response.user.app_metadata.get('provider') == 'google':
+            profile_data = {
+                "user_id": response.user.id,
+                "email": response.user.email,
+                "full_name": response.user.user_metadata.get('full_name'),
+                "avatar_url": response.user.user_metadata.get('avatar_url'),
+                "role": "free",
+                "subscription_status": "none"
+            }
+            
+            await supabase.table('profiles').upsert(profile_data).execute()
+
+        return {
+            "access_token": response.session.access_token,
+            "token_type": "bearer"
+        }
+    except Exception as e:
+        print("OAuth callback error:", str(e))  # Debug log
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/auth/signin", tags=["auth"]) 
@@ -179,7 +269,7 @@ async def signin(email: str, password: str):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/auth/signout", tags=["auth"])
-async def signout(user: dict = Depends(get_current_user)):
+async def signout(user: dict = Depends(get_current_user_profile)):
     try:
         response = supabase.auth.sign_out()
         return {"message": "Signed out successfully"}
@@ -188,7 +278,7 @@ async def signout(user: dict = Depends(get_current_user)):
     
 # Profile Endpoints
 @app.post("/profiles/", response_model=Profile, tags=["profiles"])
-def create_profile(profile: ProfileCreate, user: dict = Depends(get_current_user)):
+def create_profile(profile: ProfileCreate, user: dict = Depends(get_current_user_profile)):
     profile.user_id = user.id  # Ensure the profile is linked to the authenticated user
     response = supabase.table("profiles").insert(profile.dict()).execute()
     if not response.data:
@@ -196,28 +286,33 @@ def create_profile(profile: ProfileCreate, user: dict = Depends(get_current_user
     return response.data[0]
 
 @app.get("/profiles/{profile_id}", response_model=Profile, tags=["profiles"])
-def read_profile(profile_id: UUID, user: dict = Depends(get_current_user)):
+def read_profile(profile_id: UUID, user: dict = Depends(get_current_user_profile)):
     response = supabase.table("profiles").select("*").eq("id", profile_id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Profile not found")
     return response.data[0]
 
 @app.put("/profiles/{profile_id}", response_model=Profile, tags=["profiles"])
-def update_profile(profile_id: UUID, profile: ProfileUpdate, user: dict = Depends(get_current_user)):
+def update_profile(profile_id: UUID, profile: ProfileUpdate, user: dict = Depends(get_current_user_profile)):
     response = supabase.table("profiles").update(profile.dict()).eq("id", profile_id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Profile not found")
     return response.data[0]
 
 @app.delete("/profiles/{profile_id}", tags=["profiles"])
-def delete_profile(profile_id: UUID, user: dict = Depends(get_current_user)):
-    response = supabase.table("profiles").delete().eq("id", profile_id).execute()
+def delete_profile(profile_id: UUID, user: dict = Depends(get_current_user_profile)):
+    # Perform soft delete by updating deleted_at and is_deleted fields 
+    response = supabase.table("profiles").update({
+        "deleted_at": datetime.now().isoformat(),
+        "is_deleted": True
+    }).eq("id", profile_id).execute()
+    
     if not response.data:
         raise HTTPException(status_code=404, detail="Profile not found")
     return {"message": "Profile deleted"}
 
 @app.get("/profiles/", response_model=List[Profile], tags=["profiles"])
-def filter_profiles(user_id: Optional[UUID] = None, role: Optional[str] = None, subscription_status: Optional[str] = None, skip: int = 0, limit: int = 10, user: dict = Depends(get_current_user)):
+def filter_profiles(user_id: Optional[UUID] = None, role: Optional[str] = None, subscription_status: Optional[str] = None, skip: int = 0, limit: int = 10, user: dict = Depends(get_current_user_profile)):
     query = supabase.table("profiles").select("*").range(skip, skip + limit - 1)
     if user_id:
         query = query.eq("user_id", user_id)
@@ -230,56 +325,57 @@ def filter_profiles(user_id: Optional[UUID] = None, role: Optional[str] = None, 
 
 # ContentType Endpoints
 @app.post("/content-types/", response_model=ContentType, tags=["content_types"])
-def create_content_type(content_type: ContentTypeCreate, user: dict = Depends(get_current_user)):
+def create_content_type(content_type: ContentTypeCreate, user: dict = Depends(get_current_user_profile)):
     response = supabase.table("content_types").insert(content_type.dict()).execute()
     if not response.data:
         raise HTTPException(status_code=400, detail="Failed to create content type")
     return response.data[0]
 
 @app.get("/content-types/{content_type_id}", response_model=ContentType, tags=["content_types"])
-def read_content_type(content_type_id: UUID, user: dict = Depends(get_current_user)):
+def read_content_type(content_type_id: UUID, user: dict = Depends(get_current_user_profile)):
     response = supabase.table("content_types").select("*").eq("content_type_id", content_type_id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="ContentType not found")
     return response.data[0]
 
 @app.put("/content-types/{content_type_id}", response_model=ContentType, tags=["content_types"])
-def update_content_type(content_type_id: UUID, content_type: ContentTypeUpdate, user: dict = Depends(get_current_user)):
+def update_content_type(content_type_id: UUID, content_type: ContentTypeUpdate, user: dict = Depends(get_current_user_profile)):
     response = supabase.table("content_types").update(content_type.dict()).eq("content_type_id", content_type_id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="ContentType not found")
     return response.data[0]
 
 @app.delete("/content-types/{content_type_id}", tags=["content_types"])
-def delete_content_type(content_type_id: UUID, user: dict = Depends(get_current_user)):
+def delete_content_type(content_type_id: UUID, user: dict = Depends(get_current_user_profile)):
     response = supabase.table("content_types").delete().eq("content_type_id", content_type_id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="ContentType not found")
     return {"message": "ContentType deleted"}
 
 @app.get("/content-types/", response_model=List[ContentType], tags=["content_types"])
-def filter_content_types(name: Optional[str] = None, skip: int = 0, limit: int = 10, user: dict = Depends(get_current_user)):
+def filter_content_types(name: Optional[str] = None, skip: int = 0, limit: int = 10, user: dict = Depends(get_current_user_profile)):
     query = supabase.table("content_types").select("*").range(skip, skip + limit - 1)
     if name:
         query = query.ilike("name", f"%{name}%")
     response = query.execute()
     return response.data
 
-# Content Endpoints
+# Update content endpoints to use profile_id
 @app.post("/content/", response_model=Content, tags=["content"])
-def create_content(content: ContentCreate, user: dict = Depends(get_current_user)):
-    response = supabase.table("content").insert(content.dict()).execute()
+def create_content(content: ContentCreate, profile: dict = Depends(get_current_user_profile)):
+    content_data = content.dict()
+    content_data['profile_id'] = profile['id']  # Use profile_id instead of user_id
+    response = supabase.table("content").insert(content_data).execute()
     if not response.data:
         raise HTTPException(status_code=400, detail="Failed to create content")
     return response.data[0]
 
 @app.get("/content/", tags=["content"])
-def filter_content(profile_id: Optional[UUID] = None, content_type_id: Optional[UUID] = None, status: Optional[str] = None, search_text: Optional[str] = None, skip: int = 0, limit: int = 10, user: dict = Depends(get_current_user)):
-    query = supabase.table("content").select("*").range(skip, skip + limit - 1)
-    if profile_id:
-        query = query.eq("profile_id", profile_id)
+def filter_content(content_type_id: Optional[UUID] = None, status: Optional[str] = None, search_text: Optional[str] = None, skip: int = 0, limit: int = 10, profile: dict = Depends(get_current_user_profile)):
+    query = supabase.table("content").select("*").eq('profile_id', profile['id']).range(skip, skip + limit - 1)
+
     if content_type_id:
-        query = query.eq("content_type_id", content_type_id)
+        query = query.eq("content_type_id", content_type_id) 
     if status:
         query = query.eq("status", status)
     if search_text:
@@ -288,7 +384,7 @@ def filter_content(profile_id: Optional[UUID] = None, content_type_id: Optional[
     return response.data
 
 @app.get("/content/all", response_model=List[Dict], tags=["content"])
-def get_all_content(skip: int = 0, limit: int = 10, user: dict = Depends(get_current_user)):
+def get_all_content(skip: int = 0, limit: int = 10, user: dict = Depends(get_current_user_profile)):
     query = (
         supabase.table("content")
         .select(
@@ -304,6 +400,7 @@ def get_all_content(skip: int = 0, limit: int = 10, user: dict = Depends(get_cur
             metadata (metadata_id, key, value)
             """
         )
+        .eq('profile_id', user['id'])  # Add filter by profile_id
         .order("created_at", desc=True)
         .range(skip, skip + limit - 1)
     )
@@ -314,24 +411,26 @@ def get_all_content(skip: int = 0, limit: int = 10, user: dict = Depends(get_cur
 async def generate_generic_blog(
     payload: GeneratePostRequestModel,
     workflow: AgentWorkflow = Depends(get_workflow),
-    user: dict = Depends(get_current_user),
+
+    user: dict = Depends(get_current_user_profile),
 ):
     """Initiate the workflow with the provided data."""
     try:
-        result = workflow.run_generic_workflow(payload.dict())
+        result = workflow.run_generic_workflow(payload.dict(),user)
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
+# Update content endpoints to use profile_id
 @app.get("/content/list", response_model=ContentListResponse)
-async def list_content(skip: int = 0, limit: int = 10):
-    # Fetch content with nested relationships
+async def list_content(skip: int = 0, limit: int = 10, profile: dict = Depends(get_current_user_profile)):
     query = (
     supabase.table("content")
     .select(
         "*, content_types:content_type_id(content_type_id, name), content_tags(tag_id, tags:tag_id(name)), content_sources(content_source_id, sources:source_id(source_id, source_types(name), url_references(url_reference_id, url, type, domain), media(media_id, media_url, media_type)))"
     )
+    .eq('profile_id', profile['id'])  # Filter by profile_id instead of user_id
     .order('created_at', desc=True)
     .range(skip, skip + limit)
 )
@@ -394,11 +493,13 @@ async def filter_content(
     updated_after: Optional[datetime] = Query(None, description="Filter by content updated after a date"),
     updated_before: Optional[datetime] = Query(None, description="Filter by content updated before a date"),
     media_type: Optional[str] = Query(None, description="Filter by media type (e.g., image, video)"),
-    url_type: Optional[str] = Query(None, description="Filter by URL type (e.g., internal, external)")
+    url_type: Optional[str] = Query(None, description="Filter by URL type (e.g., internal, external)"),
+    user: dict = Depends(get_current_user_profile)
 ):
     # Base query with updated select to properly get source_identifier
     query = supabase.table("content").select("*, content_types:content_type_id(content_type_id, name), content_tags(tag_id, tags:tag_id(name)), content_sources!inner(content_source_id, source:source_id(source_id, source_identifier, source_types(name), url_references(*), media(*)))"
                                              ).order('created_at', desc=True)
+    query = query.eq('profile_id', user['id'])  # Filter by profile_id instead of user_id
     # Apply filters
     if title_contains:
         query = query.ilike("title", f"\"%{title_contains}%\"")  # Case-insensitive title search
@@ -478,35 +579,43 @@ async def filter_content(
     )
 
 @app.get("/content/{content_id}", response_model=Content, tags=["content"])
-def read_content(content_id: UUID, user: dict = Depends(get_current_user)):
+def read_content(content_id: UUID, user: dict = Depends(get_current_user_profile)):
     response = supabase.table("content").select("*").eq("content_id", content_id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Content not found")
     return response.data[0]
 
-@app.put("/content/{content_id}", response_model=Content, tags=["content"])
-def update_content(content_id: UUID, content: ContentUpdate, user: dict = Depends(get_current_user)):
-    response = supabase.table("content").update(content.dict()).eq("content_id", content_id).execute()
+@app.put("/content/{content_id}", response_model=Content, tags=["content"]) 
+def update_content(content_id: UUID, content: ContentUpdate, profile: dict = Depends(get_current_user_profile)):
+    # Add profile_id filter to ensure user can only update their own content
+    response = supabase.table("content").update(content.dict()).eq("content_id", content_id).eq("profile_id", profile["id"]).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Content not found")
     return response.data[0]
 
 @app.delete("/content/{content_id}", tags=["content"])
-def delete_content(content_id: UUID, user: dict = Depends(get_current_user)):
-    response = supabase.table("content").delete().eq("content_id", content_id).execute()
+def delete_content(content_id: UUID, profile: dict = Depends(get_current_user_profile)):
+    # Perform soft delete by updating deleted_at and is_deleted fields
+    # Add profile_id filter to ensure user can only delete their own content
+    response = supabase.table("content").update({
+        "deleted_at": datetime.now().isoformat(),
+        "is_deleted": True
+    }).eq("content_id", content_id).eq("profile_id", profile["id"]).execute()
+    
     if not response.data:
         raise HTTPException(status_code=404, detail="Content not found")
     return {"message": "Content deleted"}
 
 @app.put("/content/thread/{thread_id}/save", tags=["content"])
-async def save_thread_content(thread_id: UUID, payload: SaveContentRequest, user: dict = Depends(get_current_user)):
+async def save_thread_content(thread_id: UUID, payload: SaveContentRequest, user: dict = Depends(get_current_user_profile)):
     """Save all content types for a thread in a single transaction"""
     try:
         # Get all content records for this thread
         content_types = supabase.table("content_types").select("*").in_("name", ["blog", "twitter", "linkedin"]).execute()
         content_type_map = {ct["name"]: ct["content_type_id"] for ct in content_types.data}
         
-        thread_content = supabase.table("content").select("*").eq("thread_id", thread_id).execute()
+
+        thread_content = supabase.table("content").select("*").eq("thread_id", thread_id).eq("profile_id", user["id"]).execute()
         content_by_type = {item["content_type_id"]: item for item in thread_content.data}
         
         # Update blog content
@@ -565,49 +674,60 @@ async def schedule_thread_content(thread_id: UUID, payload: ScheduleContentReque
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Source Endpoints
+# Update sources endpoints to use profile_id
 @app.post("/sources/", response_model=Source, tags=["sources"])
-def create_source(source: SourceCreate, user: dict = Depends(get_current_user)):
-    response = supabase.table("sources").insert(source.dict()).execute()
+def create_source(source: SourceCreate, profile: dict = Depends(get_current_user_profile)):
+    source_data = source.dict()
+    source_data['profile_id'] = profile['id']  # Use profile_id
+    response = supabase.table("sources").insert(source_data).execute()
     if not response.data:
         raise HTTPException(status_code=400, detail="Failed to create source")
     return response.data[0]
 
 @app.get("/sources/{source_id}", response_model=Source, tags=["sources"])
-def read_source(source_id: UUID, user: dict = Depends(get_current_user)):
+def read_source(source_id: UUID, user: dict = Depends(get_current_user_profile)):
     response = supabase.table("sources").select("*").eq("source_id", source_id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Source not found")
     return response.data[0]
 
 @app.put("/sources/{source_id}", response_model=Source, tags=["sources"])
-def update_source(source_id: UUID, source: SourceUpdate, user: dict = Depends(get_current_user)):
-    response = supabase.table("sources").update(source.dict()).eq("source_id", source_id).execute()
+def update_source(source_id: UUID, source: SourceUpdate, profile: dict = Depends(get_current_user_profile)):
+    # Add profile_id filter to ensure user can only update their own sources
+    response = supabase.table("sources").update(source.dict()).eq("source_id", source_id).eq("profile_id", profile["id"]).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Source not found")
     return response.data[0]
 
 @app.delete("/sources/{source_id}", tags=["sources"])
-def delete_source(source_id: UUID, user: dict = Depends(get_current_user)):
-    response = supabase.table("sources").delete().eq("source_id", source_id).execute()
+def delete_source(source_id: UUID, profile: dict = Depends(get_current_user_profile)):
+    # Perform soft delete by updating deleted_at and is_deleted fields
+    # Add profile_id filter to ensure user can only delete their own sources
+    response = supabase.table("sources").update({
+        "deleted_at": datetime.now().isoformat(),
+        "is_deleted": True
+    }).eq("source_id", source_id).eq("profile_id", profile["id"]).execute()
+    
     if not response.data:
         raise HTTPException(status_code=404, detail="Source not found")
     return {"message": "Source deleted"}
 
 
+# Update sources endpoints to use profile_id
 @app.get("/sources/", response_model=SourceListResponse, tags=["sources"])
 def filter_sources(
     type: Optional[str] = None, 
     source_identifier: Optional[str] = None, 
     skip: int = 0, 
     limit: int = 10, 
-    user: dict = Depends(get_current_user)
+    profile: dict = Depends(get_current_user_profile)
 ):
     # Build base query with blog content information and url references
     base_query = (
         supabase.table("sources")
         .select("*,source_types(source_type_id,name),content_sources(content:content_id(content_id,title,thread_id,content_types(name))),url_references(*)")
-        .order("created_at", desc=True)
+        .eq('profile_id', profile['id'])  # Filter by profile_id instead of user_id
+        .order("created_at", desc=False)
     )
     
     # Apply filters
@@ -673,7 +793,7 @@ def filter_sources(
 async def get_content_by_thread(
     thread_id: UUID, 
     post_type: Optional[str] = Query(None, description="Filter by post type (blog, twitter, linkedin)"),
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(get_current_user_profile)
 ):
     # Map incoming post types to database post types
     post_type_map = {
@@ -691,13 +811,14 @@ async def get_content_by_thread(
         if content_type_query.data:
             content_type_id = content_type_query.data[0]["content_type_id"]
 
-    # Build the main query with proper joins
+    # Build the main query with proper joins and profile_id filter
     query = (
     supabase.table("content")
     .select(
         "*, content_type:content_type_id(*), content_sources!content_id(source:source_id(source_type:source_type_id(*), url_references(*), media(*))), content_tags!content_id(tag:tag_id(*))"
         )
         .eq("thread_id", thread_id)
+        .eq("profile_id", user["id"])  # Add profile_id filter
     )
 
     if content_type_id:
@@ -722,7 +843,6 @@ async def get_content_by_thread(
             media=[],
             source_type=None
         )
-
 
     # Get the first matching item
     item = response.data[0]
@@ -759,5 +879,7 @@ async def get_content_by_thread(
 
     return content_item
 
+
 if __name__ == "__main__":
     uvicorn.run("api:app", host="0.0.0.0", port=8000, reload=False)
+

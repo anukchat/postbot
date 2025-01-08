@@ -329,7 +329,7 @@ class AgentWorkflow:
         except Exception as e:
             return {"error": f"Error fetching data: {e}"}
 
-    def run_generic_workflow(self, payload):
+    def run_generic_workflow(self, payload, user):
         """Universal handler for all workflow types with database integration"""
         try:
             # Start database transaction
@@ -343,6 +343,7 @@ class AgentWorkflow:
                         supabase.table("sources")
                         .select("*")
                         .eq("source_identifier", payload["url"])
+                        .eq("profile_id", user["id"])  # Add profile_id filter
                         .execute()
                     )
 
@@ -378,6 +379,7 @@ class AgentWorkflow:
                         "source_type_id": source_type.data[0]["source_type_id"],
                         "source_identifier": payload["url"],
                         "batch_id": thread_id,
+                        "profile_id": user["id"]
                     }
                     source = supabase.table("sources").insert(source_data).execute()
                     source_id = source.data[0]["source_id"]
@@ -411,6 +413,7 @@ class AgentWorkflow:
                         supabase.table("sources")
                         .select("*")
                         .eq("source_identifier", payload["tweet_id"])
+                        .eq("profile_id", user["id"])  # Add profile_id filter
                         .execute()
                     )
 
@@ -435,53 +438,53 @@ class AgentWorkflow:
 
                         return source_id, url_data, media_data
 
-                    # Create new source if it doesn't exist
-                    source_type = (
-                        supabase.table("source_types")
-                        .select("*")
-                        .eq("name", "twitter")
-                        .execute()
-                    )
-                    tweet_data = self.fetch_urls_and_media(payload["tweet_id"])
+                    # # Create new source if it doesn't exist
+                    # source_type = (
+                    #     supabase.table("source_types")
+                    #     .select("*")
+                    #     .eq("name", "twitter")
+                    #     .execute()
+                    # )
+                    # tweet_data = self.fetch_urls_and_media(payload["tweet_id"])
 
-                    source_data = {
-                        "source_type_id": source_type.data[0]["source_type_id"],
-                        "source_identifier": payload["tweet_id"],
-                        "batch_id": thread_id,
-                    }
-                    source = supabase.table("sources").insert(source_data).execute()
-                    source_id = source.data[0]["source_id"]
+                    # source_data = {
+                    #     "source_type_id": source_type.data[0]["source_type_id"],
+                    #     "source_identifier": payload["tweet_id"],
+                    #     "batch_id": thread_id,
+                    # }
+                    # source = supabase.table("sources").insert(source_data).execute()
+                    # source_id = source.data[0]["source_id"]
 
-                    # Insert URL references
-                    if tweet_data.get("urls"):
-                        for url in tweet_data["urls"]:
-                            url_ref_data = {
-                                "source_id": source_id,
-                                "url": url["original_url"],
-                                "type": url["type"],
-                                "domain": url["domain"],
-                                "content_type": url.get("content_type"),
-                                "file_category": url.get("file_category"),
-                            }
-                            supabase.table("url_references").insert(
-                                url_ref_data
-                            ).execute()
+                    # # Insert URL references
+                    # if tweet_data.get("urls"):
+                    #     for url in tweet_data["urls"]:
+                    #         url_ref_data = {
+                    #             "source_id": source_id,
+                    #             "url": url["original_url"],
+                    #             "type": url["type"],
+                    #             "domain": url["domain"],
+                    #             "content_type": url.get("content_type"),
+                    #             "file_category": url.get("file_category"),
+                    #         }
+                    #         supabase.table("url_references").insert(
+                    #             url_ref_data
+                    #         ).execute()
 
-                    # Insert media
-                    if tweet_data.get("media"):
-                        for media in tweet_data["media"]:
-                            media_data = {
-                                "source_id": source_id,
-                                "media_url": media["original_url"],
-                                "media_type": media["type"],
-                            }
-                            supabase.table("media").insert(media_data).execute()
+                    # # Insert media
+                    # if tweet_data.get("media"):
+                    #     for media in tweet_data["media"]:
+                    #         media_data = {
+                    #             "source_id": source_id,
+                    #             "media_url": media["original_url"],
+                    #             "media_type": media["type"],
+                    #         }
+                    #         supabase.table("media").insert(media_data).execute()
 
-                    return (
-                        source_id,
-                        tweet_data.get("urls", []),
-                        tweet_data.get("media", []),
-                    )
+                    # return (
+                    #     source_id,
+                    #     tweet_data.get("urls", []),
+                    #     tweet_data.get("media", []),
+                    # )
 
                 return None, None, None
 
@@ -616,7 +619,7 @@ class AgentWorkflow:
                 result = self.graph.invoke(test_input, config=config)
 
                 # 3. Store Generated Content
-                def store_content(result, thread_id, source_id):
+                def store_content(result, thread_id, source_id,user):
                     # Get content type ID
                     for post_type in payload.get("post_types", ["blog"]):
                         content_type = (
@@ -627,6 +630,7 @@ class AgentWorkflow:
                         )
 
                         content_data = {
+                            "profile_id": user["id"],
                             "content_type_id": content_type.data[0]["content_type_id"],
                             "title": (
                                 result.get("blog_title")
@@ -641,9 +645,6 @@ class AgentWorkflow:
                             "status": "Draft",
                             "thread_id": thread_id,
                         }
-
-                        if payload.get("profile_id"):
-                            content_data["profile_id"] = payload["profile_id"]
 
                         content = (
                             supabase.table("content").insert(content_data).execute()
@@ -687,7 +688,7 @@ class AgentWorkflow:
                                     content_tag_data
                                 ).execute()
 
-                store_content(result, thread_id, source_id)
+                store_content(result, thread_id, source_id,user)
 
             return BlogStateOutput(**result)
 

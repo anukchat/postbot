@@ -5,7 +5,6 @@ import Tippy from '@tippyjs/react';
 import 'tippy.js/dist/tippy.css';
 import { NewBlogModal } from '../Modals/NewBlogModal';
 import { toast } from 'react-hot-toast';
-import axios from 'axios';
 import api from '../../services/api';
 
 interface EditorToolbarProps {

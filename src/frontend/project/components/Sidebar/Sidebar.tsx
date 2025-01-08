@@ -33,7 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse 
     limit, 
     totalPosts, 
     isLoading,
-    hasReachedEnd 
+    hasReachedEnd, 
   } = useEditorStore();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -57,18 +57,35 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse 
     
     if (!isLoading && !hasReachedEnd) {
       console.log('Fetching more posts...');
-      fetchMorePosts();
+      fetchPosts({
+        timestamp: Date.now(),  // Add timestamp here too
+        forceRefresh: true     // Add force refresh flag
+      }, posts.length, limit);
     }
-  }, [fetchMorePosts, posts.length, totalPosts, isLoading, hasReachedEnd]);
-
-  const initialLoad = useCallback(() => {
-    console.log('Initial load triggered');
-    fetchPosts({}, 0, limit); // Remove filters from initial load
-  }, [fetchPosts, limit]); // Remove filters from dependency array
+  }, [fetchPosts, posts.length, totalPosts, isLoading, hasReachedEnd, limit]);
 
   useEffect(() => {
-    initialLoad();
-  }, [initialLoad]);
+    if (!isLoading) { // Add loading check to prevent duplicate requests
+      fetchPosts({
+        timestamp: Date.now(), // Add timestamp
+        forceRefresh: true    // Add force refresh flag
+      }, 0, limit); // Add explicit skip and limit
+    }
+  }, [fetchPosts, isLoading, limit]);
+
+  // Add useEffect to handle post updates
+  useEffect(() => {
+    const refreshPosts = async () => {
+      if (!isLoading) {
+        await fetchPosts({
+          timestamp: Date.now(),
+          forceRefresh: true
+        }, 0, limit);
+      }
+    };
+
+    refreshPosts();
+  }, [isLoading, fetchPosts, limit]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;

@@ -12,7 +12,7 @@ const LandingPage: React.FC = () => {
     e.preventDefault();
     try {
       // You'll need to add magic link signin to your AuthContext
-      await signIn('magic-link', { email });
+      await signIn('email', { email });
       // Show success message
     } catch (error) {
       console.error('Error:', error);
@@ -42,7 +42,7 @@ const LandingPage: React.FC = () => {
               <motion.a
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                href="/app"
+                href="/dashboard"
                 className="inline-flex items-center px-8 py-3 text-lg font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700"
               >
                 Get Started Free
@@ -123,7 +123,7 @@ const LandingPage: React.FC = () => {
               <motion.a
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                href="/app"
+                href="/dashboard"
                 className="inline-flex items-center px-8 py-3 mt-8 text-lg font-medium text-blue-600 bg-white rounded-lg hover:bg-gray-50"
               >
                 Start Creating Now

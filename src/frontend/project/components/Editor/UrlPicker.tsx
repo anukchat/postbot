@@ -1,8 +1,8 @@
 import React from 'react';
 import Modal from 'react-modal';
 import { Url } from '../../types';
-import { LinkPreview } from './LinkPreview';
 import { X } from 'lucide-react';
+import MicrolinkCard from '@microlink/react';
 
 interface UrlPickerProps {
   isOpen: boolean;
@@ -53,19 +53,26 @@ export const UrlPicker: React.FC<UrlPickerProps> = ({ isOpen, onClose, urls, onS
           </button>
         </div>
         <div className="space-y-3 max-h-[60vh] overflow-y-auto">
-          {urls.length > 0 ? (
+            {urls.length > 0 ? (
             urls.map((url) => (
-              <LinkPreview 
-                key={url.url} 
-                url={url} 
-                onSelect={onSelect} 
+              <div key={url.url} onClick={() => onSelect(url)}>
+              <MicrolinkCard 
+                url={url.url}
+                contrast
+                fetchdata
+                lazy={{ threshold: 0.2 }}
+                size="large"
+                media={['image', 'logo']}
+                className="!rounded-lg !border !border-gray-200 dark:!border-gray-700 pointer-events-none !max-w-full !transform !scale-90"
+                style={{ objectFit: 'contain' }}
               />
+              </div>
             ))
-          ) : (
+            ) : (
             <div className="text-center text-gray-500 py-8">
               No links available
             </div>
-          )}
+            )}
         </div>
       </div>
     </Modal>

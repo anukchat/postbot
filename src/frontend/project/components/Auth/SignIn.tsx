@@ -17,27 +17,9 @@ const SignIn: React.FC = () => {
     setError(null);
     try {
       await signIn('email', { email, password });
-      navigate('/app');
+      navigate('/dashboard');
     } catch (err) {
       setError('Failed to sign in. Please check your credentials.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleMagicLink = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) {
-      setError('Please enter your email');
-      return;
-    }
-    setIsLoading(true);
-    setError(null);
-    try {
-      await signIn('magic-link', { email });
-      setError('Check your email for the magic link!');
-    } catch (err) {
-      setError('Failed to send magic link.');
     } finally {
       setIsLoading(false);
     }
@@ -97,14 +79,6 @@ const SignIn: React.FC = () => {
           </form>
 
           <div className="mt-4">
-            <button
-              onClick={handleMagicLink}
-              disabled={isLoading}
-              className="w-full border border-gray-300 p-2 rounded-md hover:bg-gray-50"
-            >
-              Sign in with Magic Link
-            </button>
-
             <button
               onClick={() => signIn('google')}
               className="mt-4 w-full flex justify-center items-center gap-3 border border-gray-300 p-2 rounded-md hover:bg-gray-50"

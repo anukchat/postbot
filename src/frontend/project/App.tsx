@@ -5,7 +5,7 @@ import { MarkdownEditor } from './components/Editor/MarkdownEditor';
 import { CanvasView } from './components/Canvas/CanvasView';
 import { useEditorStore } from './store/editorStore';
 import { PostDetails } from './components/PostDetails';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'; // Add Navigate import
 import LandingPage from './components/Landing/LandingPage';
 import Features from './pages/Features';
 import Pricing from './pages/Pricing';
@@ -13,7 +13,7 @@ import SignIn from './components/Auth/SignIn';
 import SignUp from './components/Auth/SignUp';
 import About from './pages/About';
 import Contact from './pages/Contact';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext'; // Add useAuth import
 import ProtectedRoute from './components/Auth/ProtectedRoute';  // Updated import
 import Settings from './pages/Settings';
 import { Toaster } from 'react-hot-toast'; // Add Toaster import
@@ -248,26 +248,33 @@ export const App: React.FC = () => {
       <AuthProvider>
         <Toaster position="top-right" />
         <Routes>
+          {/* Landing and Public routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<SignIn />} />
-          <Route path="/auth/callback" element={<AuthCallback />} />
-          <Route path="/app" element={
-            <ProtectedRoute>
-              <MainAppLayout />
-            </ProtectedRoute>
-          } />
+          <Route path="/signup" element={<SignUp />} />
           <Route path="/features" element={<Features />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
-          <Route path="/signup" element={<SignUp />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          
+          {/* Protected routes */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <MainAppLayout />
+            </ProtectedRoute>
+          } />
           <Route path="/settings" element={
             <ProtectedRoute>
               <Settings />
             </ProtectedRoute>
           } />
+
+          {/* Catch-all route */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
   );
 };
+

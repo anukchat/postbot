@@ -25,12 +25,20 @@ TODO:
 12. Add social media analytics
 13. Add different options for styles to users while getting feedback for regeneration.
 14 replace native supabase queries with postgres/sqlalchemy or sql queries
-
+15. Add labels on source on side bar posts
 
 Refactoring:
 1. Remove unnecessary packages and imports
 2. Refactor code to make it more generic
 3. Increase performance
 4. Remove unnecessary code and optimize.
+5. Remove unnecessary code and optimize. 2nd run
 
 
+
+
+Notes 8 Jan
+1. If the post is Published, then delete the checkpoints, disable the feedback
+OR add a cron job to delete the Published Posts checkpoints after 10 days : Done
+2. Add soft delete in content, sources, url references, media table Done
+3. 

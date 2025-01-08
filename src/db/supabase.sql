@@ -18,6 +18,9 @@ CREATE TABLE IF NOT EXISTS profiles (
     subscription_status TEXT DEFAULT 'none',
     subscription_end TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ,
+    is_deleted BOOLEAN DEFAULT FALSE,
     preferences JSONB DEFAULT '{"theme": "light", "defaultView": "blog", "emailNotifications": true}'::JSONB
 );
 
@@ -35,9 +38,11 @@ CREATE TABLE IF NOT EXISTS content (
     content_type_id UUID REFERENCES content_types(content_type_id) ON DELETE CASCADE,
     title TEXT,
     body TEXT,
-    status TEXT CHECK (status IN ('Draft', 'Published', 'Archived','Scheduled','Archived')) DEFAULT 'Draft',
+    status TEXT CHECK (status IN ('Draft', 'Published', 'Archived','Scheduled')) DEFAULT 'Draft',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ,
+    is_deleted BOOLEAN DEFAULT FALSE,
     published_at TIMESTAMPTZ,
     thread_id UUID
 );
@@ -49,7 +54,10 @@ CREATE TABLE IF NOT EXISTS sources (
     source_type_id UUID REFERENCES source_types(source_type_id) ON DELETE CASCADE,  -- Reference to source_types
     source_identifier TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ,
+    is_deleted BOOLEAN DEFAULT FALSE,
+    profile_id UUID REFERENCES profiles(id)
 );
 
 -- ContentSources Table
@@ -70,7 +78,10 @@ CREATE TABLE IF NOT EXISTS url_references (
     content_type TEXT,
     file_category TEXT,
     description TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ,
+    is_deleted BOOLEAN DEFAULT FALSE
 );
 
 -- Media Table
@@ -79,7 +90,10 @@ CREATE TABLE IF NOT EXISTS media (
     source_id UUID REFERENCES sources(source_id) ON DELETE CASCADE,
     media_url TEXT NOT NULL,
     media_type TEXT CHECK (media_type IN ('image', 'video', 'audio', 'document')) NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ,
+    is_deleted BOOLEAN DEFAULT FALSE
 );
 
 -- Tags Table
@@ -196,57 +210,9 @@ INSERT INTO content_types (name) VALUES
 ('twitter_post'),
 ('linkedin_post');
 
-CREATE OR REPLACE FUNCTION filter_content_by_domain(domain_text TEXT)
-RETURNS TABLE (
-    content_id UUID,
-    title TEXT,
-    body TEXT,
-    status TEXT,
-    created_at TIMESTAMPTZ,
-    updated_at TIMESTAMPTZ,
-    published_at TIMESTAMPTZ,
-    thread_id UUID,
-    content_type_id UUID,
-    content_type_name TEXT,
-    tag_id UUID,
-    tag_name TEXT,
-    content_source_id UUID,
-    source_id UUID,
-    source_identifier TEXT,
-    source_type_name TEXT,
-    url_references JSONB,
-    media JSONB
-) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT
-        c.content_id,
-        c.title,
-        c.body,
-        c.status,
-        c.created_at,
-        c.updated_at,
-        c.published_at,
-        c.thread_id,
-        ct.content_type_id,
-        ct.name AS content_type_name,
-        t.tag_id,
-        t.name AS tag_name,
-        cs.content_source_id,
-        s.source_id,
-        s.source_identifier,
-        st.name AS source_type_name,
-        s.url_references,
-        s.media
-    FROM
-        content c
-        LEFT JOIN content_types ct ON c.content_type_id = ct.content_type_id
-        LEFT JOIN content_tags ctg ON c.content_id = ctg.content_id
-        LEFT JOIN tags t ON ctg.tag_id = t.tag_id
-        LEFT JOIN content_sources cs ON c.content_id = cs.content_id
-        LEFT JOIN sources s ON cs.source_id = s.source_id
-        LEFT JOIN source_types st ON s.source_type_id = st.source_type_id
-    WHERE
-        s.url_references @> jsonb_build_object('domain', domain_text);
-END;
-$$ LANGUAGE plpgsql;
+-- Add indexes for soft delete columns
+CREATE INDEX IF NOT EXISTS idx_profiles_is_deleted ON profiles(is_deleted);
+CREATE INDEX IF NOT EXISTS idx_content_is_deleted ON content(is_deleted);
+CREATE INDEX IF NOT EXISTS idx_sources_is_deleted ON sources(is_deleted);
+CREATE INDEX IF NOT EXISTS idx_media_is_deleted ON media(is_deleted);
+CREATE INDEX IF NOT EXISTS idx_url_references_is_deleted ON url_references(is_deleted);

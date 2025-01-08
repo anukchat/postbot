@@ -1,17 +1,22 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabaseClient } from '../utils/supaclient';
+import { authService } from '../services/auth';
 
 interface AuthContextType {
   session: Session | null;
   user: User | null;
-  signIn: (provider: 'google' | 'magic-link' | 'email', options?: { 
+  signIn: (provider: 'google' | 'email', options?: { 
     email?: string;
     password?: string;
-  }) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  }) => Promise<any>;  // Removed 'magic-link' from provider type
+  signUp: (email: string, password: string) => Promise<User | null>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  isRegistered: boolean;
+  checkRegistration: (email: string) => Promise<boolean>;
+  checkGoogleRegistration: (user: User) => Promise<boolean>;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,68 +25,117 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isRegistered, setIsRegistered] = useState<boolean>(false);
 
   useEffect(() => {
-    // Check active sessions and subscribe to auth changes
-    supabaseClient.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    // Check for existing session in local storage first
+    const checkSession = async () => {
+      try {
+        setLoading(true);
+        // Get session from Supabase
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        
+        if (session) {
+          setSession(session);
+          setUser(session.user);
+          // Store session in localStorage
+          localStorage.setItem('session', JSON.stringify(session));
+        } else {
+          // Try to get session from localStorage
+          const storedSession = localStorage.getItem('session');
+          if (storedSession) {
+            const parsedSession = JSON.parse(storedSession);
+            setSession(parsedSession);
+            setUser(parsedSession.user);
+          }
+        }
+      } catch (error) {
+        console.error('Session check error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        setSession(session);
+        setUser(session.user);
+        localStorage.setItem('session', JSON.stringify(session));
+      } else {
+        setSession(null);
+        setUser(null);
+        localStorage.removeItem('session');
+      }
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const signIn = async (provider: 'google' | 'magic-link' | 'email', options?: { 
+  const checkRegistration = async (email: string) => {
+    try {
+      const { data, error } = await supabaseClient
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .single();
+      
+      const registered = Boolean(data);
+      setIsRegistered(registered);
+      return registered;
+    } catch (error) {
+      console.error('Error checking registration:', error);
+      return false;
+    }
+  };
+
+  const checkGoogleRegistration = async (user: User) => {
+    try {
+      const { data, error } = await supabaseClient
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+      
+      return Boolean(data);
+    } catch (error) {
+      console.error('Error checking registration:', error);
+      return false;
+    }
+  };
+
+  const signIn = async (provider: 'google' | 'email', options?: { 
     email?: string;
     password?: string;
   }) => {
     try {
       if (provider === 'google') {
-        const { error } = await supabaseClient.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: `${window.location.origin}/auth/callback`
-          }
-        });
-        if (error) throw error;
-      } else if (provider === 'magic-link' && options?.email) {
-        const { error } = await supabaseClient.auth.signInWithOtp({
-          email: options.email,
-          options: {
-            emailRedirectTo: import.meta.env.VITE_REDIRECT_URL,
-          },
-        });
-        if (error) throw error;
-      } else if (provider === 'email' && options?.email && options?.password) {
-        const { error } = await supabaseClient.auth.signInWithPassword({
-          email: options.email,
-          password: options.password,
-        });
-        if (error) throw error;
+        return await authService.signInWithGoogle();
+      }
+      
+      if (provider === 'email' && options?.email && options?.password) {
+        return await authService.signInWithEmail(options.email, options.password);
       }
     } catch (error) {
-      console.error('Error signing in:', error);
+      console.error('SignIn error:', error);
       throw error;
     }
   };
 
   const signUp = async (email: string, password: string) => {
     try {
-      const { error } = await supabaseClient.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: import.meta.env.VITE_REDIRECT_URL,
-        },
-      });
-      if (error) throw error;
+      // Check if user already exists
+      const exists = await authService.checkUserExists(email);
+      if (exists) {
+        throw new Error('USER_EXISTS');
+      }
+
+      return await authService.signUpWithEmail(email, password);
     } catch (error) {
       console.error('Error signing up:', error);
       throw error;
@@ -121,9 +175,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signIn, 
       signUp, 
       signOut,
-      resetPassword 
+      resetPassword,
+      isRegistered,
+      checkRegistration,
+      checkGoogleRegistration,
+      loading
     }}>
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
   );
 };

@@ -38,6 +38,7 @@ interface EditorState {
   generatePost: (post_types: string[], thread_id: string, payload?: GeneratePayload) => Promise<void>;
   currentTab: 'blog' | 'twitter' | 'linkedin';
   setCurrentTab: (tab: 'blog' | 'twitter' | 'linkedin') => void;
+  lastRefreshTimestamp: number;
 }
 
 interface GeneratePayload {
@@ -82,13 +83,22 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setError: (error) => set({ error }),
   lastLoadedSkip: -1,
   hasReachedEnd: false,
-
+  lastRefreshTimestamp: Date.now(),
+  
   fetchPosts: async (filters, skip = 0, limit = 20) => {
-    console.log('fetchPosts called', { filters, skip, limit });
     const { isLoading, posts, hasReachedEnd } = get();
     
-    if (isLoading || hasReachedEnd) {
-      console.log('Skip fetch - loading or reached end:', { isLoading, hasReachedEnd });
+    // If reset flag is present, clear the existing posts
+    if (filters.reset) {
+      set({ 
+        posts: [],
+        skip: 0,
+        hasReachedEnd: false,
+        lastLoadedSkip: -1
+      });
+    }
+    
+    if (isLoading || (hasReachedEnd && !filters.reset)) {
       return;
     }
 
@@ -113,7 +123,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         return acc;
       }, {} as Record<string, any>);
 
-      const params: Record<string, any> = { ...cleanedFilters, skip, limit };
+      const params: Record<string, any> = { ...cleanedFilters, skip, limit, timestamp: Date.now() };
       if (params.status === 'All') {
         delete params.status;
       }

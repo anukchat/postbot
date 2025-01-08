@@ -23,20 +23,13 @@ const UserMenu: React.FC = () => {
     <Menu as="div" className="relative">
 
     <MenuButton className="flex items-center space-x-2 rounded-full p-2 hover:bg-gray-100 dark:hover:bg-gray-800">
-        {/* <Avatar
-            name={user?.email}
-            size="32"
-            round={true}
-            src={user?.user_metadata?.avatar_url}
-        /> */}
-    
       <Avatar
-        name={user?.email}
-        size="36"
-        round={true}
-        src={`https://api.dicebear.com/6.x/avataaars/svg?seed=${user?.email}`}
+      name={user?.email}
+      size="36"
+      round={true}
+      src={user?.user_metadata?.avatar_url || `https://api.dicebear.com/6.x/avataaars/svg?seed=${user?.email}`}
       />
-      </MenuButton>
+    </MenuButton>
       <Menu.Items className="absolute right-0 mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
         <div className="px-4 py-3">
           <p className="text-sm text-gray-700 dark:text-gray-200">Signed in as</p>
