@@ -150,7 +150,7 @@ const MainAppLayout: React.FC = () => {
               onToggleCollapse={handleSidebarToggle}
             />
           </Panel>
-          <PanelResizeHandle className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors" />
+          {/* <PanelResizeHandle className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors" /> */}
           <Panel
             defaultSize={80}
             minSize={20}

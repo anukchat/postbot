@@ -40,7 +40,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isCollapsed, onTog
 
   return (
     <>
-      <div className={`bg-white dark:bg-gray-800 p-2 border-b flex ${isCollapsed ? 'flex-col items-center' : 'items-center gap-2'}`}>
+      <div className={`bg-white flex ${isCollapsed ? 'flex-col items-center' : 'items-center gap-2 border-b'}`}>
         <div className={`flex ${isCollapsed ? 'flex-col items-center' : 'items-center justify-between'} p-4`}>
           <Tippy content="Home">
             <a href="/" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">

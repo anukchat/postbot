@@ -424,7 +424,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
   return (
     <div className="flex flex-col h-full" ref={containerRef}>
       <div className="border-b flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800">
-        <div className="flex items-center space-x-2 h-[68px]">
+        <div className="flex items-center space-x-2">
           <Toolbar onCommandInsert={handleCommandInsert} selectedTab={selectedTab} />
         </div>
       </div>
