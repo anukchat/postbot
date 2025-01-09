@@ -424,9 +424,9 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
   return (
     <>
       {!currentPost ? (
-        <div className="flex items-center justify-center w-full h-full gap-3">
+        <div className="flex items-center justify-center w-full h-full min-h-screen gap-3">
           <Plus className="w-8 h-8 text-gray-400" />
-          <p className="text-gray-500 text-lg">Add or select a post to edit</p>
+          <p className="text-gray-500 text-lg">Generate new or select existing post to edit</p>
         </div>
       ) : (
         <div className="flex flex-col h-full" ref={containerRef}>
@@ -480,12 +480,28 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
                   </div>
                 )}
               </Panel>
-              <PanelResizeHandle className={`
-                ${window.innerWidth < 768 
-                  ? 'h-2 w-full cursor-row-resize' 
-                  : 'w-2 h-full cursor-col-resize'} 
-                bg-gray-200 dark:bg-gray-700 hover:bg-gray-300`} 
-              />
+
+              {/* Fixed ResizeHandle styles */}
+              <PanelResizeHandle 
+                className="group/handle" 
+                style={{ 
+                  position: 'relative',
+                  outline: 'none'
+                }}
+              >
+                <div className={`
+                  absolute top-0 left-0 
+                  ${window.innerWidth < 768 
+                    ? 'h-1 w-full cursor-row-resize -translate-y-1/2' 
+                    : 'w-1 h-full cursor-col-resize -translate-x-1/2'
+                  }
+                  bg-gray-200 dark:bg-gray-700 
+                  group-hover/handle:bg-blue-500 
+                  transition-colors
+                  rounded-full
+                `} />
+              </PanelResizeHandle>
+
               <Panel 
                 defaultSize={50}
                 minSize={30}
