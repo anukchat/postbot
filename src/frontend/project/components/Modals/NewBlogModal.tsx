@@ -210,10 +210,13 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
         
         onClose();
       } catch (err: any) {
-        if (err.response?.status === 403 && err.response?.data?.detail === "Generation limit reached for this thread") {
+        console.error('Failed to generate blog:', err);
+        if (
+          err.response?.status === 403 &&
+          err.response?.data?.detail?.includes("Generation limit reached")
+        ) {
           toast.error('User has exceeded the generation limit');
         } else {
-          console.error('Failed to generate blog:', err);
           setError('Failed to generate blog');
         }
       } finally {
@@ -265,10 +268,13 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
       
       onClose();
     } catch (err: any) {
-      if (err.response?.status === 403 && err.response?.data?.detail === "Generation limit reached for this thread") {
+      console.error('Failed to generate blog:', err);
+      if (
+        err.response?.status === 403 &&
+        err.response?.data?.detail?.includes("Generation limit reached")
+      ) {
         toast.error('User has exceeded the generation limit');
       } else {
-        console.error('Failed to generate blog:', err);
         setError('Failed to generate blog');
       }
     } finally {

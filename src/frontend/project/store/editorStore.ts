@@ -543,6 +543,9 @@ ${content}`;
       }
 
       const response = await api.post('/content/generate', payloadData);
+      if (response.status !== 200) {
+        throw new Error(`Generation failed: ${response.statusText}`);
+      }
       if (response.data) {
         // Refresh content after generation
         await fetchContentByThreadId(thread_id, post_types[0]);
@@ -550,6 +553,12 @@ ${content}`;
       }
     } catch (error: any) {
       console.error('Error generating post:', error);
+      if (
+        error.response?.status === 403 &&
+        error.response?.data?.detail?.includes("Generation limit reached")
+      ) {
+        throw error;
+      }
       set({ isLoading: false, error: 'Error generating post' });
     }
   },

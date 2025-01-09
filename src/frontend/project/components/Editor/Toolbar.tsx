@@ -64,13 +64,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onCommandInsert, selectedTab }
       // Refresh content after generation
       await fetchContentByThreadId(currentPost.thread_id, selectedTab);
     } catch (err: any) {
+      console.error(err);
       if (
         err.response?.status === 403 &&
-        err.response?.data?.detail === "Generation limit reached for this thread"
+        err.response?.data?.detail?.includes("Generation limit reached")
       ) {
         toast.error('User has exceeded the generation limit');
-      } else {
-        console.error(err);
       }
     } finally {
       setIsGenerating(false);

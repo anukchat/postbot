@@ -12,13 +12,12 @@ export const FeedbackModal: React.FC<{
     try {
       await handleFeedbackSubmit(); 
     } catch (err: any) {
+      console.error(err);
       if (
         err.response?.status === 403 &&
-        err.response?.data?.detail === "Generation limit reached for this thread"
+        err.response?.data?.detail?.includes("Generation limit reached")
       ) {
         toast.error('User has exceeded the generation limit');
-      } else {
-        console.error(err);
       }
     }
   };
