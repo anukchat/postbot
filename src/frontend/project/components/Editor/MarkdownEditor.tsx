@@ -14,7 +14,7 @@ import { Toolbar } from './Toolbar';
 import { getCommands } from './CommandPalette';
 import Picker from 'emoji-picker-react';
 import emoji from 'emoji-dictionary'; // Add this import
-import { Clipboard } from 'lucide-react'; // Add this import
+import { Clipboard, Plus } from 'lucide-react'; // Add this import
 import Tippy from '@tippyjs/react'; // Add this import
 import 'tippy.js/dist/tippy.css'; // Add this import
 import TurndownService from 'turndown';
@@ -422,76 +422,85 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
   };
 
   return (
-    <div className="flex flex-col h-full" ref={containerRef}>
-      <div className="border-b flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800">
-        <div className="flex items-center space-x-2">
-          <Toolbar onCommandInsert={handleCommandInsert} selectedTab={selectedTab} />
+    <>
+      {!currentPost ? (
+        <div className="flex items-center justify-center w-full h-full gap-3">
+          <Plus className="w-8 h-8 text-gray-400" />
+          <p className="text-gray-500 text-lg">Add or select a post to edit</p>
         </div>
-      </div>
-      <div className="flex-1 relative overflow-auto">
-        <PanelGroup direction="horizontal">
-          <Panel defaultSize={50}>
-            <textarea
-              ref={textAreaRef}
-              className="w-full h-full p-4 resize-none focus:outline-none dark:bg-gray-900 dark:text-white"
-              value={content}
-              onChange={handleContentChange}
-              onKeyUp={handleKeyUp}
-              onKeyDown={(e) => {
-                handleKeyDown(e);
-                handleSlashCommand(e);
-              }}
-              onSelect={(e) =>
-                setSelection({
-                  start: e.currentTarget.selectionStart,
-                  end: e.currentTarget.selectionEnd,
-                })
-              }
-              style={{
-                overflowAnchor: 'none',
-                overscrollBehavior: 'none',
-              }}
-              readOnly={currentPost?.status === 'Published'}
-            />
-            {isEmojiPickerOpen && (
-              <div
-                className="absolute z-10"
-                style={{
-                  top: emojiPickerPosition.y,
-                  left: emojiPickerPosition.x,
-                }}
-                tabIndex={-1}
-              >
-                <Picker onEmojiClick={handleEmojiClick} />
-              </div>
-            )}
-          </Panel>
-          <PanelResizeHandle className="w-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 cursor-col-resize" />
-            <Panel defaultSize={50}>
-            <div className="h-full overflow-auto p-4 prose dark:prose-invert max-w-none relative">
-              <Tippy content="Copy to clipboard">
-                <button
-                onClick={handleCopy}
-                className={`absolute top-2 right-2 p-1 rounded ${isCopied ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'}`}
-                title="Copy to clipboard"
-                >
-                <Clipboard className="w-4 h-4" />
-                </button>
-              </Tippy>
-              <div ref={previewRef}>
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm, remarkEmoji, remarkMath]}
-                  rehypePlugins={[rehypeRaw, rehypeKatex]}
-                  components={customComponents}
-                >
-                  {filterMetadata(content)}
-                </ReactMarkdown>
-              </div>
+      ) : (
+        <div className="flex flex-col h-full" ref={containerRef}>
+          <div className="border-b flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800">
+            <div className="flex items-center space-x-2">
+              <Toolbar onCommandInsert={handleCommandInsert} selectedTab={selectedTab} />
             </div>
-          </Panel>
-        </PanelGroup>
-      </div>
-      {currentPost && <EditorStatusBar post={currentPost} />}
-    </div>
+          </div>
+          <div className="flex-1 relative overflow-auto">
+            <PanelGroup direction="horizontal">
+              <Panel defaultSize={50}>
+                <textarea
+                  ref={textAreaRef}
+                  className="w-full h-full p-4 resize-none focus:outline-none dark:bg-gray-900 dark:text-white"
+                  value={content}
+                  onChange={handleContentChange}
+                  onKeyUp={handleKeyUp}
+                  onKeyDown={(e) => {
+                    handleKeyDown(e);
+                    handleSlashCommand(e);
+                  }}
+                  onSelect={(e) =>
+                    setSelection({
+                      start: e.currentTarget.selectionStart,
+                      end: e.currentTarget.selectionEnd,
+                    })
+                  }
+                  style={{
+                    overflowAnchor: 'none',
+                    overscrollBehavior: 'none',
+                  }}
+                  readOnly={currentPost?.status === 'Published'}
+                />
+                {isEmojiPickerOpen && (
+                  <div
+                    className="absolute z-10"
+                    style={{
+                      top: emojiPickerPosition.y,
+                      left: emojiPickerPosition.x,
+                    }}
+                    tabIndex={-1}
+                  >
+                    <Picker onEmojiClick={handleEmojiClick} />
+                  </div>
+                )}
+              </Panel>
+              <PanelResizeHandle className="w-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 cursor-col-resize" />
+                <Panel defaultSize={50}>
+                <div className="h-full overflow-auto p-4 prose dark:prose-invert max-w-none relative">
+                  <Tippy content="Copy to clipboard">
+                    <button
+                    onClick={handleCopy}
+                    className={`absolute top-2 right-2 p-1 rounded ${isCopied ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'}`}
+                    title="Copy to clipboard"
+                    >
+                    <Clipboard className="w-4 h-4" />
+                    </button>
+                  </Tippy>
+                  <div ref={previewRef}>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm, remarkEmoji, remarkMath]}
+                      rehypePlugins={[rehypeRaw, rehypeKatex]}
+                      components={customComponents}
+                    >
+                      {filterMetadata(content)}
+                    </ReactMarkdown>
+                  </div>
+                </div>
+              </Panel>
+            </PanelGroup>
+          </div>
+          {currentPost && <EditorStatusBar post={currentPost} />}
+        </div>
+      )}
+    </>
   );
 };

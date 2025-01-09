@@ -180,14 +180,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse 
       {!isCollapsed && (
         <>
           <div className="p-4 border-b">
-            <div className="relative">
+            <div className="relative border dark:border-gray-700 rounded-lg">
               <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
-                type="text"
-                placeholder="Search posts..."
-                value={searchTerm}
-                onChange={handleSearchChange}
-                className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg border-0 focus:ring-2 focus:ring-blue-500"
+              type="text"
+              placeholder="Search posts..."
+              value={searchTerm}
+              onChange={handleSearchChange}
+              className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg border-0 focus:ring-2 focus:ring-blue-500"
               />
               <button
                 onClick={() => setShowFilters(!showFilters)}
