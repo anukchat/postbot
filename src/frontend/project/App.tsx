@@ -174,19 +174,32 @@ const MainAppLayout: React.FC = () => {
   return (
     <div className={`h-screen ${isDarkMode ? 'dark' : ''}`}>
       <div className="h-full flex dark:bg-gray-900 dark:text-white">
-        {/* Vertical Toolbar when collapsed */}
-        {isSidebarCollapsed && (
-          <div className="fixed inset-y-0 left-0 w-16 bg-white dark:bg-gray-800 border-r 
-            dark:border-gray-700 z-30">
-            <EditorToolbar isCollapsed={true} onToggleCollapse={handleSidebarToggle} />
-          </div>
-        )}
+        {/* Vertical Toolbar - always visible, fixed width */}
+        <div className="fixed inset-y-0 left-0 w-12 sm:w-16 bg-white dark:bg-gray-800 border-r 
+          dark:border-gray-700 z-30">
+          <EditorToolbar isCollapsed={true} onToggleCollapse={handleSidebarToggle} />
+        </div>
 
         {/* Hamburger Toggle */}
         <SidebarToggle 
           isCollapsed={isSidebarCollapsed} 
           onClick={handleSidebarToggle} 
         />
+
+        {/* Sidebar Drawer */}
+        <div
+          className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 
+            transition-transform duration-300 ease-in-out border-r dark:border-gray-700
+            ${isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'}
+            w-[280px] sm:w-[320px] md:w-[350px] lg:w-[400px]
+            overflow-hidden`}
+        >
+          <EditorToolbar isCollapsed={false} onToggleCollapse={handleSidebarToggle} />
+          <Sidebar
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={handleSidebarToggle}
+          />
+        </div>
 
         {/* Overlay Backdrop */}
         {!isSidebarCollapsed && (
@@ -196,28 +209,15 @@ const MainAppLayout: React.FC = () => {
           />
         )}
 
-        {/* Sidebar Drawer */}
-        <div
-          className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 
-            transition-transform duration-300 ease-in-out border-r dark:border-gray-700
-            ${isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'}
-            w-[350px] md:w-[400px]`}
-        >
-          <EditorToolbar isCollapsed={false} onToggleCollapse={handleSidebarToggle} />
-          <Sidebar
-            isCollapsed={isSidebarCollapsed}
-            onToggleCollapse={handleSidebarToggle}
-          />
-        </div>
-
-        {/* Main Content */}
-        <div className={`flex-1 ${isSidebarCollapsed ? 'ml-16' : ''}`}>
-          <div className="flex flex-col">
-            <div className="border-b p-2 flex justify-between items-center">
-              <div className="flex-1 flex justify-center overflow-x-auto">
-                <div className="flex gap-2 items-center flex-wrap justify-center">
+        {/* Main Content Area with fixed width */}
+        <div className="flex-1 ml-12 sm:ml-16 min-w-0 relative">
+          <div className="flex flex-col h-full max-w-full overflow-x-hidden">
+            {/* Header with contained width */}
+            <div className="border-b p-2 sm:p-3 md:p-4 flex justify-between items-center bg-white dark:bg-gray-800 w-full">
+              <div className="flex-1 flex justify-center min-w-0">
+                <div className="flex gap-1 sm:gap-2 items-center flex-nowrap overflow-x-auto px-2 sm:px-4 scrollbar-hide">
                   {/* Responsive tab buttons */}
-                  <div className="flex gap-2 items-center flex-wrap sm:flex-nowrap">
+                  <div className="flex gap-1 sm:gap-2 items-center">
                     <button
                       onClick={() => handleTabClick('blog')}
                       className={`px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base ${
@@ -277,23 +277,26 @@ const MainAppLayout: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <div className="z-[100] ml-2">
+              <div className="flex-shrink-0 ml-2">
                 <UserMenu />
               </div>
             </div>
             
+            {/* Content area with contained width */}
             <div className="flex-1 overflow-hidden">
-              {isCanvasView ? (
-                <CanvasView />
-              ) : isPostDetailsView ? (
-                <PostDetails />
-              ) : (
-                <MarkdownEditor
-                  content={getContent()}
-                  onChange={handleContentChange}
-                  selectedTab={selectedTab}
-                />
-              )}
+              <div className="h-full max-w-full px-2 sm:px-4 md:px-6 pt-4">
+                {isCanvasView ? (
+                  <CanvasView />
+                ) : isPostDetailsView ? (
+                  <PostDetails />
+                ) : (
+                  <MarkdownEditor
+                    content={getContent()}
+                    onChange={handleContentChange}
+                    selectedTab={selectedTab}
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>

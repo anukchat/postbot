@@ -127,77 +127,94 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onCommandInsert, selectedTab }
 
   return (
     <>
-      <div className="sticky top-0 z-10 flex gap-6 p-4 bg-white dark:bg-gray-800 shadow-lg rounded-lg">
-        <Tippy content="Undo"><button onClick={() => undo(selectedTab)}><Undo className="w-4 h-4" /></button></Tippy>
-        <Tippy content="Redo"><button onClick={() => redo(selectedTab)}><Redo className="w-4 h-4" /></button></Tippy><Tippy content="Heading 1"><button onClick={() => onCommandInsert('# ', 0)}><Heading1 className="w-6 h-6" /></button></Tippy>
-        <Tippy content="Heading 2"><button onClick={() => onCommandInsert('## ', 0)}><Heading2 className="w-5 h-5" /></button></Tippy>
-        <Tippy content="Heading 3"><button onClick={() => onCommandInsert('### ', 0)}><Heading3 className="w-4 h-4" /></button></Tippy>
-        <Tippy content="Bold"><button onClick={() => onCommandInsert('**', 0)}><Bold className="w-4 h-4" /></button></Tippy>
-        <Tippy content="Italic"><button onClick={() => onCommandInsert('*', 0)}><Italic className="w-4 h-4" /></button></Tippy>
-        <Tippy content="Strikethrough"><button onClick={() => onCommandInsert('~~', 0)}><Strikethrough className="w-4 h-4" /></button></Tippy>
-        <Tippy content="Twitter Embed"><button onClick={() => onCommandInsert(getTwitterEmbed(), 0)}><Twitter className={`w-5 h-5 ${iconColor(currentPost?.source_type === 'twitter')}`} /></button></Tippy>
-        <Tippy content="Link"><button onClick={() => setShowUrlPicker(true)}><Link className={`w-5 h-5 ${iconColor(!!currentPost?.urls?.length)}`} /></button></Tippy>
-        <Tippy content="Quote"><button onClick={() => onCommandInsert('> ', 0)}><Quote className="w-4 h-4" /></button></Tippy>
-        <Tippy content="Code Block"><button onClick={() => onCommandInsert('```\n\n```', 0)}><Code className="w-5 h-5" /></button></Tippy>
-        <Tippy content="Inline Code"><button onClick={() => onCommandInsert('`', 0)}><Code2 className="w-5 h-5" /></button></Tippy>
-        <Tippy content="Table"><button onClick={() => onCommandInsert('| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |\n', 0)}><Table className="w-5 h-5" /></button></Tippy>
-        <Tippy content="Checklist"><button onClick={() => onCommandInsert('- [ ] ', 0)}><Check className="w-5 h-5" /></button></Tippy>
-        <Tippy content="Ordered List"><button onClick={() => onCommandInsert('1. ', 0)}><ListOrdered className="w-5 h-5" /></button></Tippy>
-        <Tippy content="Unordered List"><button onClick={() => onCommandInsert('- ', 0)}><List className="w-5 h-5" /></button></Tippy>
-        <Tippy content="Horizontal Rule"><button onClick={() => onCommandInsert('---\n', 0)}><FileText className="w-5 h-5" /></button></Tippy>
-        <Tippy content="Tags"><button onClick={() => onCommandInsert(getTags(), 0)}><Hash className={`w-5 h-5 ${iconColor(!!currentPost?.tags?.length)}`} /></button></Tippy>
-        {/* <Tippy content="Video"><button onClick={() => onCommandInsert(getVideoEmbed(), 0)}><Video className={`w-5 h-5 ${iconColor(currentPost?.media?.[0]?.type === 'video')}`} /></button></Tippy> */}
-        <Tippy content="Blog metadata"><button onClick={() => onCommandInsert(getBlogMetadata(), 0)}><Tags className="w-5 h-5 text-green-500" /></button></Tippy>
-        <div className="flex gap-2 items-center">
-          <div className="flex gap-5">
-            <Tippy content={currentPost?.media?.some(m => m.type === 'image') ? "Choose Image" : "Insert Blank Image"}>
-              <button onClick={() => {
-                const hasImages = currentPost?.media?.some(m => m.type === 'image');
-                if (!hasImages) {
-                  onCommandInsert('![]()\n', 0);
-                } else {
-                  setMediaType('image');
-                  setShowMediaPicker(true);
-                }
-              }}>
-                <Image className={`w-5 h-5 ${iconColor(!!currentPost?.media?.some(m => m.type === 'image'))}`} />
+      <div className="sticky top-0 z-10 flex flex-wrap gap-1 sm:gap-2 md:gap-4 p-2 sm:p-4 bg-white dark:bg-gray-800 shadow-lg rounded-lg">
+        <div className="flex flex-wrap gap-0.5 sm:gap-1 md:gap-2 items-center justify-center w-full sm:w-auto">
+          {/* Group common actions */}
+          <div className="flex gap-0.5 sm:gap-1 items-center">
+            <Tippy content="Undo">
+              <button onClick={() => undo(selectedTab)} className="p-1 sm:p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                <Undo className="w-3 h-3 sm:w-4 sm:h-4" />
               </button>
             </Tippy>
-            <Tippy content={currentPost?.media?.some(m => m.type === 'video') ? "Choose Video" : "Insert Blank Video"}>
-              <button onClick={() => {
-                const hasVideos = currentPost?.media?.some(m => m.type === 'video');
-                if (!hasVideos) {
-                  onCommandInsert('<video src="PASTE_VIDEO_URL_HERE" controls></video>\n', 0);
-                } else {
-                  setMediaType('video');
-                  setShowMediaPicker(true);
-                }
-              }}>
-                <Video className={`w-5 h-5 ${iconColor(!!currentPost?.media?.some(m => m.type === 'video'))}`} />
-              </button>
-            </Tippy>
-            {selectedTab !== 'blog' && (
-              <Tippy content={isGenerateDisabled ? 'Content already exists' : `Generate ${selectedTab} post`}>
-                <button
-                  onClick={handleGenerate}
-                  disabled={isGenerateDisabled || isGenerating}
-                  className={`rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${isGenerateDisabled || isGenerating ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                >
-                  <Rocket className={`w-5 h-5 ${isGenerating ? 'animate-bounce' : ''}`} />
-                </button>
-              </Tippy>
-            )}
-            {shouldShowFeedback && (
-              <Tippy content="Provide feedback">
-                <button
-                  onClick={() => setShowFeedbackModal(true)}
-                  className="hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded-lg"
-                >
-                  <MessageSquare className="w-5 h-5" />
-                </button>
-              </Tippy>
-            )}
+            <Tippy content="Redo"><button onClick={() => redo(selectedTab)} className="p-1 sm:p-1.5"><Redo className="w-3 h-3 sm:w-4 sm:h-4" /></button></Tippy>
+            <Tippy content="Heading 1"><button onClick={() => onCommandInsert('# ', 0)} className="p-1 sm:p-1.5"><Heading1 className="w-3 h-3 sm:w-4 sm:h-4" /></button></Tippy>
+            <Tippy content="Heading 2"><button onClick={() => onCommandInsert('## ', 0)} className="p-1 sm:p-1.5"><Heading2 className="w-3 h-3 sm:w-4 sm:h-4" /></button></Tippy>
+            <Tippy content="Heading 3"><button onClick={() => onCommandInsert('### ', 0)} className="p-1 sm:p-1.5"><Heading3 className="w-3 h-3 sm:w-4 sm:h-4" /></button></Tippy>
+          </div>
+
+          {/* Group formatting actions */}
+          <div className="flex gap-0.5 sm:gap-1 items-center">
+            <Tippy content="Bold"><button onClick={() => onCommandInsert('**', 0)} className="p-1 sm:p-1.5"><Bold className="w-3 h-3 sm:w-4 sm:h-4" /></button></Tippy>
+            <Tippy content="Italic"><button onClick={() => onCommandInsert('*', 0)} className="p-1 sm:p-1.5"><Italic className="w-3 h-3 sm:w-4 sm:h-4" /></button></Tippy>
+            <Tippy content="Strikethrough"><button onClick={() => onCommandInsert('~~', 0)} className="p-1 sm:p-1.5"><Strikethrough className="w-3 h-3 sm:w-4 sm:h-4" /></button></Tippy>
+            <Tippy content="Twitter Embed"><button onClick={() => onCommandInsert(getTwitterEmbed(), 0)} className="p-1 sm:p-1.5"><Twitter className={`w-3 h-3 sm:w-4 sm:h-4 ${iconColor(currentPost?.source_type === 'twitter')}`} /></button></Tippy>
+            <Tippy content="Link"><button onClick={() => setShowUrlPicker(true)} className="p-1 sm:p-1.5"><Link className={`w-3 h-3 sm:w-4 sm:h-4 ${iconColor(!!currentPost?.urls?.length)}`} /></button></Tippy>
+            <Tippy content="Quote"><button onClick={() => onCommandInsert('> ', 0)} className="p-1 sm:p-1.5"><Quote className="w-3 h-3 sm:w-4 sm:h-4" /></button></Tippy>
+            <Tippy content="Code Block"><button onClick={() => onCommandInsert('```\n\n```', 0)} className="p-1 sm:p-1.5"><Code className="w-3 h-3 sm:w-4 sm:h-4" /></button></Tippy>
+            <Tippy content="Inline Code"><button onClick={() => onCommandInsert('`', 0)} className="p-1 sm:p-1.5"><Code2 className="w-3 h-3 sm:w-4 sm:h-4" /></button></Tippy>
+            <Tippy content="Table"><button onClick={() => onCommandInsert('| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |\n', 0)} className="p-1 sm:p-1.5"><Table className="w-3 h-3 sm:w-4 sm:h-4" /></button></Tippy>
+            <Tippy content="Checklist"><button onClick={() => onCommandInsert('- [ ] ', 0)} className="p-1 sm:p-1.5"><Check className="w-3 h-3 sm:w-4 sm:h-4" /></button></Tippy>
+            <Tippy content="Ordered List"><button onClick={() => onCommandInsert('1. ', 0)} className="p-1 sm:p-1.5"><ListOrdered className="w-3 h-3 sm:w-4 sm:h-4" /></button></Tippy>
+            <Tippy content="Unordered List"><button onClick={() => onCommandInsert('- ', 0)} className="p-1 sm:p-1.5"><List className="w-3 h-3 sm:w-4 sm:h-4" /></button></Tippy>
+            <Tippy content="Horizontal Rule"><button onClick={() => onCommandInsert('---\n', 0)} className="p-1 sm:p-1.5"><FileText className="w-3 h-3 sm:w-4 sm:h-4" /></button></Tippy>
+            <Tippy content="Tags"><button onClick={() => onCommandInsert(getTags(), 0)} className="p-1 sm:p-1.5"><Hash className={`w-3 h-3 sm:w-4 sm:h-4 ${iconColor(!!currentPost?.tags?.length)}`} /></button></Tippy>
+          </div>
+
+          {/* Group special actions */}
+          <div className="flex gap-0.5 sm:gap-1 items-center">
+            <Tippy content="Blog metadata"><button onClick={() => onCommandInsert(getBlogMetadata(), 0)} className="p-1 sm:p-1.5"><Tags className="w-3 h-3 sm:w-4 sm:h-4 text-green-500" /></button></Tippy>
+            <div className="flex gap-2 items-center">
+              <div className="flex gap-5">
+                <Tippy content={currentPost?.media?.some(m => m.type === 'image') ? "Choose Image" : "Insert Blank Image"}>
+                  <button onClick={() => {
+                    const hasImages = currentPost?.media?.some(m => m.type === 'image');
+                    if (!hasImages) {
+                      onCommandInsert('![]()\n', 0);
+                    } else {
+                      setMediaType('image');
+                      setShowMediaPicker(true);
+                    }
+                  }} className="p-1 sm:p-1.5">
+                    <Image className={`w-3 h-3 sm:w-4 sm:h-4 ${iconColor(!!currentPost?.media?.some(m => m.type === 'image'))}`} />
+                  </button>
+                </Tippy>
+                <Tippy content={currentPost?.media?.some(m => m.type === 'video') ? "Choose Video" : "Insert Blank Video"}>
+                  <button onClick={() => {
+                    const hasVideos = currentPost?.media?.some(m => m.type === 'video');
+                    if (!hasVideos) {
+                      onCommandInsert('<video src="PASTE_VIDEO_URL_HERE" controls></video>\n', 0);
+                    } else {
+                      setMediaType('video');
+                      setShowMediaPicker(true);
+                    }
+                  }} className="p-1 sm:p-1.5">
+                    <Video className={`w-3 h-3 sm:w-4 sm:h-4 ${iconColor(!!currentPost?.media?.some(m => m.type === 'video'))}`} />
+                  </button>
+                </Tippy>
+                {selectedTab !== 'blog' && (
+                  <Tippy content={isGenerateDisabled ? 'Content already exists' : `Generate ${selectedTab} post`}>
+                    <button
+                      onClick={handleGenerate}
+                      disabled={isGenerateDisabled || isGenerating}
+                      className={`rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${isGenerateDisabled || isGenerating ? 'opacity-50 cursor-not-allowed' : ''
+                        } p-1 sm:p-1.5`}
+                    >
+                      <Rocket className={`w-3 h-3 sm:w-4 sm:h-4 ${isGenerating ? 'animate-bounce' : ''}`} />
+                    </button>
+                  </Tippy>
+                )}
+                {shouldShowFeedback && (
+                  <Tippy content="Provide feedback">
+                    <button
+                      onClick={() => setShowFeedbackModal(true)}
+                      className="hover:bg-gray-100 dark:hover:bg-gray-700 p-1 sm:p-1.5 rounded-lg"
+                    >
+                      <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4" />
+                    </button>
+                  </Tippy>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -1,12 +1,7 @@
-Can you add responsiveness,i have few conditions
+Make the UI responsive for all standard devices, use best strategy 
 
-1. The Toolbareditor icons should always be visible, should not be overlayed by markdowneditor [icons should not hide]
-2. IF they start overlaying, collapse teh sidebar
-3. If you think there is a need to adjust the gaps between editor toolbar icons, as per the screen size do that
-4. Adjust the MarkdownEditor and Sidebar panels accordingly as per screen
-5. Minimum size of sidebar when collapsed is 5 %, when expanded 22 % [can change dynamically based on screen, for smaller screen sizes, can go upto 50 %]
-6. Other panel size shoukd adjust dynamically as per above
-
+Use below url to understand responsive design and apply to our use case
+https://tailgrids.com/blog/learn-tailwind-css-mastering-responsive-design
 
 Instructions
 

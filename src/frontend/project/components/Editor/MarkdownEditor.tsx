@@ -71,6 +71,15 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
   const previewRef = useRef<HTMLDivElement>(null); // Add this ref
   const [isCopied, setIsCopied] = useState(false); // Add this state
   const turndownService = new TurndownService();
+  const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsLargeScreen(window.innerWidth >= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // useEffect(() => {
   //   fetchPosts({});
@@ -424,30 +433,30 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
   return (
     <>
       {!currentPost ? (
-        <div className="flex items-center justify-center w-full h-full min-h-screen gap-3">
-          <Plus className="w-8 h-8 text-gray-400" />
-          <p className="text-gray-500 text-lg">Generate new or select existing post to edit</p>
+        <div className="flex items-center justify-center w-full h-full min-h-[50vh] sm:min-h-screen gap-2 sm:gap-3 p-4 text-center">
+          <Plus className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
+          <p className="text-gray-500 text-base sm:text-lg">Generate new or select existing post to edit</p>
         </div>
       ) : (
         <div className="flex flex-col h-full" ref={containerRef}>
-          <div className="border-b flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
-            <div className="flex items-center space-x-2 overflow-x-auto">
+          <div className="border-b flex items-center justify-start sm:justify-center p-2 bg-gray-50 dark:bg-gray-800 sticky top-0 z-10 overflow-x-auto">
+            <div className="flex items-center gap-1 sm:gap-2 md:gap-4 lg:gap-6">
               <Toolbar onCommandInsert={handleCommandInsert} selectedTab={selectedTab} />
             </div>
           </div>
           <div className="flex-1 relative overflow-auto">
             <PanelGroup 
-              direction={window.innerWidth < 768 ? "vertical" : "horizontal"}
-              className="min-h-0"
+              direction={isLargeScreen ? "horizontal" : "vertical"}
+              className="min-h-0 sm:min-h-[300px]"
             >
               <Panel 
                 defaultSize={50} 
                 minSize={30}
-                className="min-w-[250px] min-h-[300px]"
+                className="min-w-[250px] min-h-[200px] sm:min-h-[300px]"
               >
                 <textarea
                   ref={textAreaRef}
-                  className="w-full h-full p-4 resize-none focus:outline-none dark:bg-gray-900 dark:text-white min-h-[300px]"
+                  className="w-full h-full p-2 sm:p-4 resize-none focus:outline-none dark:bg-gray-900 dark:text-white text-sm sm:text-base"
                   value={content}
                   onChange={handleContentChange}
                   onKeyUp={handleKeyUp}
@@ -490,10 +499,10 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
                 }}
               >
                 <div className={`
-                  absolute top-0 left-0 
-                  ${window.innerWidth < 768 
-                    ? 'h-1 w-full cursor-row-resize -translate-y-1/2' 
-                    : 'w-1 h-full cursor-col-resize -translate-x-1/2'
+                  absolute 
+                  ${isLargeScreen 
+                    ? 'w-1 h-full cursor-col-resize -translate-x-1/2 top-0' 
+                    : 'h-1 w-full cursor-row-resize -translate-y-1/2 left-0'
                   }
                   bg-gray-200 dark:bg-gray-700 
                   group-hover/handle:bg-blue-500 
