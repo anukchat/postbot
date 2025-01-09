@@ -430,14 +430,18 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
         </div>
       ) : (
         <div className="flex flex-col h-full" ref={containerRef}>
-          <div className="border-b flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800">
-            <div className="flex items-center space-x-2">
+          <div className="border-b flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
+            <div className="flex items-center space-x-2 overflow-x-auto">
               <Toolbar onCommandInsert={handleCommandInsert} selectedTab={selectedTab} />
             </div>
           </div>
           <div className="flex-1 relative overflow-auto">
             <PanelGroup direction="horizontal">
-              <Panel defaultSize={50}>
+              <Panel 
+                defaultSize={50} 
+                minSize={30}
+                className="min-w-[250px]"
+              >
                 <textarea
                   ref={textAreaRef}
                   className="w-full h-full p-4 resize-none focus:outline-none dark:bg-gray-900 dark:text-white"
@@ -474,7 +478,11 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
                 )}
               </Panel>
               <PanelResizeHandle className="w-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 cursor-col-resize" />
-                <Panel defaultSize={50}>
+              <Panel 
+                defaultSize={50}
+                minSize={30}
+                className="min-w-[250px]"
+              >
                 <div className="h-full overflow-auto p-4 prose dark:prose-invert max-w-none relative">
                   <Tippy content="Copy to clipboard">
                     <button

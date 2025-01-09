@@ -1,0 +1,25 @@
+Can you add responsiveness,i have few conditions
+
+1. The Toolbareditor icons should always be visible, should not be overlayed by markdowneditor [icons should not hide]
+2. IF they start overlaying, collapse teh sidebar
+3. If you think there is a need to adjust the gaps between editor toolbar icons, as per the screen size do that
+4. Adjust the MarkdownEditor and Sidebar panels accordingly as per screen
+5. Minimum size of sidebar when collapsed is 5 %, when expanded 22 % [can change dynamically based on screen, for smaller screen sizes, can go upto 50 %]
+6. Other panel size shoukd adjust dynamically as per above
+
+
+Instructions
+
+1. first do your research by scanning all the code #codebase
+2. Then chart a plan of what steps to be done
+3. Then review the plan
+4. apply the plan
+5. do a review again to validate
+6. Check all different scenarios like a quality assurance person
+7. Fix issues if any
+8. Do not remove any functionality , just do whatever you are asked to do only
+9. Resolve all the console errors
+10. Make sure to validate the plan and do a thorough testing, becom your own critique
+11. Ask for any clarification
+
+Iteratively review and solve the issues,

@@ -71,6 +71,31 @@ const MainAppLayout: React.FC = () => {
     return () => window.removeEventListener('resize', handleWindowResize);
   }, []);
 
+  useEffect(() => {
+    const handleResize = () => {
+      const screenWidth = window.innerWidth;
+      if (screenWidth < 768 && !isSidebarCollapsed) { // Collapse sidebar on small screens
+        setIsSidebarCollapsed(true);
+      }
+      
+      // Adjust sidebar size based on screen width
+      const newSidebarSize = screenWidth < 1024 
+        ? (isSidebarCollapsed ? 5 : 30)  // More space on smaller screens
+        : (isSidebarCollapsed ? 5 : 22); // Default sizes on larger screens
+      
+      setSidebarSize(newSidebarSize);
+      
+      if (contentPanelRef.current) {
+        contentPanelRef.current.resize(100 - newSidebarSize);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial call
+    
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isSidebarCollapsed]);
+
   const handleContentChange = (newContent: string) => {
     if (!currentPost) return;
 
@@ -142,20 +167,23 @@ const MainAppLayout: React.FC = () => {
           <Panel
             defaultSize={sidebarSize}
             minSize={5}
+            maxSize={50}  // Added maxSize
             ref={sidebarPanelRef}
             order={1}
+            className="min-w-[50px]" // Ensure minimum width
           >
             <Sidebar
               isCollapsed={isSidebarCollapsed}
               onToggleCollapse={handleSidebarToggle}
             />
           </Panel>
-          {/* <PanelResizeHandle className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors" /> */}
+          <PanelResizeHandle className="w-0.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors" />
           <Panel
-            defaultSize={80}
-            minSize={20}
+            defaultSize={100 - sidebarSize}
+            minSize={50}  // Ensure minimum content size
             order={2}
             ref={contentPanelRef}
+            className="min-w-[300px]" // Ensure minimum width
           >
             <div className="h-full flex flex-col">
               <div className="border-b p-2 flex justify-between items-center">
