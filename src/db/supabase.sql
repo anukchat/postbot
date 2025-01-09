@@ -206,9 +206,9 @@ INSERT INTO source_types (name) VALUES
 -- Insert default content types
 INSERT INTO content_types (name) VALUES
 ('blog'),
-('short_post'),
-('twitter_post'),
-('linkedin_post');
+('short'),
+('twitter'),
+('linkedin');
 
 -- Add indexes for soft delete columns
 CREATE INDEX IF NOT EXISTS idx_profiles_is_deleted ON profiles(is_deleted);
@@ -216,3 +216,34 @@ CREATE INDEX IF NOT EXISTS idx_content_is_deleted ON content(is_deleted);
 CREATE INDEX IF NOT EXISTS idx_sources_is_deleted ON sources(is_deleted);
 CREATE INDEX IF NOT EXISTS idx_media_is_deleted ON media(is_deleted);
 CREATE INDEX IF NOT EXISTS idx_url_references_is_deleted ON url_references(is_deleted);
+
+
+-- Step 1: Create a new table to store generation limits per tier
+CREATE TABLE IF NOT EXISTS generation_limits (
+    tier TEXT PRIMARY KEY,
+    max_generations_per_thread INT NOT NULL
+);
+
+-- Insert default generation limits for each tier
+INSERT INTO generation_limits (tier, max_generations_per_thread) VALUES
+('free', 5),
+('basic', 20),
+('premium', -1);  -- -1 indicates unlimited generations
+
+-- Step 2: Add a column to the profiles table to track the number of generations used per thread
+ALTER TABLE profiles ADD COLUMN generations_used_per_thread INT DEFAULT 0;
+
+-- Step 3: Create a new table to track generations per thread for each user
+CREATE TABLE IF NOT EXISTS user_thread_generations (
+    user_thread_generation_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    thread_id UUID NOT NULL,
+    generations_used INT DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (profile_id, thread_id)
+);
+
+-- Step 4: Add indexes for faster lookups
+CREATE INDEX IF NOT EXISTS idx_user_thread_generations_profile_id ON user_thread_generations(profile_id);
+CREATE INDEX IF NOT EXISTS idx_user_thread_generations_thread_id ON user_thread_generations(thread_id);

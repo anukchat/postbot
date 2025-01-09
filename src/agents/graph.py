@@ -284,417 +284,370 @@ class AgentWorkflow:
         else:
             return state
 
+#-------------Agent helpers----------------
+
     def fetch_urls_and_media(self, tweet_id):
+        """
+        Fetches URLs and media associated with a tweet from the database.
+        
+        Args:
+            tweet_id (str): The ID of the tweet to fetch data for
+            
+        Returns:
+            dict: Contains source_id, urls and media data
+            
+        Raises:
+            ValueError: If no source is found for the tweet_id
+        """
         try:
-            # Step 1: Get the source_id for the given tweet_id
-            source_response = (
-                supabase.table("sources")
-                .select("source_id")
-                .eq("source_identifier", tweet_id)
-                .execute()
-            )
+            # Get source record
+            source_id = self._get_source_id(tweet_id)
+            
+            # Fetch associated data
+            urls = self._fetch_url_references(source_id)
+            media = self._fetch_media(source_id)
 
-            if not source_response.data:
-                return {"error": f"No source found for tweet_id: {tweet_id}"}
-
-            source_id = source_response.data[0]["source_id"]
-
-            # Step 2: Fetch all URLs associated with the source_id
-            urls_response = (
-                supabase.table("url_references")
-                .select("*")
-                .eq("source_id", source_id)
-                .execute()
-            )
-
-            urls = urls_response.data
-
-            # Step 3: Fetch all media associated with the source_id
-            media_response = (
-                supabase.table("media").select("*").eq("source_id", source_id).execute()
-            )
-
-            media = media_response.data
-
-            # Step 4: Combine URLs and media into a single JSON response
-            response = {
+            return {
                 "tweet_id": tweet_id,
                 "source_id": source_id,
                 "urls": urls,
-                "media": media,
+                "media": media
             }
 
-            return response
-
         except Exception as e:
-            return {"error": f"Error fetching data: {e}"}
+            logger.error(f"Error fetching data for tweet {tweet_id}: {str(e)}")
+            raise
+
+    def _get_source_id(self, tweet_id):
+        """Helper method to get source_id for a tweet"""
+        source = (supabase.table("sources")
+                 .select("source_id")
+                 .eq("source_identifier", tweet_id)
+                 .single()
+                 .execute())
+                 
+        if not source.data:
+            raise ValueError(f"No source found for tweet_id: {tweet_id}")
+            
+        return source.data["source_id"]
+
+    def _fetch_url_references(self, source_id):
+        """Helper method to fetch URL references"""
+        response = (supabase.table("url_references")
+                   .select("*")
+                   .eq("source_id", source_id)
+                   .execute())
+        return response.data
+
+    def _fetch_media(self, source_id):
+        """Helper method to fetch media"""
+        response = (supabase.table("media")
+                   .select("*")
+                   .eq("source_id", source_id)
+                   .execute())
+        return response.data
+
+#-------------Agent main workflow----------------
+
+    def _initialize_workflow(self, payload):
+        """Initialize workflow with thread ID and empty source data"""
+        thread_id = payload.get("thread_id") or str(uuid.uuid4())
+        return thread_id, None, None, None
+
+    def _handle_url_workflow(self, payload, thread_id, user):
+        """Handle workflow for URL-based content"""
+        source_id, url_meta, media_meta = self._setup_web_url_source(payload, thread_id, user)
+        content = self._process_url_content(url_meta)
+        media_markdown = get_media_content_url(media_meta)
+        return BlogStateInput(
+            input_url=payload["url"],
+            input_content=content,
+            post_types=payload.get("post_types", ["blog"]),
+            thread_id=thread_id,
+            media_markdown=media_markdown,
+        ), source_id
+
+    def _handle_tweet_workflow(self, payload, thread_id, user):
+        """Handle workflow for tweet-based content"""
+        source_id, url_meta, media_meta = self._setup_tweet_source(payload, thread_id, user)
+        reference_content, reference_link = get_tweet_reference_content(url_meta)
+        media_markdown = get_tweet_media(media_meta)
+        return BlogStateInput(
+            input_url=reference_link,
+            input_content=reference_content,
+            media_markdown=media_markdown,
+            post_types=payload.get("post_types", ["blog"]),
+            thread_id=thread_id,
+        ), source_id
+
+    def _generate_new_content(self, test_input, thread_id, source_id, payload, user):
+        """Generate new content using graph workflow"""
+        config = {"configurable": {"thread_id": thread_id}}
+        result = self.graph.invoke(test_input, config=config)
+        self._store_new_content(result, thread_id, source_id, payload, user)
+        return result
 
     def run_generic_workflow(self, payload, user):
         """Universal handler for all workflow types with database integration"""
         try:
-            # Start database transaction
-            thread_id = payload.get("thread_id") or str(uuid.uuid4())
+            thread_id, source_id, url_meta, media_meta = self._initialize_workflow(payload)
 
-            # 1. Initial Database Setup
-            def setup_initial_records(payload):
-                if payload.get("url"):
-                    # Check if source already exists for this URL
-                    existing_source = (
-                        supabase.table("sources")
-                        .select("*")
-                        .eq("source_identifier", payload["url"])
-                        .eq("profile_id", user["id"])  # Add profile_id filter
-                        .execute()
-                    )
-
-                    if existing_source.data:
-                        # Check if content exists for this source
-                        source_id = existing_source.data[0]["source_id"]
-                        existing_content = (
-                            supabase.table("content_sources")
-                            .select("*")
-                            .eq("source_id", source_id)
-                            .execute()
-                        )
-
-                        if existing_content.data:
-                            raise ValueError("Content already exists for this URL")
-
-                        # Use existing source if no content exists
-                        url_meta = get_url_metadata(payload["url"])
-                        media_meta = get_media_links(payload["url"])
-                        return source_id, url_meta, media_meta
-
-                    # Create new source if it doesn't exist
-                    source_type = (
-                        supabase.table("source_types")
-                        .select("*")
-                        .eq("name", "web_url")
-                        .execute()
-                    )
-                    url_meta = get_url_metadata(payload["url"])
-                    media_meta = get_media_links(payload["url"])
-
-                    source_data = {
-                        "source_type_id": source_type.data[0]["source_type_id"],
-                        "source_identifier": payload["url"],
-                        "batch_id": thread_id,
-                        "profile_id": user["id"]
-                    }
-                    source = supabase.table("sources").insert(source_data).execute()
-                    source_id = source.data[0]["source_id"]
-
-                    # Insert URL reference
-                    url_ref_data = {
-                        "source_id": source_id,
-                        "url": url_meta["original_url"],
-                        "type": url_meta["type"],
-                        "domain": url_meta["domain"],
-                        "content_type": url_meta["content_type"],
-                        "file_category": url_meta["file_category"],
-                    }
-                    supabase.table("url_references").insert(url_ref_data).execute()
-
-                    # Insert media if available
-                    if media_meta:
-                        for media in media_meta:
-                            media_data = {
-                                "source_id": source_id,
-                                "media_url": media["original_url"],
-                                "media_type": media["type"],
-                            }
-                            supabase.table("media").insert(media_data).execute()
-
-                    return source_id, url_meta, media_meta
-
-                elif payload.get("tweet_id"):
-                    # Check if source already exists for this tweet
-                    existing_source = (
-                        supabase.table("sources")
-                        .select("*")
-                        .eq("source_identifier", payload["tweet_id"])
-                        .eq("profile_id", user["id"])  # Add profile_id filter
-                        .execute()
-                    )
-
-                    if existing_source.data:
-                        # Check if content exists for this source
-                        source_id = existing_source.data[0]["source_id"]
-                        existing_content = (
-                            supabase.table("content_sources")
-                            .select("*")
-                            .eq("source_id", source_id)
-                            .execute()
-                        )
-
-                        if existing_content.data:
-                            raise ValueError("Content already exists for this tweet")
-
-                        # Use existing source if no content exists
-                        tweet_data = self.fetch_urls_and_media(payload["tweet_id"])
-                        # Handle cases where tweet may not have urls or media
-                        url_data = tweet_data.get("urls", [])
-                        media_data = tweet_data.get("media", [])
-
-                        return source_id, url_data, media_data
-
-                    # # Create new source if it doesn't exist
-                    # source_type = (
-                    #     supabase.table("source_types")
-                    #     .select("*")
-                    #     .eq("name", "twitter")
-                    #     .execute()
-                    # )
-                    # tweet_data = self.fetch_urls_and_media(payload["tweet_id"])
-
-                    # source_data = {
-                    #     "source_type_id": source_type.data[0]["source_type_id"],
-                    #     "source_identifier": payload["tweet_id"],
-                    #     "batch_id": thread_id,
-                    # }
-                    # source = supabase.table("sources").insert(source_data).execute()
-                    # source_id = source.data[0]["source_id"]
-
-                    # # Insert URL references
-                    # if tweet_data.get("urls"):
-                    #     for url in tweet_data["urls"]:
-                    #         url_ref_data = {
-                    #             "source_id": source_id,
-                    #             "url": url["original_url"],
-                    #             "type": url["type"],
-                    #             "domain": url["domain"],
-                    #             "content_type": url.get("content_type"),
-                    #             "file_category": url.get("file_category"),
-                    #         }
-                    #         supabase.table("url_references").insert(
-                    #             url_ref_data
-                    #         ).execute()
-
-                    # # Insert media
-                    # if tweet_data.get("media"):
-                    #     for media in tweet_data["media"]:
-                    #         media_data = {
-                    #             "source_id": source_id,
-                    #             "media_url": media["original_url"],
-                    #             "media_type": media["type"],
-                    #         }
-                    #         supabase.table("media").insert(media_data).execute()
-
-                    # return (
-                    #     source_id,
-                    #     tweet_data.get("urls", []),
-                    #     tweet_data.get("media", []),
-                    # )
-
-                return None, None, None
-
-            # 2. Content Processing and State Management
-            test_input = None
-            source_id = None
-            url_meta = None
-            media_meta = None
-
-            # Case 1: Thread exists but no feedback (Social post generation)
+            # Handle existing thread with no feedback
             if payload.get("thread_id") and not payload.get("feedback"):
-                # Fetch existing content
-                content = (
-                    supabase.table("content")
-                    .select("*")
-                    .eq("thread_id", thread_id)
-                    .execute()
-                )
-                if not content.data:
-                    raise ValueError("No content found for thread_id")
-
-                config = {"configurable": {"thread_id": thread_id}}
-                self.graph.update_state(
-                    config,
-                    values={
-                        "post_types": payload.get("post_types", ["twitter", "linkedin"])
-                    },
-                )
-                result = self.graph.invoke(None, config=config, debug=True)
-
-                # Update existing content in the database
-                for post_type in payload.get("post_types", ["twitter", "linkedin"]):
-                    content_type = (
-                        supabase.table("content_types")
-                        .select("*")
-                        .eq("name", post_type)
-                        .execute()
-                    )
-                    # Check if content exists for this type
-                    existing_content = (
-                        supabase.table("content")
-                        .select("*")
-                        .eq("thread_id", thread_id)
-                        .eq("content_type_id", content_type.data[0]["content_type_id"])
-                        .execute()
-                    )
-
-                    if not existing_content.data:
-                        # Insert new content record for this type
-                        content_body = result.get(
-                            "final_blog" if post_type == "blog" else f"{post_type}_post"
-                        )
-                        if content_body:
-                            content_data = {
-                                "content_type_id": content_type.data[0][
-                                    "content_type_id"
-                                ],
-                                "body": content_body,
-                                "status": "Draft",
-                                "thread_id": thread_id,
-                            }
-                            supabase.table("content").insert(content_data).execute()
-            # Case 2: Feedback handling
+                return BlogStateOutput(**self._handle_social_post_generation(thread_id, payload, user))
+            
+            # Handle feedback
             elif payload.get("feedback") and payload.get("thread_id"):
-                config = {"configurable": {"thread_id": thread_id}}
-                self.graph.update_state(
-                    config,
-                    values={
-                        "feedback": payload["feedback"],
-                        "post_types": payload.get("post_types", ["blog"]),
-                        "feedback_applied": False,
-                    },
-                )
-                result = self.graph.invoke(None, config)
-                self.graph.update_state(config, values={"feedback": None})
-
-                # Update existing content in the database
-                for post_type in payload.get(
-                    "post_types", ["blog", "twitter", "linkedin"]
-                ):
-                    content_body = result.get(
-                        "final_blog" if post_type == "blog" else f"{post_type}_post"
-                    )
-                    if content_body:
-                        content_type = (
-                            supabase.table("content_types")
-                            .select("*")
-                            .eq("name", post_type)
-                            .execute()
-                        )
-                        content_data = {"body": content_body, "status": "Draft"}
-                        supabase.table("content").update(content_data).eq(
-                            "thread_id", thread_id
-                        ).eq(
-                            "content_type_id", content_type.data[0]["content_type_id"]
-                        ).execute()
-
-            # Case 3: New content generation
+                return BlogStateOutput(**self._handle_feedback(thread_id, payload))
+            
+            # Handle new content generation
             else:
-                source_id, url_meta, media_meta = setup_initial_records(payload)
-
                 if payload.get("url"):
-                    content = self._process_url_content(url_meta)
-                    media_markdown = get_media_content_url(media_meta)
-                    test_input = BlogStateInput(
-                        input_url=payload["url"],
-                        input_content=content,
-                        post_types=payload.get("post_types", ["blog"]),
-                        thread_id=thread_id,
-                        media_markdown=media_markdown,
-                    )
+                    test_input, source_id = self._handle_url_workflow(payload, thread_id, user)
                 elif payload.get("tweet_id"):
-                    # tweet = self.fetch_urls_and_media(payload["tweet_id"])
-                    reference_content, reference_link = get_tweet_reference_content(
-                        url_meta
-                    )
-                    media_markdown = get_tweet_media(media_meta)
-                    test_input = BlogStateInput(
-                        input_url=reference_link,
-                        input_content=reference_content,
-                        media_markdown=media_markdown,
-                        post_types=payload.get("post_types", ["blog"]),
-                        thread_id=thread_id,
-                    )
+                    test_input, source_id = self._handle_tweet_workflow(payload, thread_id, user)
+                else:
+                    raise ValueError("Invalid payload - must contain url, tweet_id or feedback")
 
-                if not test_input:
-                    raise ValueError(
-                        "Invalid payload - must contain url, tweet_id or feedback"
-                    )
-
-                config = {"configurable": {"thread_id": thread_id}}
-                result = self.graph.invoke(test_input, config=config)
-
-                # 3. Store Generated Content
-                def store_content(result, thread_id, source_id,user):
-                    # Get content type ID
-                    for post_type in payload.get("post_types", ["blog"]):
-                        content_type = (
-                            supabase.table("content_types")
-                            .select("*")
-                            .eq("name", post_type)
-                            .execute()
-                        )
-
-                        content_data = {
-                            "profile_id": user["id"],
-                            "content_type_id": content_type.data[0]["content_type_id"],
-                            "title": (
-                                result.get("blog_title")
-                                if post_type == "blog"
-                                else None
-                            ),
-                            "body": result.get(
-                                "final_blog"
-                                if post_type == "blog"
-                                else f"{post_type}_post"
-                            ),
-                            "status": "Draft",
-                            "thread_id": thread_id,
-                        }
-
-                        content = (
-                            supabase.table("content").insert(content_data).execute()
-                        )
-                        content_id = content.data[0]["content_id"]
-
-                        # Link content to source
-                        if source_id:
-                            content_source_data = {
-                                "content_id": content_id,
-                                "source_id": source_id,
-                            }
-                            supabase.table("content_sources").insert(
-                                content_source_data
-                            ).execute()
-
-                        # Store tags if available
-                        if result.get("tags"):
-                            for tag_name in result["tags"]:
-                                # Create or get tag
-                                tag = (
-                                    supabase.table("tags")
-                                    .select("*")
-                                    .eq("name", tag_name)
-                                    .execute()
-                                )
-                                if not tag.data:
-                                    tag = (
-                                        supabase.table("tags")
-                                        .insert({"name": tag_name})
-                                        .execute()
-                                    )
-                                tag_id = tag.data[0]["tag_id"]
-
-                                # Link content to tag
-                                content_tag_data = {
-                                    "content_id": content_id,
-                                    "tag_id": tag_id,
-                                }
-                                supabase.table("content_tags").insert(
-                                    content_tag_data
-                                ).execute()
-
-                store_content(result, thread_id, source_id,user)
-
-            return BlogStateOutput(**result)
+                result = self._generate_new_content(test_input, thread_id, source_id, payload, user)
+                return BlogStateOutput(**result)
 
         except Exception as e:
             logger.error(f"Error in workflow: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))
+
+    def _validate_existing_content(self, source_id, payload):
+        """Check if content already exists for given source"""
+        existing_content = (
+            supabase.table("content_sources")
+            .select("*")
+            .eq("source_id", source_id)
+            .execute()
+        )
+        if existing_content.data:
+            raise ValueError(f"Content already exists for this {payload.get('url', 'tweet')}")
+        return True
+
+    def _create_source_record(self, url, thread_id, source_type_name, user):
+        """Create a new source record"""
+        source_type = (
+            supabase.table("source_types")
+            .select("*")
+            .eq("name", source_type_name)
+            .execute()
+        )
+        source_data = {
+            "source_type_id": source_type.data[0]["source_type_id"],
+            "source_identifier": url,
+            "batch_id": thread_id,
+            "profile_id": user["id"]
+        }
+        source = supabase.table("sources").insert(source_data).execute()
+        return source.data[0]["source_id"]
+
+    def _handle_url_references(self, source_id, url_meta):
+        """Handle URL reference storage"""
+        url_ref_data = {
+            "source_id": source_id,
+            "url": url_meta["original_url"],
+            "type": url_meta["type"],
+            "domain": url_meta["domain"],
+            "content_type": url_meta["content_type"],
+            "file_category": url_meta["file_category"],
+        }
+        supabase.table("url_references").insert(url_ref_data).execute()
+
+    def _handle_media_storage(self, source_id, media_meta):
+        """Handle media storage"""
+        if media_meta:
+            for media in media_meta:
+                media_data = {
+                    "source_id": source_id,
+                    "media_url": media["original_url"],
+                    "media_type": media["type"],
+                }
+                supabase.table("media").insert(media_data).execute()
+
+    def _setup_web_url_source(self, payload, thread_id, user):
+        """Setup source records for web URL"""
+        existing_source = (
+            supabase.table("sources")
+            .select("*")
+            .eq("source_identifier", payload["url"])
+            .eq("profile_id", user["id"])
+            .execute()
+        )
+
+        if existing_source.data:
+            source_id = existing_source.data[0]["source_id"]
+            self._validate_existing_content(source_id, payload)
+            url_meta = get_url_metadata(payload["url"])
+            media_meta = get_media_links(payload["url"])
+            return source_id, url_meta, media_meta
+
+        url_meta = get_url_metadata(payload["url"])
+        media_meta = get_media_links(payload["url"])
+        source_id = self._create_source_record(payload["url"], thread_id, "web_url", user)
+        
+        self._handle_url_references(source_id, url_meta)
+        self._handle_media_storage(source_id, media_meta)
+        
+        return source_id, url_meta, media_meta
+
+    def _setup_tweet_source(self, payload, thread_id, user):
+        """Setup source records for tweet"""
+        existing_source = (
+            supabase.table("sources")
+            .select("*")
+            .eq("source_identifier", payload["tweet_id"])
+            .eq("profile_id", user["id"])
+            .execute()
+        )
+
+        if existing_source.data:
+            source_id = existing_source.data[0]["source_id"]
+            self._validate_existing_content(source_id, payload)
+            tweet_data = self.fetch_urls_and_media(payload["tweet_id"])
+            return source_id, tweet_data.get("urls", []), tweet_data.get("media", [])
+
+        return None, None, None
+
+    def _handle_social_post_generation(self, thread_id, payload, user):
+        """Handle generation of social media posts"""
+        content = (
+            supabase.table("content")
+            .select("*")
+            .eq("thread_id", thread_id)
+            .execute()
+        )
+        if not content.data:
+            raise ValueError("No content found for thread_id")
+
+        config = {"configurable": {"thread_id": thread_id}}
+        self.graph.update_state(
+            config,
+            values={"post_types": payload.get("post_types", ["twitter", "linkedin"])},
+        )
+        result = self.graph.invoke(None, config=config, debug=True)
+
+        self._store_social_content(thread_id, payload, result, user)
+        return result
+
+    def _handle_feedback(self, thread_id, payload):
+        """Handle feedback processing"""
+        config = {"configurable": {"thread_id": thread_id}}
+        self.graph.update_state(
+            config,
+            values={
+                "feedback": payload["feedback"],
+                "post_types": payload.get("post_types", ["blog"]),
+                "feedback_applied": False,
+            },
+        )
+        result = self.graph.invoke(None, config)
+        self.graph.update_state(config, values={"feedback": None})
+
+        self._update_content_with_feedback(thread_id, payload, result)
+        return result
+
+    def _store_social_content(self, thread_id, payload, result, user):
+        """Store generated social media content"""
+        for post_type in payload.get("post_types", ["twitter", "linkedin"]):
+            content_type = (
+                supabase.table("content_types")
+                .select("*")
+                .eq("name", post_type)
+                .execute()
+            )
+            existing_content = (
+                supabase.table("content")
+                .select("*")
+                .eq("thread_id", thread_id)
+                .eq("content_type_id", content_type.data[0]["content_type_id"])
+                .execute()
+            )
+
+            if not existing_content.data:
+                content_body = result.get(
+                    "final_blog" if post_type == "blog" else f"{post_type}_post"
+                )
+                if content_body:
+                    content_data = {
+                        "profile_id": user["id"],
+                        "content_type_id": content_type.data[0]["content_type_id"],
+                        "body": content_body,
+                        "status": "Draft",
+                        "thread_id": thread_id,
+                    }
+                    supabase.table("content").insert(content_data).execute()
+
+    def _update_content_with_feedback(self, thread_id, payload, result):
+        """Update existing content with feedback"""
+        for post_type in payload.get("post_types", ["blog", "twitter", "linkedin"]):
+            content_body = result.get(
+                "final_blog" if post_type == "blog" else f"{post_type}_post"
+            )
+            if content_body:
+                content_type = (
+                    supabase.table("content_types")
+                    .select("*")
+                    .eq("name", post_type)
+                    .execute()
+                )
+                content_data = {"body": content_body, "status": "Draft"}
+                supabase.table("content").update(content_data).eq(
+                    "thread_id", thread_id
+                ).eq(
+                    "content_type_id", content_type.data[0]["content_type_id"]
+                ).execute()
+
+    def _store_new_content(self, result, thread_id, source_id, payload, user):
+        """Store newly generated content"""
+        for post_type in payload.get("post_types", ["blog"]):
+            content_type = (
+                supabase.table("content_types")
+                .select("*")
+                .eq("name", post_type)
+                .execute()
+            )
+
+            content_data = {
+                "profile_id": user["id"],
+                "content_type_id": content_type.data[0]["content_type_id"],
+                "title": result.get("blog_title") if post_type == "blog" else None,
+                "body": result.get(
+                    "final_blog" if post_type == "blog" else f"{post_type}_post"
+                ),
+                "status": "Draft",
+                "thread_id": thread_id,
+            }
+
+            content = supabase.table("content").insert(content_data).execute()
+            content_id = content.data[0]["content_id"]
+
+            if source_id:
+                content_source_data = {
+                    "content_id": content_id,
+                    "source_id": source_id,
+                }
+                supabase.table("content_sources").insert(content_source_data).execute()
+
+            self._store_tags(result, content_id)
+
+    def _store_tags(self, result, content_id):
+        """Store tags for content"""
+        if result.get("tags"):
+            for tag_name in result["tags"]:
+                tag = supabase.table("tags").select("*").eq("name", tag_name).execute()
+                if not tag.data:
+                    tag = supabase.table("tags").insert({"name": tag_name}).execute()
+                tag_id = tag.data[0]["tag_id"]
+
+                content_tag_data = {
+                    "content_id": content_id,
+                    "tag_id": tag_id,
+                }
+                supabase.table("content_tags").insert(content_tag_data).execute()
 
     def _process_url_content(self, url_meta):
         """Helper to process URL content based on type"""

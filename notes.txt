@@ -26,6 +26,14 @@ TODO:
 13. Add different options for styles to users while getting feedback for regeneration.
 14 replace native supabase queries with postgres/sqlalchemy or sql queries
 15. Add labels on source on side bar posts
+16. Add quota on post generation
+17. Add responsiveness
+18. Refine UI, make UX improvements
+19. Add tests
+20. Implement billing, subscribption
+21. Implement admin page
+22. Implement permissions
+23. Add Diff highlighter (What user has updated vs what model has generated)
 
 Refactoring:
 1. Remove unnecessary packages and imports
