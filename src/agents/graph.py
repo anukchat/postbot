@@ -349,9 +349,9 @@ class AgentWorkflow:
 
 #-------------Agent main workflow----------------
 
-    def _initialize_workflow(self, payload):
+    def _initialize_workflow(self, payload,thread_id):
         """Initialize workflow with thread ID and empty source data"""
-        thread_id = payload.get("thread_id") or str(uuid.uuid4())
+        thread_id = payload.get("thread_id") or thread_id
         return thread_id, None, None, None
 
     def _handle_url_workflow(self, payload, thread_id, user):
@@ -387,10 +387,10 @@ class AgentWorkflow:
         self._store_new_content(result, thread_id, source_id, payload, user)
         return result
 
-    def run_generic_workflow(self, payload, user):
+    def run_generic_workflow(self, payload, thread_id,user):
         """Universal handler for all workflow types with database integration"""
         try:
-            thread_id, source_id, url_meta, media_meta = self._initialize_workflow(payload)
+            thread_id, source_id, url_meta, media_meta = self._initialize_workflow(payload,thread_id)
 
             # Handle existing thread with no feedback
             if payload.get("thread_id") and not payload.get("feedback"):
@@ -535,6 +535,17 @@ class AgentWorkflow:
 
     def _handle_feedback(self, thread_id, payload):
         """Handle feedback processing"""
+        # Check if content exists for thread_id
+        existing_content = (
+            supabase.table("content")
+            .select("*")
+            .eq("thread_id", thread_id)
+            .execute()
+        )
+        
+        if not existing_content.data:
+            raise ValueError(f"No content found for thread_id: {thread_id}")
+
         config = {"configurable": {"thread_id": thread_id}}
         self.graph.update_state(
             config,

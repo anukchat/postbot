@@ -9,6 +9,7 @@ import { VideoPicker } from './VideoPicker';
 import { UrlPicker } from './UrlPicker';
 import { Media, Url } from '../../types';
 import { FeedbackModal } from '../Modals/FeedbackModal';
+import { toast } from 'react-hot-toast';
 
 interface ToolbarProps {
   onCommandInsert: (commandText: string, replaceLength: number) => void;
@@ -62,6 +63,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onCommandInsert, selectedTab }
       await generatePost([selectedTab], currentPost.thread_id);
       // Refresh content after generation
       await fetchContentByThreadId(currentPost.thread_id, selectedTab);
+    } catch (err: any) {
+      if (
+        err.response?.status === 403 &&
+        err.response?.data?.detail === "Generation limit reached for this thread"
+      ) {
+        toast.error('User has exceeded the generation limit');
+      } else {
+        console.error(err);
+      }
     } finally {
       setIsGenerating(false);
     }

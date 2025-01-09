@@ -1,4 +1,5 @@
 import os
+import uuid
 from fastapi import FastAPI, HTTPException, Depends, Query, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from db.supabaseclient import supabase_client
@@ -10,6 +11,8 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any
 import asyncio
+from datetime import datetime
+from uuid import UUID
 
 # Get settings from environment variables
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
@@ -45,7 +48,6 @@ class TokenResponse(BaseModel):
 class CallbackResponse(BaseModel):
     access_token: str  # The access token returned after the OAuth flow
     token_type: str    # The type of token (e.g., "bearer")
-
 
 class ContentListItem(BaseModel):
     id: str
@@ -90,19 +92,21 @@ class GeneratePostRequestModel(BaseModel):
     url: Optional[str] = None
     feedback: Optional[str] = None  # Add this field
 
-# First, define a response model
 class SourceListResponse(BaseModel):
     items: List[Dict]
     total: int
     page: int
     size: int
 
+class GenerationLimitResponse(BaseModel):
+    tier: str
+    max_generations: int
+    generations_used: int
 
 # Agent Workflow Endpoint
 def get_workflow() -> AgentWorkflow:
     """Dependency to get a AgentWorkflow instance."""
     return AgentWorkflow()
-
 
 # Authentication Dependency
 async def get_current_user_profile(credentials: HTTPAuthorizationCredentials = Security(security)):
@@ -275,7 +279,7 @@ async def signout(user: dict = Depends(get_current_user_profile)):
         return {"message": "Signed out successfully"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-    
+
 # Profile Endpoints
 @app.post("/profiles/", response_model=Profile, tags=["profiles"])
 def create_profile(profile: ProfileCreate, user: dict = Depends(get_current_user_profile)):
@@ -411,17 +415,87 @@ def get_all_content(skip: int = 0, limit: int = 10, user: dict = Depends(get_cur
 async def generate_generic_blog(
     payload: GeneratePostRequestModel,
     workflow: AgentWorkflow = Depends(get_workflow),
-
     user: dict = Depends(get_current_user_profile),
 ):
     """Initiate the workflow with the provided data."""
     try:
-        result = workflow.run_generic_workflow(payload.dict(),user)
+        
+        #generate thread_id
+        thread_id = payload.thread_id or str(uuid.uuid4())
+        # Check generation limit        
+        limit_response = await check_generation_limit(user['id'])
+        if limit_response['generations_used'] >= limit_response['max_generations']:
+            raise HTTPException(status_code=403, detail="Generation limit reached for this thread")
+
+        # Proceed with generation
+        result = workflow.run_generic_workflow(payload.dict(),thread_id, user)
+
+        # Increment generation count
+        await increment_generation_count(user['id'])
+
         return result
+    except HTTPException as e:
+        raise e
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+async def check_generation_limit(profile_id: UUID) -> Dict:
+    """Check the generation limit for a specific thread."""
+    # Get user tier
+    profile = supabase.table("profiles").select("role").eq("id", profile_id).single().execute()
+    if not profile.data:
+        raise HTTPException(status_code=404, detail="Profile not found")
 
+    tier = profile.data['role']
+
+    # Get generation limit for the tier
+    limit_query = supabase.table("generation_limits").select("max_generations").eq("tier", tier).single().execute()
+    if not limit_query.data:
+        raise HTTPException(status_code=404, detail="Generation limit not found for this tier")
+
+    max_generations = limit_query.data['max_generations']
+
+    # Get current generations used
+    generations_query = supabase.table("user_generations").select("generations_used").eq("profile_id", profile_id).execute()
+    
+    # If no entry exists, create one with generations_used = 0
+    if not generations_query.data:
+        supabase.table("user_generations").insert({
+            "profile_id": profile_id,
+            "generations_used": 0
+        }).execute()
+        generations_used = 0
+    else:
+        generations_used = generations_query.data[0]['generations_used']
+
+    return {
+        "tier": tier,
+        "max_generations": max_generations,
+        "generations_used": generations_used
+    }
+
+async def increment_generation_count(profile_id: UUID):
+    """Increment the generation count for a user."""
+    try:
+        # Fetch the current generation count
+        response = supabase.table("user_generations").select("generations_used").eq("profile_id", profile_id).execute()
+        
+        if response.data:
+            # Increment the count
+            current_count = response.data[0]["generations_used"]
+            new_count = current_count + 1
+        else:
+            # If no record exists, start with 1
+            new_count = 1
+
+        # Update the generations_used field
+        supabase.table("user_generations").update({
+            "generations_used": new_count
+        }).eq("profile_id", profile_id).execute()
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to increment generation count: {str(e)}")
+    
 # Update content endpoints to use profile_id
 @app.get("/content/list", response_model=ContentListResponse)
 async def list_content(skip: int = 0, limit: int = 10, profile: dict = Depends(get_current_user_profile)):
@@ -650,7 +724,7 @@ async def save_thread_content(thread_id: UUID, payload: SaveContentRequest, user
         return {"message": "Content saved successfully"}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.put("/content/thread/{thread_id}/schedule", tags=["content"])
 async def schedule_thread_content(thread_id: UUID, payload: ScheduleContentRequest):

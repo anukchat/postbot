@@ -1,4 +1,5 @@
 import React from "react";
+import { toast } from 'react-hot-toast';
 
 export const FeedbackModal: React.FC<{
   feedback: string;
@@ -6,6 +7,22 @@ export const FeedbackModal: React.FC<{
   handleFeedbackSubmit: () => void;
   setShowFeedbackModal: (show: boolean) => void;
 }> = ({ feedback, setFeedback, handleFeedbackSubmit, setShowFeedbackModal }) => {
+  
+  const handleInternalFeedbackSubmit = async () => {
+    try {
+      await handleFeedbackSubmit(); 
+    } catch (err: any) {
+      if (
+        err.response?.status === 403 &&
+        err.response?.data?.detail === "Generation limit reached for this thread"
+      ) {
+        toast.error('User has exceeded the generation limit');
+      } else {
+        console.error(err);
+      }
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-[500px] shadow-xl">
@@ -24,7 +41,7 @@ export const FeedbackModal: React.FC<{
             Cancel
           </button>
           <button
-            onClick={handleFeedbackSubmit}
+            onClick={handleInternalFeedbackSubmit}
             disabled={!feedback.trim()}
             className="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
           >

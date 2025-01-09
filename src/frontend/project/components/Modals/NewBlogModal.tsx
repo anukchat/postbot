@@ -11,6 +11,7 @@ import { SourceCard } from '../Sources/SourceCard';
 import { GenerateLoader } from '../Editor/GenerateLoader';
 import Tippy from '@tippyjs/react';
 import MicrolinkCard from '@microlink/react';
+import { toast } from 'react-hot-toast';
 
 const LOADING_MESSAGES = {
   blog: [
@@ -198,19 +199,23 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
           reset: true
         }, 0, 20);
 
-        // Second refresh after a short delay
-        setTimeout(async () => {
-          await fetchPosts({
-            forceRefresh: true,
-            timestamp: Date.now(),
-            reset: true
-          }, 0, 20);
-        }, 2000);
+        // // Second refresh after a short delay
+        // setTimeout(async () => {
+        //   await fetchPosts({
+        //     forceRefresh: true,
+        //     timestamp: Date.now(),
+        //     reset: true
+        //   }, 0, 20);
+        // }, 2000);
         
         onClose();
-      } catch (err) {
-        console.error('Failed to generate blog:', err);
-        setError('Failed to generate blog');
+      } catch (err: any) {
+        if (err.response?.status === 403 && err.response?.data?.detail === "Generation limit reached for this thread") {
+          toast.error('User has exceeded the generation limit');
+        } else {
+          console.error('Failed to generate blog:', err);
+          setError('Failed to generate blog');
+        }
       } finally {
         setIsGenerating(false);
       }
@@ -259,9 +264,13 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
       }, 2000);
       
       onClose();
-    } catch (err) {
-      console.error('Failed to generate blog:', err);
-      setError('Failed to generate blog');
+    } catch (err: any) {
+      if (err.response?.status === 403 && err.response?.data?.detail === "Generation limit reached for this thread") {
+        toast.error('User has exceeded the generation limit');
+      } else {
+        console.error('Failed to generate blog:', err);
+        setError('Failed to generate blog');
+      }
     } finally {
       setIsGenerating(false);
     }

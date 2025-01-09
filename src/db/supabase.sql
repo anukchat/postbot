@@ -221,7 +221,7 @@ CREATE INDEX IF NOT EXISTS idx_url_references_is_deleted ON url_references(is_de
 -- Step 1: Create a new table to store generation limits per tier
 CREATE TABLE IF NOT EXISTS generation_limits (
     tier TEXT PRIMARY KEY,
-    max_generations_per_thread INT NOT NULL
+    max_generations INT NOT NULL
 );
 
 -- Insert default generation limits for each tier
@@ -234,10 +234,9 @@ INSERT INTO generation_limits (tier, max_generations_per_thread) VALUES
 ALTER TABLE profiles ADD COLUMN generations_used_per_thread INT DEFAULT 0;
 
 -- Step 3: Create a new table to track generations per thread for each user
-CREATE TABLE IF NOT EXISTS user_thread_generations (
+CREATE TABLE IF NOT EXISTS user_generations (
     user_thread_generation_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-    thread_id UUID NOT NULL,
     generations_used INT DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
