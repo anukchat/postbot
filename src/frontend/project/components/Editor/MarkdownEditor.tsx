@@ -436,15 +436,18 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
             </div>
           </div>
           <div className="flex-1 relative overflow-auto">
-            <PanelGroup direction="horizontal">
+            <PanelGroup 
+              direction={window.innerWidth < 768 ? "vertical" : "horizontal"}
+              className="min-h-0"
+            >
               <Panel 
                 defaultSize={50} 
                 minSize={30}
-                className="min-w-[250px]"
+                className="min-w-[250px] min-h-[300px]"
               >
                 <textarea
                   ref={textAreaRef}
-                  className="w-full h-full p-4 resize-none focus:outline-none dark:bg-gray-900 dark:text-white"
+                  className="w-full h-full p-4 resize-none focus:outline-none dark:bg-gray-900 dark:text-white min-h-[300px]"
                   value={content}
                   onChange={handleContentChange}
                   onKeyUp={handleKeyUp}
@@ -477,11 +480,16 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
                   </div>
                 )}
               </Panel>
-              <PanelResizeHandle className="w-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 cursor-col-resize" />
+              <PanelResizeHandle className={`
+                ${window.innerWidth < 768 
+                  ? 'h-2 w-full cursor-row-resize' 
+                  : 'w-2 h-full cursor-col-resize'} 
+                bg-gray-200 dark:bg-gray-700 hover:bg-gray-300`} 
+              />
               <Panel 
                 defaultSize={50}
                 minSize={30}
-                className="min-w-[250px]"
+                className="min-w-[250px] min-h-[300px]"
               >
                 <div className="h-full overflow-auto p-4 prose dark:prose-invert max-w-none relative">
                   <Tippy content="Copy to clipboard">

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { MarkdownEditor } from './components/Editor/MarkdownEditor';
 import { CanvasView } from './components/Canvas/CanvasView';
@@ -52,8 +51,8 @@ const MainAppLayout: React.FC = () => {
   const [isManuallyExpanded, setIsManuallyExpanded] = useState(false);
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
   const { currentPost, isDarkMode, updateContent, updateLinkedinPost, updateTwitterPost, fetchContentByThreadId, setCurrentTab } = useEditorStore();
+  const [screenWidth, setScreenWidth] = useState(window.innerWidth);
 
-  const TOOLBAR_WIDTH = '64px'; // Fixed width for toolbar
 
   const handleSidebarToggle = () => {
     if (isSidebarCollapsed) {
@@ -99,6 +98,15 @@ const MainAppLayout: React.FC = () => {
 
     return () => window.removeEventListener('resize', handleResize);
   }, [isSidebarCollapsed, isManuallyExpanded]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setScreenWidth(window.innerWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleContentChange = (newContent: string) => {
     if (!currentPost) return;
@@ -204,95 +212,90 @@ const MainAppLayout: React.FC = () => {
 
         {/* Main Content */}
         <div className={`flex-1 ${isSidebarCollapsed ? 'ml-16' : ''}`}>
-          <PanelGroup direction="horizontal">
-            <Panel
-              defaultSize={100 - sidebarSize}
-              minSize={50}
-              order={2}
-              className="min-w-[300px]"
-            >
-              <div className="h-full flex flex-col">
-                <div className="border-b p-2 flex justify-between items-center">
-                    <div className="flex-1 flex justify-center">
-                    <div className="flex gap-2 items-center">
-                      <button
+          <div className="flex flex-col">
+            <div className="border-b p-2 flex justify-between items-center">
+              <div className="flex-1 flex justify-center overflow-x-auto">
+                <div className="flex gap-2 items-center flex-wrap justify-center">
+                  {/* Responsive tab buttons */}
+                  <div className="flex gap-2 items-center flex-wrap sm:flex-nowrap">
+                    <button
                       onClick={() => handleTabClick('blog')}
-                      className={`px-4 py-2 rounded ${
+                      className={`px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base ${
                         selectedTab === 'blog'
-                        ? 'bg-blue-500 text-white'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                          ? 'bg-blue-500 text-white'
+                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
                       }`}
-                      >
+                    >
                       Blog
-                      </button>
-                      <button
+                    </button>
+                    <button
                       onClick={() => handleTabClick('twitter')}
-                      className={`px-4 py-2 rounded ${
+                      className={`px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base ${
                         selectedTab === 'twitter'
-                        ? 'bg-blue-500 text-white'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                          ? 'bg-blue-500 text-white'
+                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
                       }`}
-                      >
+                    >
                       Twitter
-                      </button>
-                      <button
+                    </button>
+                    <button
                       onClick={() => handleTabClick('linkedin')}
-                      className={`px-4 py-2 rounded ${
+                      className={`px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base ${
                         selectedTab === 'linkedin'
-                        ? 'bg-blue-500 text-white'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                          ? 'bg-blue-500 text-white'
+                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
                       }`}
-                      >
+                    >
                       LinkedIn
-                      </button>
-                      <button
+                    </button>
+                    <button
                       onClick={() => {
                         setIsCanvasView(true);
                         setIsPostDetailsView(false);
                       }}
-                      className={`px-4 py-2 rounded ${
+                      className={`px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base ${
                         isCanvasView
-                        ? 'bg-blue-500 text-white'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                          ? 'bg-blue-500 text-white'
+                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
                       }`}
-                      >
+                    >
                       Canvas
-                      </button>
-                      <button
+                    </button>
+                    <button
                       onClick={() => {
                         setIsPostDetailsView(true);
                         setIsCanvasView(false);
                       }}
-                      className={`px-4 py-2 rounded ${
+                      className={`px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base ${
                         isPostDetailsView
-                        ? 'bg-blue-500 text-white'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                          ? 'bg-blue-500 text-white'
+                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
                       }`}
-                      >
+                    >
                       View Details
-                      </button>
-                    </div>
-                    </div>
-                  <div className="z-[100]">
-                    <UserMenu />
+                    </button>
                   </div>
                 </div>
-                <div className="flex-1 overflow-auto">
-                  {isCanvasView ? (
-                    <CanvasView />
-                  ) : isPostDetailsView ? (
-                    <PostDetails />
-                  ) : (
-                    <MarkdownEditor
-                      content={getContent()}
-                      onChange={handleContentChange}
-                      selectedTab={selectedTab}
-                    />
-                  )}
-                </div>
               </div>
-            </Panel>
-          </PanelGroup>
+              <div className="z-[100] ml-2">
+                <UserMenu />
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-hidden">
+              {isCanvasView ? (
+                <CanvasView />
+              ) : isPostDetailsView ? (
+                <PostDetails />
+              ) : (
+                <MarkdownEditor
+                  content={getContent()}
+                  onChange={handleContentChange}
+                  selectedTab={selectedTab}
+                />
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
