@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { MarkdownEditor } from './components/Editor/MarkdownEditor';
 import { CanvasView } from './components/Canvas/CanvasView';
 import { useEditorStore } from './store/editorStore';
 import { PostDetails } from './components/PostDetails';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'; // Add Navigate import
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './components/Landing/LandingPage';
 import Features from './pages/Features';
 import Pricing from './pages/Pricing';
@@ -13,88 +13,92 @@ import SignIn from './components/Auth/SignIn';
 import SignUp from './components/Auth/SignUp';
 import About from './pages/About';
 import Contact from './pages/Contact';
-import { AuthProvider, useAuth } from './contexts/AuthContext'; // Add useAuth import
-import ProtectedRoute from './components/Auth/ProtectedRoute';  // Updated import
+import { AuthProvider } from './contexts/AuthContext';
+import ProtectedRoute from './components/Auth/ProtectedRoute';
 import Settings from './pages/Settings';
-import { Toaster } from 'react-hot-toast'; // Add Toaster import
-import UserMenu from './components/Auth/UserMenu'; // Add this import
+import { Toaster } from 'react-hot-toast';
+import UserMenu from './components/Auth/UserMenu';
 import AuthCallback from './components/Auth/AuthCallback';
-import Modal from 'react-modal'; // Add Modal import
+import Modal from 'react-modal';
+import { ErrorBoundary } from 'react-error-boundary';
+import { SidebarToggle } from './components/Sidebar/SidebarToggle';
+import { EditorToolbar } from './components/Sidebar/EditorToolbar';
 
-// Add this line before the App component
+// Set the root element for accessibility
 Modal.setAppElement('#root');
 
+// Error Boundary Fallback Component
+function ErrorFallback({ error, resetErrorBoundary }: any) {
+  return (
+    <div role="alert" className="p-4 bg-red-100 text-red-700">
+      <p>Something went wrong:</p>
+      <pre>{error.message}</pre>
+      <button
+        onClick={resetErrorBoundary}
+        className="mt-2 px-4 py-2 bg-blue-500 text-white rounded"
+      >
+        Try again
+      </button>
+    </div>
+  );
+}
+
 const MainAppLayout: React.FC = () => {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // Ensure this is false initially
   const [sidebarSize, setSidebarSize] = useState(20);
   const [isCanvasView, setIsCanvasView] = useState(false);
   const [isPostDetailsView, setIsPostDetailsView] = useState(false);
   const [selectedTab, setSelectedTab] = useState<'blog' | 'twitter' | 'linkedin'>('blog');
+  const [isManuallyExpanded, setIsManuallyExpanded] = useState(false);
+  const [isOverlayVisible, setIsOverlayVisible] = useState(false);
   const { currentPost, isDarkMode, updateContent, updateLinkedinPost, updateTwitterPost, fetchContentByThreadId, setCurrentTab } = useEditorStore();
-  const contentPanelRef = useRef<any>(null);
-  const sidebarPanelRef = useRef<any>(null);
+
+  const TOOLBAR_WIDTH = '64px'; // Fixed width for toolbar
 
   const handleSidebarToggle = () => {
+    if (isSidebarCollapsed) {
+      setIsManuallyExpanded(true);
+      setIsOverlayVisible(true); // Show overlay when expanding
+    } else {
+      setIsManuallyExpanded(false);
+      setIsOverlayVisible(false); // Hide overlay when collapsing
+    }
     setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
+
+  const closeOverlay = () => {
+    setIsOverlayVisible(false);
+    setIsSidebarCollapsed(true); // Collapse sidebar when overlay is closed
   };
 
   useEffect(() => {
     if (isSidebarCollapsed) {
       setSidebarSize(5); // Minimum width when collapsed
-      if (contentPanelRef.current) {
-        contentPanelRef.current.resize(95); // Adjust content panel size
-      }
     } else {
-      setSidebarSize(22); // Default width when expanded
-      if (contentPanelRef.current) {
-        contentPanelRef.current.resize(78); // Adjust content panel size
-      }
+      setSidebarSize(isManuallyExpanded ? 90 : 22); // Use 90% width if manually expanded, otherwise default width
     }
-  }, [isSidebarCollapsed]);
-
-  useEffect(() => {
-    const handleWindowResize = () => {
-      if (contentPanelRef.current && sidebarPanelRef.current) {
-        const currentSidebarSize = sidebarPanelRef.current.getSize();
-        const currentContentSize = contentPanelRef.current.getSize();
-        const totalSize = currentSidebarSize + currentContentSize;
-
-        const newSidebarSize = (currentSidebarSize / totalSize) * 100;
-        const newContentSize = (currentContentSize / totalSize) * 100;
-
-        sidebarPanelRef.current.resize(newSidebarSize);
-        contentPanelRef.current.resize(newContentSize);
-      }
-    };
-
-    window.addEventListener('resize', handleWindowResize);
-    return () => window.removeEventListener('resize', handleWindowResize);
-  }, []);
+  }, [isSidebarCollapsed, isManuallyExpanded]);
 
   useEffect(() => {
     const handleResize = () => {
       const screenWidth = window.innerWidth;
-      if (screenWidth < 768 && !isSidebarCollapsed) { // Collapse sidebar on small screens
-        setIsSidebarCollapsed(true);
+      if (screenWidth < 768 && !isManuallyExpanded) {
+        setIsSidebarCollapsed(true); // Collapse sidebar on small screens unless manually expanded
       }
-      
+
       // Adjust sidebar size based on screen width
-      const newSidebarSize = screenWidth < 1024 
-        ? (isSidebarCollapsed ? 5 : 30)  // More space on smaller screens
+      const newSidebarSize = screenWidth < 1024
+        ? (isSidebarCollapsed ? 5 : (isManuallyExpanded ? 90 : 30)) // More space on smaller screens if manually expanded
         : (isSidebarCollapsed ? 5 : 22); // Default sizes on larger screens
-      
+
       setSidebarSize(newSidebarSize);
-      
-      if (contentPanelRef.current) {
-        contentPanelRef.current.resize(100 - newSidebarSize);
-      }
     };
 
     window.addEventListener('resize', handleResize);
     handleResize(); // Initial call
-    
+
     return () => window.removeEventListener('resize', handleResize);
-  }, [isSidebarCollapsed]);
+  }, [isSidebarCollapsed, isManuallyExpanded]);
 
   const handleContentChange = (newContent: string) => {
     if (!currentPost) return;
@@ -125,14 +129,14 @@ const MainAppLayout: React.FC = () => {
   const handleTabClick = (tab: 'blog' | 'twitter' | 'linkedin') => {
     resetViews();
     setCurrentTab(tab);
-    
+
     if (currentPost?.thread_id) {
       const postTypeMap = {
         twitter: 'twitter',
         linkedin: 'linkedin',
         blog: 'blog'
       };
-      
+
       if (tab !== 'blog') {
         fetchContentByThreadId(currentPost.thread_id, postTypeMap[tab]);
       }
@@ -159,112 +163,137 @@ const MainAppLayout: React.FC = () => {
     }
   };
 
-
   return (
     <div className={`h-screen ${isDarkMode ? 'dark' : ''}`}>
       <div className="h-full flex dark:bg-gray-900 dark:text-white">
-        <PanelGroup direction="horizontal">
-          <Panel
-            defaultSize={sidebarSize}
-            minSize={5}
-            maxSize={50}  // Added maxSize
-            ref={sidebarPanelRef}
-            order={1}
-            className="min-w-[50px]" // Ensure minimum width
-          >
-            <Sidebar
-              isCollapsed={isSidebarCollapsed}
-              onToggleCollapse={handleSidebarToggle}
-            />
-          </Panel>
-          <PanelResizeHandle className="w-0.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors" />
-          <Panel
-            defaultSize={100 - sidebarSize}
-            minSize={50}  // Ensure minimum content size
-            order={2}
-            ref={contentPanelRef}
-            className="min-w-[300px]" // Ensure minimum width
-          >
-            <div className="h-full flex flex-col">
-              <div className="border-b p-2 flex justify-between items-center">
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleTabClick('blog')}
-                    className={`px-4 py-2 rounded ${
-                      selectedTab === 'blog'
+        {/* Vertical Toolbar when collapsed */}
+        {isSidebarCollapsed && (
+          <div className="fixed inset-y-0 left-0 w-16 bg-white dark:bg-gray-800 border-r 
+            dark:border-gray-700 z-30">
+            <EditorToolbar isCollapsed={true} onToggleCollapse={handleSidebarToggle} />
+          </div>
+        )}
+
+        {/* Hamburger Toggle */}
+        <SidebarToggle 
+          isCollapsed={isSidebarCollapsed} 
+          onClick={handleSidebarToggle} 
+        />
+
+        {/* Overlay Backdrop */}
+        {!isSidebarCollapsed && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            onClick={() => setIsSidebarCollapsed(true)}
+          />
+        )}
+
+        {/* Sidebar Drawer */}
+        <div
+          className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 
+            transition-transform duration-300 ease-in-out border-r dark:border-gray-700
+            ${isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'}
+            w-[350px] md:w-[400px]`}
+        >
+          <EditorToolbar isCollapsed={false} onToggleCollapse={handleSidebarToggle} />
+          <Sidebar
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={handleSidebarToggle}
+          />
+        </div>
+
+        {/* Main Content */}
+        <div className={`flex-1 ${isSidebarCollapsed ? 'ml-16' : ''}`}>
+          <PanelGroup direction="horizontal">
+            <Panel
+              defaultSize={100 - sidebarSize}
+              minSize={50}
+              order={2}
+              className="min-w-[300px]"
+            >
+              <div className="h-full flex flex-col">
+                <div className="border-b p-2 flex justify-between items-center">
+                    <div className="flex-1 flex justify-center">
+                    <div className="flex gap-2 items-center">
+                      <button
+                      onClick={() => handleTabClick('blog')}
+                      className={`px-4 py-2 rounded ${
+                        selectedTab === 'blog'
                         ? 'bg-blue-500 text-white'
                         : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    Blog
-                  </button>
-                  <button
-                    onClick={() => handleTabClick('twitter')}
-                    className={`px-4 py-2 rounded ${
-                      selectedTab === 'twitter'
+                      }`}
+                      >
+                      Blog
+                      </button>
+                      <button
+                      onClick={() => handleTabClick('twitter')}
+                      className={`px-4 py-2 rounded ${
+                        selectedTab === 'twitter'
                         ? 'bg-blue-500 text-white'
                         : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    Twitter
-                  </button>
-                  <button
-                    onClick={() => handleTabClick('linkedin')}
-                    className={`px-4 py-2 rounded ${
-                      selectedTab === 'linkedin'
+                      }`}
+                      >
+                      Twitter
+                      </button>
+                      <button
+                      onClick={() => handleTabClick('linkedin')}
+                      className={`px-4 py-2 rounded ${
+                        selectedTab === 'linkedin'
                         ? 'bg-blue-500 text-white'
                         : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    LinkedIn
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsCanvasView(true);
-                      setIsPostDetailsView(false);
-                    }}
-                    className={`px-4 py-2 rounded ${
-                      isCanvasView
+                      }`}
+                      >
+                      LinkedIn
+                      </button>
+                      <button
+                      onClick={() => {
+                        setIsCanvasView(true);
+                        setIsPostDetailsView(false);
+                      }}
+                      className={`px-4 py-2 rounded ${
+                        isCanvasView
                         ? 'bg-blue-500 text-white'
                         : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    Canvas
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsPostDetailsView(true);
-                      setIsCanvasView(false);
-                    }}
-                    className={`px-4 py-2 rounded ${
-                      isPostDetailsView
+                      }`}
+                      >
+                      Canvas
+                      </button>
+                      <button
+                      onClick={() => {
+                        setIsPostDetailsView(true);
+                        setIsCanvasView(false);
+                      }}
+                      className={`px-4 py-2 rounded ${
+                        isPostDetailsView
                         ? 'bg-blue-500 text-white'
                         : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    View Details
-                  </button>
+                      }`}
+                      >
+                      View Details
+                      </button>
+                    </div>
+                    </div>
+                  <div className="z-[100]">
+                    <UserMenu />
+                  </div>
                 </div>
-                <div className="z-[100]"> {/* Add z-index wrapper */}
-                  <UserMenu />
+                <div className="flex-1 overflow-auto">
+                  {isCanvasView ? (
+                    <CanvasView />
+                  ) : isPostDetailsView ? (
+                    <PostDetails />
+                  ) : (
+                    <MarkdownEditor
+                      content={getContent()}
+                      onChange={handleContentChange}
+                      selectedTab={selectedTab}
+                    />
+                  )}
                 </div>
               </div>
-              <div className="flex-1 overflow-auto">
-                {isCanvasView ? (
-                  <CanvasView />
-                ) : isPostDetailsView ? (
-                  <PostDetails />
-                ) : (
-                  <MarkdownEditor
-                    content={getContent()}
-                    onChange={handleContentChange}
-                    selectedTab={selectedTab} // Pass selectedTab prop
-                  />
-                )}
-              </div>
-            </div>
-          </Panel>
-        </PanelGroup>
+            </Panel>
+          </PanelGroup>
+        </div>
       </div>
     </div>
   );
@@ -275,34 +304,35 @@ export const App: React.FC = () => {
     <BrowserRouter>
       <AuthProvider>
         <Toaster position="top-right" />
-        <Routes>
-          {/* Landing and Public routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
-          <Route path="/features" element={<Features />} />
-          <Route path="/pricing" element={<Pricing />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/auth/callback" element={<AuthCallback />} />
-          
-          {/* Protected routes */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <MainAppLayout />
-            </ProtectedRoute>
-          } />
-          <Route path="/settings" element={
-            <ProtectedRoute>
-              <Settings />
-            </ProtectedRoute>
-          } />
+        <ErrorBoundary FallbackComponent={ErrorFallback}>
+          <Routes>
+            {/* Landing and Public routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<SignIn />} />
+            <Route path="/signup" element={<SignUp />} />
+            <Route path="/features" element={<Features />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
 
-          {/* Catch-all route */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            {/* Protected routes */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <MainAppLayout />
+              </ProtectedRoute>
+            } />
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            } />
+
+            {/* Catch-all route */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </ErrorBoundary>
       </AuthProvider>
     </BrowserRouter>
   );
 };
-

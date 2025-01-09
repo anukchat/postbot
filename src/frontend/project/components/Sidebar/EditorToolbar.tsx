@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Save, FileDown, Send, Sun, Moon, Plus, ChevronRight, ChevronLeft, XCircle, Home } from 'lucide-react';
+import { Save, FileDown, Send, Sun, Moon, Plus, ChevronRight, ChevronLeft, XCircle, Home, X } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import Tippy from '@tippyjs/react';
 import 'tippy.js/dist/tippy.css';
@@ -38,75 +38,55 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isCollapsed, onTog
     }
   };
 
+  const renderToolbarItems = () => {
+    const items = [
+      { icon: <Home className="w-5 h-5" />, tooltip: "Home", action: () => window.location.href = "/" },
+      { icon: isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />, tooltip: "Toggle Theme", action: toggleTheme },
+      { icon: <Plus className="w-5 h-5" />, tooltip: "New Post", action: () => setIsNewBlogModalOpen(true) },
+      { icon: <Save className="w-5 h-5" />, tooltip: "Save", action: savePost, className: saveIconColor },
+      { icon: <FileDown className="w-5 h-5" />, tooltip: "Download", action: downloadMarkdown },
+      { icon: <Send className="w-5 h-5" />, tooltip: "Publish", action: publishPost, className: publishIconColor, disabled: isDisabled },
+      { icon: <XCircle className="w-5 h-5" />, tooltip: "Reject", action: rejectPost, className: rejectIconColor, disabled: currentPost?.status === 'Rejected' }
+    ];
+
+    return items.map((item, index) => (
+      <Tippy key={index} content={item.tooltip} placement={isCollapsed ? "right" : "bottom"}>
+        <button
+          onClick={item.action}
+          disabled={item.disabled}
+          className={`p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded ${item.className || ''}`}
+        >
+          {item.icon}
+        </button>
+      </Tippy>
+    ));
+  };
+
   return (
     <>
-      <div className={`bg-white flex ${isCollapsed ? 'flex-col items-center' : 'items-center gap-2 border-b'}`}>
-        <div className={`flex ${isCollapsed ? 'flex-col items-center' : 'items-center justify-between'} p-4`}>
-          <Tippy content="Home">
-            <a href="/" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-              <Home className="w-5 h-5" />
-            </a>
-          </Tippy>
-          <Tippy content="Toggle Theme">
-            <button
-              onClick={toggleTheme}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-            >
-              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
-          </Tippy>
-          <Tippy content="New Post">
-            <button 
-              onClick={() => setIsNewBlogModalOpen(true)}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
-          </Tippy>
-          <Tippy content="Save">
-            <button
-              onClick={savePost}
-              className={`p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded ${saveIconColor}`}
-              // disabled={isDisabled}
-            >
-              <Save className="w-5 h-5" />
-            </button>
-          </Tippy>
-          <Tippy content="Download Markdown">
-            <button
-              onClick={downloadMarkdown}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-            >
-              <FileDown className="w-5 h-5" />
-            </button>
-          </Tippy>
-          <Tippy content="Publish">
-            <button
-              onClick={publishPost}
-              className={`p-2 rounded ${publishIconColor}`}
-              disabled={isDisabled}
-            >
-              <Send className="w-5 h-5" />
-            </button>
-          </Tippy>
-          <Tippy content="Reject">
-            <button
-              onClick={rejectPost}
-              className={`p-2 rounded ${rejectIconColor}`}
-              disabled={currentPost?.status === 'Rejected'}
-            >
-              <XCircle className="w-5 h-5" />
-            </button>
-          </Tippy>
-          <Tippy content={isCollapsed ? "Expand" : "Collapse"}>
+      <div className={`bg-white dark:bg-gray-800 ${
+        isCollapsed 
+          ? 'fixed left-0 top-0 h-full w-16 flex flex-col items-center py-16 gap-4 border-r dark:border-gray-700'
+          : 'w-full border-b'
+      }`}>
+        {!isCollapsed && (
+          <div className="flex justify-between items-center p-4">
+            <div className="flex items-center gap-2">
+              {renderToolbarItems()}
+            </div>
             <button
               onClick={onToggleCollapse}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
             >
-              {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+              <X className="w-6 h-6" />
             </button>
-          </Tippy>
-        </div>
+          </div>
+        )}
+        {isCollapsed && (
+          <div className="flex flex-col items-center gap-4">
+            {renderToolbarItems()}
+          </div>
+        )}
       </div>
 
       <NewBlogModal

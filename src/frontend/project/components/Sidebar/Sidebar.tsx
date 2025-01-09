@@ -176,7 +176,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse 
 
   return (
     <div className="transition-all duration-300 bg-white dark:bg-gray-800 border-r flex flex-col h-full relative">
-      <EditorToolbar isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse} />
+      {/* <EditorToolbar isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse} /> */}
       {!isCollapsed && (
         <>
           <div className="p-4 border-b">
