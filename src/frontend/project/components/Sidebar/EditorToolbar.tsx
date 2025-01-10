@@ -70,7 +70,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isCollapsed, onTog
           : 'w-full border-b'
       }`}>
         {!isCollapsed && (
-          <div className="flex justify-between items-center p-4">
+          <div className="flex justify-between items-center p-6">
             <div className="flex items-center gap-2">
               {renderToolbarItems()}
             </div>

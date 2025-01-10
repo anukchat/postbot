@@ -456,7 +456,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
               >
                 <textarea
                   ref={textAreaRef}
-                  className="w-full h-full p-2 sm:p-4 resize-none focus:outline-none dark:bg-gray-900 dark:text-white text-sm sm:text-base"
+                  className="w-full h-full p-4 sm:p-4 resize-none focus:outline-none dark:bg-gray-900 dark:text-white text-sm sm:text-base"
                   value={content}
                   onChange={handleContentChange}
                   onKeyUp={handleKeyUp}
