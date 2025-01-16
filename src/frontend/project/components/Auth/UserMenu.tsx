@@ -30,7 +30,7 @@ const UserMenu: React.FC = () => {
       src={user?.user_metadata?.avatar_url || `https://api.dicebear.com/6.x/avataaars/svg?seed=${user?.email}`}
       />
     </MenuButton>
-      <Menu.Items className="absolute right-0 mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+      <Menu.Items className="absolute right-0 mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
         <div className="px-4 py-3">
           <p className="text-sm text-gray-700 dark:text-gray-200">Signed in as</p>
           <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
