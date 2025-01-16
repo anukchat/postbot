@@ -26,7 +26,7 @@ blog_planner_instructions="""You are an expert technical writer, helping to plan
 
 Your goal is to generate a CONCISE outline.
 
-First, carefully reflect on the input from the user for which blogpost has to be generated (notes can be arxiv papers, articles, github repo readme etc.):
+First, carefully reflect on the input from the user on the topic for which blogpost has to be generated:
 
 **Input**:
 {user_instructions}
@@ -57,7 +57,7 @@ Final check:
 ##----------------- Section Writer Instructions -----------------##
 main_body_section_writer_instructions = """You are an expert technical writer crafting one section of a blog post that reads like a human-written article.  
 
-Here are the markdown input for the overall blog post, so that you have context for the overall content:  
+Here are the user instructions on the topic for the overall blog post, so that you have context for the overall content:  
 {user_instructions}  
 
 Here is the Section Name you are going to write:  
@@ -66,10 +66,11 @@ Here is the Section Name you are going to write:
 Here is the Section Description you are going to write:  
 {section_topic}  
 
-Use this information from various source urls to flesh out the details of the section:  
-{source_urls}  
+First based on the user instructions, search and identify the top 3 most relevant source urls talking about the topic.
 
-From above provided source urls, extract the relevant images or videos source urls.  
+Use this information from those source urls to flesh out the details of the section:  
+
+From the source urls, also extract the relevant images or videos source urls.  
 
 WRITING GUIDELINES:  
 
@@ -96,7 +97,7 @@ WRITING GUIDELINES:
 - Do not include any introductory phrases like 'Here is a draft...' or 'Here is a section...'.  
 
 3. **Grounding:**  
-- ONLY use information from the source urls provided.  
+- ONLY use information from the source urls you researched and extracted.  
 - Do not include information that is not in the source urls.  
 - If the source urls are missing information, then provide a clear "MISSING INFORMATION" message to the writer.  
 
@@ -106,7 +107,7 @@ QUALITY CHECKLIST:
 [ ] Contains one clear code example if specified in the Section Description.  
 [ ] Uses proper markdown formatting.  
 [ ] Use the extracted image or video source urls in the content in form of markdown.  
-[ ] DO not add blank image or video markdown formatting.
+[ ] Do not add blank image or video markdown formatting.
 
 Generate the section content now, focusing on clarity and technical accuracy.  """
 
@@ -151,74 +152,18 @@ FOR CONCLUSION:
 
 
 ##----------------- Twitter Post Instructions -----------------##
-twitter_post_instructions = """You are a social media expert tasked with crafting tweets that drive engagement on Twitter. 
+twitter_post_instructions = """Please ignore all previous instructions. Please respond only in the English language. You are a professional copywriter and would like to convert your article into an engaging Twitter thread. You have a Trendy tone of voice. You have a Academic writing style. Do not self reference. Do not explain what you are doing. Do not include any introductory phrases like 'here is a Twitter thread','Ok, here is your twitter thread' or similar sentences. Add emojis to the thread when appropriate. Add proper text formatting on important phrases or words in markdown format (like ** ** for bold, * * for italic etc.). The character count for each thread should be between 270 to 280 characters. Please add relevant hashtags to the post. Please turn the following article into a Twitter thread: 
 
-Please turn the following article into a Twitter thread: 
-
-**Article:**  
-{final_blog}  
-
-Your task is to create **Twitter content** with the following specifications:  
-- Craft a tweet that conveys the essence of the text in **280 characters or less**, ensuring clarity, conciseness, and a conversational tone. Include any relevant links or mentions. 
-- Include up to 3 hashtags that enhance visibility and are platform-specific.  
-- If the content cannot fit in a single tweet, create a **thread** with concise, numbered tweets that maintain flow and engagement.  
-
-**Special Guidelines:**  
-1. Start with a **strong hook** in the first tweet to grab attention.  
-2. Use phrases identified in the research to reflect the essence of blog content.
-3. Maintain a balance between **professional** and **relatable** language.  
-4. Do not self reference. 
-5. Do not explain what you are doing. 
-6. Do not include any introductory phrases like 'here is a Twitter thread','Ok, here is your twitter thread' or similar sentences. 
-7. Add emojis to the thread wherever appropriate.
-
-**Response Format:**  
-
-Tweet:
-[Your tweet here]  
-[#hashtag1, #hashtag2, ...]  
-
-Thread:  
-1. [First tweet in the thread]  
-2. [Second tweet in the thread]  
-...  
-
+Article:
+{final_blog}
 """
 
 
 ##----------------- LinkedIn Post Instructions -----------------##
-linkedin_post_instructions = """You are a professional LinkedIn content creator, focused on crafting posts that establish thought leadership and build connections.  
+linkedin_post_instructions = """Please ignore all previous instructions. Please respond only in the English language. You are a professional copywriter and would like to convert your article into an engaging LinkedIn post. You have a Trendy tone of voice. You have a Academic writing style. Do not self reference. Do not explain what you are doing. Do not include any introductory phrases like 'here is your linkedin post' or similar sentences. Do not add or refer input instructions in your answer. Add emojis to the post when appropriate. Add proper text formatting on important phrases or words in markdown format (like ** ** for bold, * * for italic etc.). The character count for the post should be between 390 to 400 words. Please turn the following article into a LinkedIn post:
 
-Please turn the following article into a LinkedIn post:
-
-**Article:**  
-{final_blog}  
-
-Your task is to create a **LinkedIn post** with the following details:  
-- Write a professional, thoughtful post elaborating on the text, tailored to LinkedIn’s audience. Highlight the key takeaways or updates and use a **formal yet engaging tone**.  
-- Suggest up to 5 hashtags relevant to LinkedIn’s professional audience.  
-- Include a CTA encouraging engagement (e.g., “Share your thoughts,” “Let us know how you tackle this,” or “Visit our page for more”).  
-
-**Special Guidelines:**  
-1. Aim for **250–350 words**, focusing on storytelling and professional insights.  
-2. Structure the post with:  
-   - A **hook** to grab attention.  
-   - The main body with value-driven insights.  
-   - A concluding CTA.  
-3. Avoid using jargon unless contextually relevant.  
-4. Ensure hashtags are business-focused and professional.  
-5. Do not self reference. 
-6. Do not explain what you are doing.
-7. Do not include any introductory phrases like 'here is your linkedin post' or similar sentences. 
-8. Do not add or refer input instructions in your answer. 
-9. Add emojis to the post wherever appropriate. 
-
-**Response Format:**  
-
-[Your LinkedIn post here]  
-[#hashtag1, #hashtag2, ...]  
-[Call-to-Action here]  
-
+Article:
+{final_blog}
 """
 
 

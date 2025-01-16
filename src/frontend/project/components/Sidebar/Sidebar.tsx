@@ -47,77 +47,65 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse 
   });
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  const handleLoadMore = useCallback(() => {
-    console.log('handleLoadMore triggered', {
-      currentPostsLength: posts.length,
-      totalPosts,
-      isLoading,
-      hasReachedEnd
-    });
-    
-    if (!isLoading && !hasReachedEnd) {
-      console.log('Fetching more posts...');
-      fetchPosts({
-        timestamp: Date.now(),  // Add timestamp here too
-        forceRefresh: true     // Add force refresh flag
-      }, posts.length, limit);
-    }
-  }, [fetchPosts, posts.length, totalPosts, isLoading, hasReachedEnd, limit]);
+  // Add a ref to track if initial fetch is done
+  const initialFetchDoneRef = useRef(false);
+  // Add a ref to track ongoing fetch
+  const isFetchingRef = useRef(false);
 
+  // Modify handleLoadMore to prevent duplicate calls
+  const handleLoadMore = useCallback(() => {
+    if (isFetchingRef.current || hasReachedEnd) {
+      return;
+    }
+
+    isFetchingRef.current = true;
+    fetchPosts({
+      timestamp: Date.now(),
+    }, posts.length, limit).finally(() => {
+      isFetchingRef.current = false;
+    });
+  }, [fetchPosts, posts.length, hasReachedEnd, limit]);
+
+  // Modify initial fetch useEffect
   useEffect(() => {
-    if (!isLoading) { // Add loading check to prevent duplicate requests
+    if (!initialFetchDoneRef.current && !isLoading) {
+      initialFetchDoneRef.current = true;
       fetchPosts({
-        timestamp: Date.now(), // Add timestamp
-        forceRefresh: true    // Add force refresh flag
-      }, 0, limit); // Add explicit skip and limit
+        timestamp: Date.now(),
+        forceRefresh: true
+      }, 0, limit);
     }
   }, [fetchPosts, isLoading, limit]);
 
-  // Add useEffect to handle post updates
-  useEffect(() => {
-    const refreshPosts = async () => {
-      if (!isLoading) {
-        await fetchPosts({
-          timestamp: Date.now(),
-          forceRefresh: true
-        }, 0, limit);
-      }
-    };
-
-    refreshPosts();
-  }, [isLoading, fetchPosts, limit]);
+  // Remove the second fetch effect that was causing duplicate calls
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchTerm(value);
   };
 
+  // Modify scroll handler useEffect
   useEffect(() => {
     const scrollContainer = loadMoreRef.current;
     if (!scrollContainer) return;
 
     const handleScroll = debounce(() => {
+      if (isFetchingRef.current || hasReachedEnd) return;
+
       const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
       const nearBottom = scrollHeight - (scrollTop + clientHeight) < 100;
       
-      console.log('Scroll check:', {
-        nearBottom,
-        postsLength: posts.length,
-        totalPosts,
-        isLoading
-      });
-
       if (nearBottom && !isLoading && posts.length < totalPosts) {
         handleLoadMore();
       }
-    }, 200, { leading: true, trailing: true });
+    }, 200);
 
     scrollContainer.addEventListener('scroll', handleScroll);
     return () => {
       scrollContainer.removeEventListener('scroll', handleScroll);
       handleScroll.cancel();
     };
-  }, [handleLoadMore, isLoading, posts.length, totalPosts]);
+  }, [handleLoadMore, isLoading, posts.length, totalPosts, hasReachedEnd]);
 
   const filteredPosts = useMemo(() => {
     return posts

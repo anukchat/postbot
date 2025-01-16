@@ -15,8 +15,8 @@ TODO:
 5. Add Top Trends
 6. Add configurable style and blog type [Technical, fun etc] or Agentic based style
  determination
-7. Dockerize
-8. Host using coolify
+7. Dockerize Done
+8. Host using coolify - Hosted using render.io
 9. Add first person asking like style [e.g, do not say our work, say this work]
 10. Learn more about react, authentication
 11. Add Scheduling features
@@ -26,14 +26,17 @@ TODO:
 13. Add different options for styles to users while getting feedback for regeneration.
 14 replace native supabase queries with postgres/sqlalchemy or sql queries
 15. Add labels on source on side bar posts
-16. Add quota on post generation
-17. Add responsiveness
-18. Refine UI, make UX improvements
+16. Add quota on post generation : Done
+17. Add responsiveness 
+18. Refine UI, make UX improvements : Done
 19. Add tests
 20. Implement billing, subscribption
 21. Implement admin page
 22. Implement permissions
 23. Add Diff highlighter (What user has updated vs what model has generated)
+24. Agent Improvements, add a reviewer Node
+25. Single Editor and previewer component like Notion
+
 
 Refactoring:
 1. Remove unnecessary packages and imports
@@ -50,3 +53,35 @@ Notes 8 Jan
 OR add a cron job to delete the Published Posts checkpoints after 10 days : Done
 2. Add soft delete in content, sources, url references, media table Done
 3. 
+
+
+
+
+Notes 13 Jan
+
+Use case
+For a trending topic of configured category, everyday generate blog posts, social posts 
+- Find out the trending topics of certain category or ask user category or topic
+- Search and find important urls from them [configure trusted domains related to topic, e.g. github, microsoft etc]
+- Pass it to model
+
+1. Configure & Track all the big org blogs.
+2. User 
+
+Notes 14 Jan
+
+1, User provides a topic
+2. Create search queries around the topic.
+3. Call Search tool & create researched content.
+4. Start creating blog plan
+5. Start creating headers and subheaders
+6. Start creating section content
+7. Finalize the blog
+8. Review the blog , SEO optimization
+8. Depending on the content types , create different content
+
+When given a tweet
+1. From the tweet text, create the  search queries
+2. Search web and create research content.
+3. Also extract from linked content if any
+4. 

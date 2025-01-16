@@ -32,12 +32,27 @@ const LandingPage: React.FC = () => {
             className="text-center"
           >
             <h1 className="text-5xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl md:text-7xl">
-              Transform your <span className="text-blue-600">tweets</span> into 
-              <span className="text-blue-600"> engaging blogs</span>
+              Transform your <span className="text-blue-600">ideas</span> into 
+              <span className="text-blue-600"> engaging content</span>
             </h1>
             <p className="mt-6 text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-              PostBot helps you turn your Twitter threads into well-structured blog posts using AI. Save time and reach a wider audience.
+              RiteUp helps you turn your thoughts into well-structured blog posts using AI. Save time and reach a wider audience.
             </p>
+            
+            {/* Video Demo Section */}
+            <div className="mt-12 max-w-4xl mx-auto">
+              <div className="relative pt-[56.25%] rounded-xl overflow-hidden">
+                <iframe 
+                  className="absolute inset-0 w-full h-full"
+                  src="https://www.youtube.com/embed/Ua0fNemr7gE?si=LMdFk4vwIPIG9W8o" 
+                  title="RiteUp Demo"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                ></iframe>
+              </div>
+            </div>
+
             <div className="mt-10">
               <motion.a
                 whileHover={{ scale: 1.05 }}

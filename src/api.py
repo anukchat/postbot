@@ -90,6 +90,7 @@ class GeneratePostRequestModel(BaseModel):
     post_types: List[str]
     tweet_id: Optional[str] = None
     url: Optional[str] = None
+    topic: Optional[str] = None
     feedback: Optional[str] = None  # Add this field
 
 class SourceListResponse(BaseModel):
