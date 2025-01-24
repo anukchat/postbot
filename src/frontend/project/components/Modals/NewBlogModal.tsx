@@ -536,11 +536,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
     }
     
     // For regular sources
-    if (!source) return true;
-    
-    return isGenerating || 
-           !selectedIdentifier || 
-           (source.source_type === 'twitter' && !source.has_url);
+    return isGenerating || !selectedIdentifier;
   }, [isGenerating, selectedIdentifier, isCustomUrl, customUrl.isValid]);
 
   const getGenerateButtonTooltip = useCallback((source?: SourceData) => {
@@ -554,9 +550,6 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
     // For regular sources
     if (isGenerating) return 'Generation in progress...';
     if (!selectedIdentifier) return 'Please select a source';
-    if (source?.source_type === 'twitter' && !source.has_url) {
-      return 'This tweet has no URLs for content generation';
-    }
     return 'Generate Blog';
   }, [isGenerating, selectedIdentifier, isCustomUrl, customUrl.isValid]);
 

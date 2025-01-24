@@ -1,0 +1,78 @@
+extractors:
+  pdf:
+    default:
+      class_params: {}
+      method_params: {}
+    fast:
+      class_params:
+        timeout: 10
+        max_pages: 50
+      method_params:
+        extract_images: false
+        extract_tables: false
+  arxiv:
+    default:
+      class_params: {}
+      method_params: {}
+  github:
+    default:
+      class_params: {}
+      method_params: {}
+
+  html:
+    default:
+      class_params: {}
+      method_params: {}
+    minimal:
+      class_params:
+        strip: ["script", "style", "meta", "link"]
+        preserve_newlines: false
+      method_params:
+        heading_style: "SETEXT"
+
+  text:
+    default:
+      class_params:
+        language: en
+        preserve_formatting: true
+      method_params:
+        clean_whitespace: true
+        remove_empty_lines: true
+
+converters:
+  generic:
+    default:
+      class_params: {}
+      method_params: {}
+  pdf:
+    default:
+      class_params: {}
+      method_params: {}
+  html:
+    default:
+      class_params: {}
+      method_params: {}
+llm:
+  default:
+    class_params:
+      model: gemini/gemini-2.0-flash-exp
+      temperature: 0.5
+    method_params: {}
+    
+  chat:
+    class_params:
+      model: gpt-3.5-turbo
+      max_tokens: 1000
+      temperature: 0.9
+      timeout: 60
+      stream: true
+    method_params: {}
+    
+  completion:
+    class_params:
+      model: text-davinci-003
+      max_tokens: 2000
+      temperature: 0.5
+      timeout: 45
+      stream: false
+    method_params: {}

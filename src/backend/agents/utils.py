@@ -1,14 +1,23 @@
+import time
+from typing import Dict, List, Tuple, Union
 import urllib
 from agents.state import Section
-from extractors.docintelligence import DocumentExtractor
+from extraction.docintelligence import DocumentExtractor
 import requests
 import re
 import logging
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
+
+from src.backend.extraction.factory import ConverterRegistry, ExtracterRegistry
 
 logger = logging.getLogger(__name__)
 extractor = DocumentExtractor()
+extractor_factory = ExtracterRegistry()
+converter_factory= ConverterRegistry()
+
+
+pdf_extractor = extractor_factory.get_extractor('pdf', 'default')
 
 def process_url_content(url_meta):
     """Helper to process URL content based on type"""
@@ -375,4 +384,137 @@ def get_url_metadata(url):
         logger.warning(f"Error downloading URL content: {e}")
         return None
 
+def parse_query_response(self, response: str) -> Tuple[str, str]:
+    query = ""
+    time_range = "none"
+    for line in response.strip().split('\n'):
+        if ":" in line:
+            key, value = line.split(":", 1)
+            key = key.strip().lower()
+            value = value.strip()
+            if "query" in key:
+                query = self.clean_query(value)
+            elif "time" in key or "range" in key:
+                time_range = self.validate_time_range(value)
+    return query, time_range
     
+def perform_search(query: str, time_range: str) -> List[Dict]:
+    if not query:
+        return []
+
+    from duckduckgo_search import DDGS
+    max_retries = 3
+    base_delay = 2  # Base delay in seconds
+
+    for retry in range(max_retries):
+        try:
+            # Add delay that increases with each retry
+            if retry > 0:
+                delay = base_delay * (2 ** (retry - 1))  # Exponential backoff
+                print(f"Rate limit hit. Waiting {delay} seconds before retry {retry + 1}/{max_retries}...")
+                time.sleep(delay)
+
+            with DDGS() as ddgs:
+                try:
+                    if time_range and time_range != 'none':
+                        results = list(ddgs.text(query, timelimit=time_range, max_results=10))
+                    else:
+                        results = list(ddgs.text(query, max_results=10))
+                    
+                    # If we get here, search was successful
+                    return [{'number': i+1, **result} for i, result in enumerate(results)]
+                        
+                except Exception as e:
+                    if 'Ratelimit' in str(e):
+                        if retry == max_retries - 1:
+                            print(f"Final rate limit attempt failed: {str(e)}")
+                            return []
+                        continue  # Try again with delay
+                    else:
+                        print(f"Search error: {str(e)}")
+                        return []
+
+        except Exception as e:
+            print(f"Outer error: {str(e)}")
+            return []
+
+    print(f"All retry attempts failed for query: {query}")
+    return []
+
+def select_relevant_pages(self, search_results: List[Dict], user_query: str) -> List[str]:
+    prompt = f"""
+        Given the following search results for the user's question: "{user_query}"
+        Select the 2 most relevant results to scrape and analyze. Explain your reasoning for each selection.
+
+        Search Results:
+        {self.format_results(search_results)}
+
+        Instructions:
+        1. You MUST select exactly 2 result numbers from the search results.
+        2. Choose the results that are most likely to contain comprehensive and relevant information to answer the user's question.
+        3. Provide a brief reason for each selection.
+
+        You MUST respond using EXACTLY this format and nothing else:
+
+        <numbers>[Two numbers corresponding to the selected results]</numbers>
+        """
+    response_text=""## llm response
+    parsed_response = parse_page_selection_response(response_text)
+    selected_urls = [result['href'] for result in search_results if result['number'] in parsed_response]
+
+    return selected_urls
+
+def extract_content( html, url):
+
+    # Use Markdownit 
+    soup = BeautifulSoup(html, 'html.parser')
+
+    # Remove unwanted elements
+    for element in soup(["script", "style", "nav", "footer", "header"]):
+        element.decompose()
+
+    # Extract title
+    title = soup.title.string if soup.title else ""
+
+    # Try to find main content
+    main_content = soup.find('main') or soup.find('article') or soup.find('div', class_='content')
+
+    if main_content:
+        paragraphs = main_content.find_all('p')
+    else:
+        paragraphs = soup.find_all('p')
+
+    # Extract text from paragraphs
+    text = ' '.join([p.get_text().strip() for p in paragraphs])
+
+    # If no paragraphs found, get all text
+    if not text:
+        text = soup.get_text()
+
+    # Clean up whitespace
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    # Extract and resolve links
+    links = [urljoin(url, a['href']) for a in soup.find_all('a', href=True)]
+
+    return {
+        "url": url,
+        "title": title,
+        "content": text[:2400],  # Limit to first 2400 characters
+        "links": links[:10]  # Limit to first 10 links
+    }
+
+def parse_page_selection_response(response: str) -> Dict[str, Union[List[int], str]]:
+    # Extract numbers between <numbers> tags using regex
+    numbers_match = re.search(r'<numbers>([^<]+)</numbers>', response)
+    # parsed = {
+    #     'selected_results': [],
+    #     'reasoning': ''
+    # }
+    
+    if numbers_match:
+        # Convert matched numbers to integers
+        numbers = [int(n.strip()) for n in numbers_match.group(1).split()]
+        return numbers
+
+    return []

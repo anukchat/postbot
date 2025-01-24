@@ -27,7 +27,7 @@ from agents.prompts import (
 from agents.state import BlogState, BlogStateInput, BlogStateOutput, SectionState
 from agents.utils import *
 from db.supabaseclient import supabase_client
-from extractors.docintelligence import DocumentExtractor
+from extraction.docintelligence import DocumentExtractor
 
 supabase: Client = supabase_client()
 logging.basicConfig(level=logging.ERROR)

@@ -2,9 +2,9 @@ import os
 import sys
 import logging
 from pathlib import Path
-from extractors.twitter import TweetMetadataCollector
+from extraction.twitter import TweetMetadataCollector
 # from extractors.arxiv import download_pdfs_from_arxiv
-from extractors.docintelligence import DocumentExtractor
+from extraction.docintelligence import DocumentExtractor
 # from extractors.github import extract_github_readme
 
 

@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.constants import Send
 from langgraph.graph import START, END, StateGraph
-from langchain_core.messages import HumanMessage, SystemMessage
+# from langchain_core.messages import HumanMessage, SystemMessage
 from psycopg import Connection
 from supabase import Client
 
@@ -23,11 +23,15 @@ from agents.prompts import (
     linkedin_post_instructions,
     twitter_post_instructions,
     tags_generator,
+    query_creator
 )
+from agents.tools import WebSearch
+from clients.llm import LLMClient, HumanMessage, SystemMessage
 from agents.state import BlogState, BlogStateInput, BlogStateOutput, SectionState
 from agents.utils import *
 from db.supabaseclient import supabase_client
-from extractors.docintelligence import DocumentExtractor
+from extraction.docintelligence import DocumentExtractor
+from src.backend.extraction.factory import ConverterRegistry, ExtracterRegistry
 
 supabase: Client = supabase_client()
 logging.basicConfig(level=logging.ERROR)
@@ -38,7 +42,8 @@ supabase: Client = supabase_client()
 class AgentWorkflow:
 
     def __init__(self):
-        self.llm = get_gemini()
+        self.llm = LLMClient()
+        self.websearcher = WebSearch(provider='duckduckgo', num_results=2)
         self.builder = StateGraph(
             BlogState,
             input=BlogStateInput,
@@ -53,6 +58,9 @@ class AgentWorkflow:
         conn = Connection.connect(dsn, **connection_kwargs)
         self.checkpointer = PostgresSaver(conn)
         self.graph = self.setup_workflow()
+        self.generic_converter=ConverterRegistry.get_converter("generic")
+        self.arxiv_extracter=ExtracterRegistry.get_extractor("arxiv")
+        self.github_extracter=ExtracterRegistry.get_extractor("github")
         self.extractor = DocumentExtractor()
 
     def generate_blog_plan(self, state: BlogState):
@@ -76,7 +84,7 @@ class AgentWorkflow:
         )
 
         pattern = r"```json\n([\s\S]*?)\n```"
-        match = re.search(pattern, report_sections.content)
+        match = re.search(pattern, report_sections)
 
         if match:
             parsed = json.loads(match.group(1))
@@ -113,7 +121,7 @@ class AgentWorkflow:
             ]
         )
 
-        section.content = section_content.content
+        section.content = section_content
         return {"completed_sections": [section]}
 
     def write_final_sections(self, state: SectionState):
@@ -131,7 +139,7 @@ class AgentWorkflow:
             SystemMessage(content=system_instructions),
             HumanMessage(content="Generate an intro/conclusion section based on the provided main body sections.")
         ])
-        section.content = section_content.content
+        section.content = section_content
 
         return {"completed_sections": [section]}
 
@@ -196,7 +204,7 @@ class AgentWorkflow:
             SystemMessage(content=twitter_post_instructions.format(final_blog=final_blog)),
             HumanMessage(content="Generate a Twitter post based on the provided article")
         ])
-        return {"twitter_post": twitter_post.content}
+        return {"twitter_post": twitter_post}
 
     def write_linkedin_post(self, state: BlogState):
         """Write the LinkedIn post"""
@@ -205,7 +213,7 @@ class AgentWorkflow:
             SystemMessage(content=linkedin_post_instructions.format(final_blog=final_blog)),
             HumanMessage(content="Generate a LinkedIn post based on the provided article")
         ])
-        return {"linkedin_post": linkedin_post.content}
+        return {"linkedin_post": linkedin_post}
 
     def generate_tags(self, state: BlogState):
         """Generate tags for the blog"""
@@ -217,7 +225,7 @@ class AgentWorkflow:
             HumanMessage(content="Generate tags for the blog.")
         ])
 
-        tags_match = re.findall(r"<tags>(.*?)</tags>", result.content, re.DOTALL)
+        tags_match = re.findall(r"<tags>(.*?)</tags>", result, re.DOTALL)
         if tags_match:
             tags_string = tags_match[0].strip()
             try:
@@ -265,19 +273,19 @@ class AgentWorkflow:
         # Update the state with the modified content
         if "blog" in state.post_types:
             return {
-                "final_blog": modified_content.content,
+                "final_blog": modified_content,
                 "feedback_applied": True,
                 "feedback": None,
             }
         elif "twitter" in state.post_types:
             return {
-                "twitter_post": modified_content.content,
+                "twitter_post": modified_content,
                 "feedback_applied": True,
                 "feedback": None,
             }
         elif "linkedin" in state.post_types:
             return {
-                "linkedin_post": modified_content.content,
+                "linkedin_post": modified_content,
                 "feedback_applied": True,
                 "feedback": None,
             }
@@ -347,6 +355,13 @@ class AgentWorkflow:
                    .execute())
         return response.data
 
+    def _fetch_content_metadata(self, source_id):
+        """Helper method to fetch content metadata"""
+        response = (supabase.table("source_metadata")
+                   .select("*")
+                   .eq("source_id", source_id)
+                   .execute())
+        return response.data
 #-------------Agent main workflow----------------
 
     def _initialize_workflow(self, payload,thread_id):
@@ -369,6 +384,10 @@ class AgentWorkflow:
     
     def _handle_topic_workflow(self, payload, thread_id, user):
         """Handle workflow for URL-based content"""
+        query=self._query_rewriter(payload['topic'])
+        urls=self.websearcher.search(query).get_all_urls()
+        # reference_content=''.join([f"URL: {url} \n {self.generic_converter.convert(url)} \n\n" for url in urls ])
+        payload['url']=urls[0]
         source_id, url_meta, media_meta = self._setup_web_url_source(payload, thread_id, user)
         content =self._process_url_content(url_meta)
         media_markdown = get_media_content_url(media_meta)
@@ -379,12 +398,54 @@ class AgentWorkflow:
             thread_id=thread_id,
             media_markdown=media_markdown,
         ), source_id
+    
+    def _query_rewriter(self, search_query):
+        """Rewrite tweet text for queryable content"""
+
+        rewriter_instructions = query_creator.format(user_query_short=search_query)
+        
+        llm_response= self.llm.invoke(
+            [
+                HumanMessage(content=rewriter_instructions)
+            ]
+        )
+
+        query_match = re.findall(r"<query>(.*?)</query>", llm_response, re.DOTALL)
+        if query_match:
+            return query_match[0].strip()
+        
+        return search_query
 
     def _handle_tweet_workflow(self, payload, thread_id, user):
         """Handle workflow for tweet-based content"""
-        source_id, url_meta, media_meta = self._setup_tweet_source(payload, thread_id, user)
+        source_id, url_meta, media_meta,tweet_text = self._setup_tweet_source(payload, thread_id, user)
         reference_content, reference_link = get_tweet_reference_content(url_meta)
         media_markdown = get_tweet_media(media_meta)
+
+        if not url_meta:
+            reference_content = ''            
+            query=self._query_rewriter(tweet_text)
+            # first call llm to rewrite teweet text for searchable queries
+            # second call the tool to research content based on the rewritten tweet text
+            urls=self.websearcher.search(query).get_all_urls()
+
+            for url in urls:
+                url_meta=get_url_metadata(url)
+                content =self._process_url_content(url_meta)
+                reference_content+=f"For Source URL: {url}, below is the content \n {content} \n\n"
+            # select appropriate urls from the research results
+            # reference_content=''.join([f"URL: {url} \n {self.generic_converter.convert(url)} \n\n" for url in urls ])
+            # use markdownit to convert the urls to markdown
+
+            return BlogStateInput(
+                input_url=reference_link,
+                input_content=reference_content,
+                input_topic=tweet_text,
+                media_markdown=media_markdown,
+                post_types=payload.get("post_types", ["blog"]),
+                thread_id=thread_id,
+            ), source_id
+
         return BlogStateInput(
             input_url=reference_link,
             input_content=reference_content,
@@ -419,6 +480,8 @@ class AgentWorkflow:
                     test_input, source_id = self._handle_url_workflow(payload, thread_id, user)
                 elif payload.get("tweet_id"):
                     test_input, source_id = self._handle_tweet_workflow(payload, thread_id, user)
+                elif payload.get("topic"):
+                    test_input,source_id=self._handle_topic_workflow(payload,thread_id,user)
                 else:
                     raise ValueError("Invalid payload - must contain url, tweet_id or feedback")
 
@@ -521,9 +584,11 @@ class AgentWorkflow:
             source_id = existing_source.data[0]["source_id"]
             self._validate_existing_content(source_id, payload)
             tweet_data = self.fetch_urls_and_media(payload["tweet_id"])
-            return source_id, tweet_data.get("urls", []), tweet_data.get("media", [])
+            tweet_meta = self._fetch_content_metadata(source_id)
+            tweet_text = [meta['value'] for meta in tweet_meta if meta.get("key",'')=='full_text']
+            return source_id, tweet_data.get("urls", []), tweet_data.get("media", []),tweet_text[0]
 
-        return None, None, None
+        return None, None, None, None
 
     def _handle_social_post_generation(self, thread_id, payload, user):
         """Handle generation of social media posts"""
@@ -678,13 +743,15 @@ class AgentWorkflow:
         # url_meta = utils.get_url_metadata(url)
 
         if url_meta["type"] == "html":
-            return self.extractor.extract_html(html_content=url_meta["content"])
+            return self.generic_converter.convert(url_meta['original_url']) #self.converter_factory.create_converter('generic').convert(url_meta['original_url'])
         elif url_meta["type"] == "pdf":
-            return self.extractor.extract_pdf(input_file=url_meta["original_url"])
+            return self.generic_converter.convert(url_meta['original_url']) #self.converter_factory.create_converter('generic').extract_pdf(input_file=url_meta["original_url"])
         elif url_meta["type"] == "arxiv":
-            return self.extractor.extract_arxiv_pdf(url_meta["original_url"])
+            pdf_url=self.arxiv_extracter.extract(url_meta["original_url"])['url']
+            return self.generic_converter.convert(pdf_url)
         elif url_meta["type"] == "github":
-            return self.extractor.extract_github_readme(url_meta["original_url"])
+            readme_url=self.github_extracter.extract(url_meta["original_url"])['readme_url']
+            return self.generic_converter.convert(readme_url)
         else:
             return url_meta["content"]
 

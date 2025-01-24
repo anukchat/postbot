@@ -900,7 +900,6 @@ class TweetMetadataCollector:
         except Exception as e:
             print(f"Error inserting data: {e}")
 
-
     def read_tweet_data(self,csv_path, recent_k=None):
         """
         Read tweet data from a CSV file.

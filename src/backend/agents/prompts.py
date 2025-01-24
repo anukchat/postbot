@@ -227,3 +227,17 @@ tags_generator="""You are an expert in generating tags for a blog post. Your goa
 
 {linkedin_post}
 """
+
+##----------------- Query creator Instructions -----------------##
+query_creator="""
+Based on the following user question (can be a search topic, search query or a tweet ) , formulate a concise and effective search query:
+
+"{user_query_short}"
+
+Your task is to create a search query of 2-5 words that will yield relevant results.
+
+Respond in below format:
+<query> Your 2-5 word query </query>
+
+Do not provide any additional information or explanation.
+"""

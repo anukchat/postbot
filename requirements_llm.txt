@@ -10,3 +10,5 @@ langgraph>=0.0.15
 langgraph-checkpoint-postgres
 google-generativeai
 markdownify
+litellm
+duckduckgo-search
