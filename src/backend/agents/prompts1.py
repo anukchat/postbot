@@ -1,40 +1,41 @@
 ## ----------------- Blog Post Structure ----------------- ##
-default_blog_structure = """The blog post should follow this strict three-part structure:
+default_blog_structure = """The blog post should follow this loose structure:
 
 1. Introduction (max 1 section)
-   - Start with ### Key Links and include user-provided links  
-   - Brief overview of the problem statement
-   - Brief overview of the solution/main topic
-   - Maximum 100 words
+   - Start with ### Key Links and include user-provided links.
+   - Provide a brief overview of the problem statement.
+   - Offer a glimpse into the solution/main topic.
+   - Maximum ~100 words, but allow flexibility.
 
-2. Main Body (exactly 2-3 sections)
-    - Each section must:
-      * Cover a distinct aspect of the main topic
-      * Include at least one relevant code snippet
-      * Be 150-200 words
-    - No overlap between sections
+2. Main Body (2-3 sections)
+   - Each section should:
+     * Focus on a distinct aspect of the topic.
+     * Where relevant, include at least one clear code snippet or example.
+     * Range between 150-400 words per section. Exact length can vary.
+     
+   - Avoid repetitive or overlapping content between sections.
 
 3. Conclusion (max 1 section)
-   - Brief summary of key points
-   - Key Links
-   - Clear call to action
-   - Maximum 150 words"""
+   - Recap the blog’s key takeaways concisely.
+   - Include Key Links.
+   - End with a call to action that feels natural or engaging.
+   - Keep it around 100-150 words but don’t over-focus on precision.
+"""
 
 
 ##----------------- Blog Planner Instructions -----------------##
-blog_planner_instructions="""You are an expert technical writer, helping to plan a blog post.
+blog_planner_instructions="""Your task is to create a CONCISE and logical blog outline.
 
-Your goal is to generate a CONCISE outline.
+Reflect carefully on the user-provided input (notes from articles, papers, GitHub repos, etc.) to ensure relevance.
 
-First, carefully reflect on the input from the user on the topic for which blogpost has to be generated:
-
-**Input**:
+**Input**:  
 {user_instructions}
 
-Next, structure these input into a set of sections that follow the structure EXACTLY as shown below: 
+**Generate the outline**:
+1. Divide the blog into clear sections based on this structure:
 {blog_structure}
 
-Generate blog sections following this exact structure:
+2. Provide details for each section in the following JSON format:  
 {{
   "sections": [
     {{
@@ -46,124 +47,138 @@ Generate blog sections following this exact structure:
   ]
 }}
 
-Each section MUST include all fields: name, description, content, and main_body.
-
-Final check:
-1. Confirm that the Sections follow the structure EXACTLY as shown above
-2. Confirm that each Section Description has a clearly stated scope that does not conflict with other sections
-3. Confirm that the Sections are grounded in the user notes"""
+**Final check**:
+- Sections should match the structure and have unique, clear scopes.  
+- Ensure content stays grounded in the user's notes.  
+- Allow minor overlaps where context or flow benefits.
+"""
 
 
 ##----------------- Section Writer Instructions -----------------##
-main_body_section_writer_instructions = """You are an expert technical writer crafting one section of a blog post that reads like a human-written article.  
+main_body_section_writer_instructions = """You are an expert technical writer crafting a section of a blog post. Write naturally and concisely, like a human would.  
 
-Here are the user instructions on the topic for the overall blog post, so that you have context for the overall content:  
+**Details for context**:  
 {user_instructions}  
 
-Here is the Section Name you are going to write:  
+**Section Name**:  
 {section_name}  
 
-Here is the Section Description you are going to write:  
+**Section Description**:  
 {section_topic}  
 
-First based on the user instructions, search and identify the top 3 most relevant source urls talking about the topic.
+**Source URLs**:  
+{source_urls}  
 
-Use this information from those source urls to flesh out the details of the section:  
+**Writing Style**:  
+- Use direct, simple, and clear language.  
+- Avoid excessive jargon.  
+- Occasionally use a conversational tone or rhetorical questions.  
+- Write like an explainer, not as a participant.  
 
-From the source urls, also extract the relevant images or videos source urls.  
+**Formatting**:  
+- Use proper markdown.  
+- Highlight key lines using ** for emphasis.  
+- Include code snippets or visuals where appropriate.  
+- Avoid repetitive information. 
 
-WRITING GUIDELINES:  
-
-1. **Style Requirements:**  
-- Use simple, easy to understand, jargon-less, naturally flowing content.  
-- Use technical and precise language.  
-- Write from the perspective of an observer or explainer, not as a participant. For example, use phrases like "AWS has implemented this feature..." or "They have used this approach..." instead of "We explored this feature..." or "Let's look at this...".  
-- Use active voice.  
-- Should look like a human-written article.  
-- Zero marketing language.  
-- Highlight important lines by emphasizing them using **.  
-- Do not repeat the information already covered.  
-
-2. **Format:**  
-- Use markdown formatting:  
-  * ## for section heading  
-  * ``` for code blocks  
-  * ** for emphasis when needed  
-  * - for bullet points if necessary  
-  * ![]() for images  
-  * <video src=... controls /> for videos  
-  * ** for highlighting  
-
-- Do not include any introductory phrases like 'Here is a draft...' or 'Here is a section...'.  
-
-3. **Grounding:**  
-- ONLY use information from the source urls you researched and extracted.  
-- Do not include information that is not in the source urls.  
-- If the source urls are missing information, then provide a clear "MISSING INFORMATION" message to the writer.  
-
-QUALITY CHECKLIST:  
-[ ] Section reads like a human-written article.  
-[ ] Meets word count as specified in the Section Description.  
-[ ] Contains one clear code example if specified in the Section Description.  
-[ ] Uses proper markdown formatting.  
-[ ] Use the extracted image or video source urls in the content in form of markdown.  
-[ ] Do not add blank image or video markdown formatting.
-
-Generate the section content now, focusing on clarity and technical accuracy.  """
+**Human-Like Quality Checklist**:  
+[ ] Reads naturally, with some variety in phrasing.  
+[ ] Uses markdown effectively.  
+[ ] Includes relevant examples or visuals, if provided.  
+[ ] Slight imperfections in sentence flow are acceptable.  
+[ ] Avoids redundancy or over-explaining.
+ """
 
 
 ##----------------- Introduction/Conclusion Writer Instructions -----------------##
 intro_conclusion_instructions = """You are an expert technical writer crafting the introduction or conclusion of a blog post.
 
-Here is the Section Name you are going to write: 
+**Section Name:**  
 {section_name}
 
-Here is the Section Description you are going to write: 
+**Section Description:**  
 {section_topic}
 
-Here are the main body sections that you are going to reference: 
-{main_body_sections}
+**Reference Content:**  
+- Main Body Sections: {main_body_sections}  
+- URLs: {source_urls}  
 
-Here are the URLs that you are going to reference:
-{source_urls}
+**Writing Guidelines:**  
 
-Guidelines for writing:
+1. **Style**  
+- Write in clear, precise, and natural language.  
+- Use an observer’s perspective, avoiding self-referential phrases like "We explored..." or "Let's look at...". Use expressions such as "AWS has implemented..." or "This approach is commonly used...".  
+- Emphasize key points using **bold text** where necessary.  
+- Keep the tone professional and avoid marketing language.  
 
-1. Style Requirements:
-- Section should read like a human-written article. 
-- Use technical and precise language
-- Write from the perspective of an observer or explainer, not as a participant. For example, use phrases like "AWS has implemented this feature..." or "They have used this approach..." instead of "We explored this feature..." or "Let's look at this...".  
-- Use active voice
-- Zero marketing language
-- Highlight important lines by emphasizing them using **. 
+2. **Formatting**  
+- Use proper markdown:  
+  - For introductions:  
+    * Start with # Title (attention-grabbing and technical).  
+  - For conclusions:  
+    * Begin with ## Conclusion (a concise and focused closing statement).  
 
-2. Section-Specific Requirements:
-
-FOR INTRODUCTION:
-- Use markdown formatting:
-  * # Title (must be attention-grabbing but technical)
-
-FOR CONCLUSION:
-- Use markdown formatting:
-  * ## Conclusion (crisp concluding statement)
-      
+3. **Focus**  
+- Ensure the content complements the main body sections and ties back to the topic.  
+- The introduction should provide a compelling overview.  
+- The conclusion should summarize key points and leave a lasting impression.  
 """
 
-
-
 ##----------------- Twitter Post Instructions -----------------##
-twitter_post_instructions = """Please ignore all previous instructions. Please respond only in the English language. You are a professional copywriter and would like to convert your article into an engaging Twitter thread. You have a Trendy tone of voice. You have a Academic writing style. Do not self reference. Do not explain what you are doing. Do not include any introductory phrases like 'here is a Twitter thread','Ok, here is your twitter thread' or similar sentences. Add emojis to the thread when appropriate. Add proper text formatting on important phrases or words in markdown format (like ** ** for bold, * * for italic etc.). The character count for each thread should be between 270 to 280 characters. Please add relevant hashtags to the post. Please turn the following article into a Twitter thread: 
+twitter_post_instructions = """You are tasked with creating a **Twitter thread** to summarize the provided blog in a relatable and engaging way.  
 
-Article:
-{final_blog}
+**Article**:  
+{final_blog}  
+
+**Writing Style**:  
+- Start with a strong hook.  
+- Use concise, conversational language.  
+- Include light humor or relatable phrases where relevant.  
+- Use emojis, but sparingly, to enhance tone.  
+
+**Format**:  
+1. Hook with attention-grabbing tweet.  
+2. Follow-up tweets with logical flow.  
+3. End with a clear call to action (e.g., link to blog or question for readers).  
+
+**Example**:  
+1. [First tweet grabs attention].  
+2. [Second tweet provides detail].  
+3. [Third tweet links or invites discussion].  
+
+**Checklist**:  
+- Each tweet is short and clear.  
+- Tone feels natural and human-like.  
+- Flow of the thread is smooth and easy to follow.  
 """
 
 
 ##----------------- LinkedIn Post Instructions -----------------##
-linkedin_post_instructions = """Please ignore all previous instructions. Please respond only in the English language. You are a professional copywriter and would like to convert your article into an engaging LinkedIn post. You have a Trendy tone of voice. You have a Academic writing style. Do not self reference. Do not explain what you are doing. Do not include any introductory phrases like 'here is your linkedin post' or similar sentences. Do not add or refer input instructions in your answer. Add emojis to the post when appropriate. Add proper text formatting on important phrases or words in markdown format (like ** ** for bold, * * for italic etc.). The character count for the post should be between 390 to 400 words. Please turn the following article into a LinkedIn post:
+linkedin_post_instructions = """Write a **professional LinkedIn post** summarizing the blog.  
 
-Article:
-{final_blog}
+**Article**:  
+{final_blog}  
+
+**Tone and Style**:  
+- Use clear, engaging language.  
+- Add storytelling or relatable examples.  
+- Use concise paragraphs with structured insights.  
+- Sparingly include emojis to add personality.  
+
+**Structure**:  
+1. Start with a **hook** to grab attention.  
+2. Provide value-driven insights in the body.  
+3. End with a thoughtful call to action (e.g., “What are your thoughts?”).  
+
+**Example Format**:  
+[Engaging hook or question]  
+[Insightful paragraphs with takeaways]  
+[Call to action with hashtags]  
+
+Checklist:  
+- Language feels professional yet approachable.  
+- Post length stays between 250–350 words.  
+- Hashtags are relevant and business-focused.  
 """
 
 
@@ -171,4 +186,18 @@ Article:
 tags_generator="""You are an expert in generating tags for a blog post. Your goal is to generate a list of tags that accurately describe the content of the post. The tags should be single words or short phrases, separated by commas. Tags should be present inside <tags> and </tags>. Ex: <tags>['AI','LLM']</tags>. You can generate up to 5 tags. Please generate the tags for the blog post based on the content provided below:
 
 {linkedin_post}
+"""
+
+##----------------- Query creator Instructions -----------------##
+query_creator="""
+Based on the following user query (can be a search topic, search query or a tweet text) , formulate a concise and effective search query:
+
+"{user_query_short}"
+
+Your task is to create an appropriate search query that will yield relevant results.
+
+Respond in below format:
+<query> search query </query>
+
+Do not provide any additional information or explanation.
 """

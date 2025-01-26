@@ -1,3 +1,4 @@
+from src.backend.extraction.extractors.reddit import RedditExtractor
 from src.backend.extraction.extractors.arxiv import ArxivExtractor
 from src.backend.extraction.extractors.image import ImageExtractor
 from src.backend.extraction.extractors.text import TextExtractor
@@ -22,7 +23,8 @@ def register_extractors():
         'arxiv': ArxivExtractor,
         'image': ImageExtractor,
         'twitter': TwitterExtractor,
-        'github': GithubExtractor
+        'github': GithubExtractor,
+        'reddit': RedditExtractor,
     }
     
     for name, extractor_class in extractors.items():

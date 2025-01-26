@@ -47,6 +47,6 @@ class BaseConverter(ABC):
         return params
 
     @abstractmethod
-    def convert(self, input_file: Path, **custom_params) -> str:
+    def convert(self, input_file: str, **custom_params) -> str:
         """Convert input file to markdown"""
         raise NotImplementedError

@@ -3,22 +3,26 @@ default_blog_structure = """The blog post should follow this strict three-part s
 
 1. Introduction (max 1 section)
    - Start with ### Key Links and include user-provided links  
-   - Brief overview of the problem statement
-   - Brief overview of the solution/main topic
-   - Maximum 100 words
+   - Brief overview of the main topic
+   - Maximum nearly 200 words but allow flexibility.
 
-2. Main Body (exactly 2-3 sections)
+2. Main Body (2-5 sections)
     - Each section must:
-      * Cover a distinct aspect of the main topic
-      * Include at least one relevant code snippet
-      * Be 150-200 words
-    - No overlap between sections
-
+      * Cover distinct or unique aspects of the main topic
+      * Cover every key point from the input content with relevant examples.
+      * Where relevant, include at least one clear code snippet or example.
+      * Where relevant, include images or videos taken as source urls from input content.
+      * Range between 300-600 words per section. Exact length can vary.
+    - Do not add repetitive or overlapping content between sections.
+    - Cover all the points with all details from the input content, do not miss any important point.
+    - As Input can be from various sources, they may have repeated information, so make sure to avoid any repetition in the generated content.
+    - Depending on the topic, decide the number of sections and their representation (e.g. for comparsion topics, you may need to create a table or a list etc.).
+  
 3. Conclusion (max 1 section)
    - Brief summary of key points
    - Key Links
-   - Clear call to action
-   - Maximum 150 words"""
+   - End with a call to action that feels natural or engaging.
+   - Keep it around 100-150 words"""
 
 
 ##----------------- Blog Planner Instructions -----------------##
@@ -26,7 +30,7 @@ blog_planner_instructions="""You are an expert technical writer, helping to plan
 
 Your goal is to generate a CONCISE outline.
 
-First, carefully reflect on the input from the user for which blogpost has to be generated (notes can be arxiv papers, articles, github repo readme etc.):
+Reflect carefully on the user-provided input (notes from articles, papers, GitHub repos, reddit posts and comments etc.) to ensure relevance.
 
 **Input**:
 {user_instructions}
@@ -50,65 +54,81 @@ Each section MUST include all fields: name, description, content, and main_body.
 
 Final check:
 1. Confirm that the Sections follow the structure EXACTLY as shown above
-2. Confirm that each Section Description has a clearly stated scope that does not conflict with other sections
+2. Confirm that each Section Description has a clearly stated scope that does not conflict with other sections and is not duplicated.
 3. Confirm that the Sections are grounded in the user notes"""
 
 
 ##----------------- Section Writer Instructions -----------------##
-main_body_section_writer_instructions = """You are an expert technical writer crafting one section of a blog post that reads like a human-written article.  
+main_body_section_writer_instructions = """You are an expert technical writer crafting a section of a blog post that writes natural and concise content, like a human would.  
 
-Here are the markdown input for the overall blog post, so that you have context for the overall content:  
+Here are the inputs provided for the overall blog post generation, so that you have context for the overall content:
+
+**Input**
 {user_instructions}  
 
-Here is the Section Name you are going to write:  
+Here is the Section Name you are going to write:
+
+**Section Name**:
 {section_name}  
 
 Here is the Section Description you are going to write:  
+
+**Section Description**:
 {section_topic}  
 
-Use this information from various source urls to flesh out the details of the section:  
-{source_urls}  
+Here are the reference urls that you can use for references wherever needed in the content:
 
-From above provided source urls, extract the relevant images or videos source urls.  
+**Reference urls**:
+{source_urls}
+
 
 WRITING GUIDELINES:  
 
 1. **Style Requirements:**  
-- Use simple, easy to understand, jargon-less, naturally flowing content.  
-- Use technical and precise language.  
+**Writing Style**:  
+- Use simple, easy to understand, jargon-less, direct, precise and naturally flowing language.
+- Use fewer words yet detailed to explain the concepts.
+- Use technical style.
+
+2. **Writing Instructions:**
 - Write from the perspective of an observer or explainer, not as a participant. For example, use phrases like "AWS has implemented this feature..." or "They have used this approach..." instead of "We explored this feature..." or "Let's look at this...".  
-- Use active voice.  
-- Should look like a human-written article.  
+- Include relevant examples or visuals where necessary.
+- Slight imperfections in sentence flow are acceptable.  
+- Do not add redundancy or over-explaining.
 - Zero marketing language.  
 - Highlight important lines by emphasizing them using **.  
-- Do not repeat the information already covered.  
+- Do not repeat or add similar information already covered.  
+- Include references where ever needed and cover all the details to enhance the blog post.
+- As Input can be from various sources, they may have repeated information, so make sure to avoid any repetition in the generated content.
+- Do not promote any product or service in the content.
+- Do not include any introductory phrases like 'Here is a draft...' or 'Here is a section...', 'this section discusses ...' etc. Directly start with the content.
 
-2. **Format:**  
+3. **Formatting Instructions:**  
 - Use markdown formatting:  
   * ## for section heading  
   * ``` for code blocks  
   * ** for emphasis when needed  
   * - for bullet points if necessary  
-  * ![]() for images  
+  * ![](...) for images  
   * <video src=... controls /> for videos  
   * ** for highlighting  
 
-- Do not include any introductory phrases like 'Here is a draft...' or 'Here is a section...'.  
-
-3. **Grounding:**  
-- ONLY use information from the source urls provided.  
-- Do not include information that is not in the source urls.  
-- If the source urls are missing information, then provide a clear "MISSING INFORMATION" message to the writer.  
+4. **Grounding Instructions:**  
+- ONLY use information from the input provided, without duplication.
+- Do not include information that is not in the inputs.  
+- Ensure that the section is grounded in the user-provided input.
 
 QUALITY CHECKLIST:  
-[ ] Section reads like a human-written article.  
+[ ] Section reads like a human-written article in a reader-friendly tone. 
 [ ] Meets word count as specified in the Section Description.  
-[ ] Contains one clear code example if specified in the Section Description.  
+[ ] Uses concise, clear and direct language, without using too many words to explain a simple concept.
+[ ] Contains all the key points in detail from the input content.
+[ ] If needed ,contains one clear code example if specified in the Section Description.  
 [ ] Uses proper markdown formatting.  
-[ ] Use the extracted image or video source urls in the content in form of markdown.  
-[ ] DO not add blank image or video markdown formatting.
+[ ] Uses image or video source urls in the content in form of markdown.  
+[ ] No repeated or duplicate information.
 
-Generate the section content now, focusing on clarity and technical accuracy.  """
+"""
 
 
 ##----------------- Introduction/Conclusion Writer Instructions -----------------##
@@ -129,12 +149,14 @@ Here are the URLs that you are going to reference:
 Guidelines for writing:
 
 1. Style Requirements:
-- Section should read like a human-written article. 
-- Use technical and precise language
+- Use simple, easy to understand, jargon-less, direct, precise and naturally flowing language.
+- Use technical style
 - Write from the perspective of an observer or explainer, not as a participant. For example, use phrases like "AWS has implemented this feature..." or "They have used this approach..." instead of "We explored this feature..." or "Let's look at this...".  
-- Use active voice
+- Do not add redundancy or do over-explaining.
 - Zero marketing language
 - Highlight important lines by emphasizing them using **. 
+- Do not repeat the information already covered.
+- Include references where ever needed and cover all the details to enhance the blog post.
 
 2. Section-Specific Requirements:
 
@@ -230,14 +252,59 @@ tags_generator="""You are an expert in generating tags for a blog post. Your goa
 
 ##----------------- Query creator Instructions -----------------##
 query_creator="""
-Based on the following user question (can be a search topic, search query or a tweet ) , formulate a concise and effective search query:
+Given the user input, which could be a search topic, query, or tweet, identify the intent of the input and formulate a effective web search query in 5-15 words:
 
 "{user_query_short}"
 
-Your task is to create a search query of 2-5 words that will yield relevant results.
+Your goal is to create an optimized search query that captures the intent and returns the most relevant results.
 
-Respond in below format:
-<query> Your 2-5 word query </query>
+Respond in the following format:
+<query> search query </query>
 
-Do not provide any additional information or explanation.
+Do not add any extra explanation or information outside the specified format.
 """
+
+##----------------- Summary Instructions -----------------##
+summary_instructions="""
+
+You are tasked with creating a detailed and well-structured research report on the topic: {topic}. Use the provided URLs as primary sources for your research. Your report should thoroughly analyze and synthesize information from each source to cover all aspects of the topic comprehensively.
+
+**Instructions:**
+
+1. Visit each URL listed below.
+2. Extract and summarize relevant information pertaining to the topic.
+3. Identify key themes, insights, trends, and data from the sources.
+4. Ensure the report is logically organized, with clear headings, subheadings, and supporting details.
+5. Present your findings in a concise yet detailed manner, highlighting critical aspects.
+6. Include references to the original sources within the report.
+7. Write in Markdown format.
+8. Also provide the media content (images, videos) from the provided URLs.
+9. Provide the report in atleast 1500-4000 words, covering all the aspects of the topic.
+10. Make sure your research is grounded in the provided URLs.
+
+**Provided URLs:** 
+{source_urls}
+
+Your final report should serve as an exhaustive resource on the topic, offering valuable insights drawn from the provided sources.
+"""
+
+relevant_search_prompt="""
+Given the following search results for the query: {user_query}
+
+Select the most relevant results to scrape and analyze. Explain your reasoning for each selection. 
+
+**Search Results:**
+{search_results}
+
+Instructions:
+1. You must select appropriate number of urls based on a criteria if they are sufficiently relevant and comprehensive to answer the query. Selected urls should be valid.
+2. Choose the results that are highly likely to contain comprehensive and relevant information related to the query. This is very important.
+3. Chose from authentic and reliable sources which has an area of expertise on the topic and which are not promotional or biased or just contain a brief overview of the topic.
+4. Provide a brief reason for each selection.
+5. Make sure your selected urls are sufficient to answer the query in detail.
+
+You MUST respond using EXACTLY this format and nothing else:
+
+<relevant_urls>[URL1, URL2]</relevant_urls>
+<reasoning>Your reasoning for the selections</reasoning>
+""" 

@@ -18,6 +18,10 @@ extractors:
     default:
       class_params: {}
       method_params: {}
+  reddit:
+    default:
+      class_params: {}
+      method_params: {}
 
   html:
     default:
@@ -38,7 +42,7 @@ extractors:
       method_params:
         clean_whitespace: true
         remove_empty_lines: true
-
+  
 converters:
   generic:
     default:

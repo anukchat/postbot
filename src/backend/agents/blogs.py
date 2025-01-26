@@ -23,7 +23,9 @@ from agents.prompts import (
     linkedin_post_instructions,
     twitter_post_instructions,
     tags_generator,
-    query_creator
+    query_creator,
+    summary_instructions,
+    relevant_search_prompt
 )
 from agents.tools import WebSearch
 from clients.llm import LLMClient, HumanMessage, SystemMessage
@@ -32,18 +34,18 @@ from agents.utils import *
 from db.supabaseclient import supabase_client
 from extraction.docintelligence import DocumentExtractor
 from src.backend.extraction.factory import ConverterRegistry, ExtracterRegistry
+import atexit
 
 supabase: Client = supabase_client()
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
-supabase: Client = supabase_client()
 
 
 class AgentWorkflow:
 
     def __init__(self):
         self.llm = LLMClient()
-        self.websearcher = WebSearch(provider='duckduckgo', num_results=2)
+        self.websearcher = WebSearch(provider='duckduckgo', num_results=15)
         self.builder = StateGraph(
             BlogState,
             input=BlogStateInput,
@@ -53,15 +55,24 @@ class AgentWorkflow:
         dsn = os.getenv("SUPABASE_POSTGRES_DSN", "")
         connection_kwargs = {
             "autocommit": True,
-            "prepare_threshold": 0,
         }
-        conn = Connection.connect(dsn, **connection_kwargs)
-        self.checkpointer = PostgresSaver(conn)
+        self.conn = Connection.connect(dsn, **connection_kwargs)
+        self.checkpointer = PostgresSaver(self.conn)
+
+        # Add finalizer to close connection when object is destroyed
+        atexit.register(self._cleanup)
         self.graph = self.setup_workflow()
         self.generic_converter=ConverterRegistry.get_converter("generic")
+        self.html_converter=ConverterRegistry.get_converter("html")
         self.arxiv_extracter=ExtracterRegistry.get_extractor("arxiv")
         self.github_extracter=ExtracterRegistry.get_extractor("github")
+        self.reddit_extracter=ExtracterRegistry.get_extractor("reddit")
         self.extractor = DocumentExtractor()
+
+    def _cleanup(self):
+        """Close database connection on exit"""
+        if hasattr(self, 'conn'):
+            self.conn.close()
 
     def generate_blog_plan(self, state: BlogState):
         """Generate the report plan"""
@@ -364,6 +375,47 @@ class AgentWorkflow:
         return response.data
 #-------------Agent main workflow----------------
 
+    def _summarize_websearch_results(self, urls, search_query):
+        """Summarize websearch results"""
+
+        research_prompt = summary_instructions.format(source_urls="\n".join(urls), topic=search_query)
+        
+        llm_response= self.llm.invoke(
+            [
+                HumanMessage(content=research_prompt)
+            ]
+        )
+        
+        return llm_response    
+    
+    def _relevant_search_selection(self, urls,search_query):
+        """Select relevant search results"""
+        relevance_prompt = relevant_search_prompt.format(search_results="\n".join(urls),user_query=search_query)
+        
+        llm_response= self.llm.invoke(
+            [
+                HumanMessage(content=relevance_prompt)
+            ]
+        )
+
+        def parse_url_string(relevant_match):
+            """Parse string of comma-separated URLs into list"""
+            if not relevant_match:
+                return []
+                
+            # Extract string and remove brackets
+            url_string = relevant_match[0].strip('[]')
+            
+            # Split by comma and clean each URL
+            urls = [url.strip() for url in url_string.split(',')]
+            
+            return urls
+        
+        relevant_match = re.findall(r"<relevant_urls>(.*?)</relevant_urls>", llm_response, re.DOTALL)
+        relevant_urls = parse_url_string(relevant_match)
+        return relevant_urls
+                
+    
     def _initialize_workflow(self, payload,thread_id):
         """Initialize workflow with thread ID and empty source data"""
         thread_id = payload.get("thread_id") or thread_id
@@ -384,19 +436,29 @@ class AgentWorkflow:
     
     def _handle_topic_workflow(self, payload, thread_id, user):
         """Handle workflow for URL-based content"""
-        query=self._query_rewriter(payload['topic'])
-        urls=self.websearcher.search(query).get_all_urls()
-        # reference_content=''.join([f"URL: {url} \n {self.generic_converter.convert(url)} \n\n" for url in urls ])
-        payload['url']=urls[0]
-        source_id, url_meta, media_meta = self._setup_web_url_source(payload, thread_id, user)
-        content =self._process_url_content(url_meta)
-        media_markdown = get_media_content_url(media_meta)
+        reference_content = ''
+        # query=self._query_rewriter(payload['topic'])
+        urls=self.websearcher.search(payload['topic']).get_all_urls()
+        urls=self._relevant_search_selection(urls,payload['topic'])
+
+        source_id,url_meta = self._setup_topic_source(payload,urls ,thread_id, user)
+
+        # reference_content=self._summarize_websearch_results(urls, query)
+        for meta in url_meta:
+            try:
+                # url_meta = get_url_metadata(url)
+                content = self._process_url_content(meta)
+                reference_content += f"# Source 1: \n **Source URL:* {meta['original_url']} \n **Raw Content**:\n {content} \n\n"
+            except Exception as e:
+                logger.warning(f"Failed to process URL {meta['original_url']}: {str(e)}")
+                continue
+
         return BlogStateInput(
             input_topic=payload["topic"],
-            input_content=content,
+            input_url='\n'.join(urls),
+            input_content=reference_content,
             post_types=payload.get("post_types", ["blog"]),
-            thread_id=thread_id,
-            media_markdown=media_markdown,
+            thread_id=thread_id
         ), source_id
     
     def _query_rewriter(self, search_query):
@@ -430,9 +492,13 @@ class AgentWorkflow:
             urls=self.websearcher.search(query).get_all_urls()
 
             for url in urls:
-                url_meta=get_url_metadata(url)
-                content =self._process_url_content(url_meta)
-                reference_content+=f"For Source URL: {url}, below is the content \n {content} \n\n"
+                try:
+                    url_meta = get_url_metadata(url)
+                    content = self._process_url_content(url_meta)
+                    reference_content += f"For Source URL: {url}, below is the content \n {content} \n\n"
+                except Exception as e:
+                    logger.warning(f"Failed to process URL {url}: {str(e)}")
+                    continue
             # select appropriate urls from the research results
             # reference_content=''.join([f"URL: {url} \n {self.generic_converter.convert(url)} \n\n" for url in urls ])
             # use markdownit to convert the urls to markdown
@@ -459,7 +525,7 @@ class AgentWorkflow:
         config = {"configurable": {"thread_id": thread_id}}
         result = self.graph.invoke(test_input, config=config)
         self._store_new_content(result, thread_id, source_id, payload, user)
-        return result
+        return result   
 
     def run_generic_workflow(self, payload, thread_id,user):
         """Universal handler for all workflow types with database integration"""
@@ -543,6 +609,36 @@ class AgentWorkflow:
                     "media_type": media["type"],
                 }
                 supabase.table("media").insert(media_data).execute()
+
+    def _setup_topic_source(self, payload,urls, thread_id, user):
+        """Setup source records for web URL"""
+        existing_source = (
+            supabase.table("sources")
+            .select("*")
+            .eq("source_identifier", payload["topic"])
+            .eq("profile_id", user["id"])
+            .execute()
+        )
+
+        url_meta=[]
+        if existing_source.data:
+            source_id = existing_source.data[0]["source_id"]
+            self._validate_existing_content(source_id, payload)
+            for url in urls:
+                meta= get_url_metadata(url)
+                if meta:
+                    url_meta.append(meta)
+            return source_id,url_meta
+
+        source_id = self._create_source_record(payload["topic"], thread_id, "topic", user)
+
+        for url in urls:
+            meta=get_url_metadata(url)
+            if meta:
+                url_meta.append(meta)
+                self._handle_url_references(source_id, meta)
+                
+        return source_id, url_meta
 
     def _setup_web_url_source(self, payload, thread_id, user):
         """Setup source records for web URL"""
@@ -752,6 +848,9 @@ class AgentWorkflow:
         elif url_meta["type"] == "github":
             readme_url=self.github_extracter.extract(url_meta["original_url"])['readme_url']
             return self.generic_converter.convert(readme_url)
+        elif url_meta["type"] == "reddit":
+            reddit_obj=self.reddit_extracter.extract(url_meta["original_url"])
+            return reddit_obj['summary']
         else:
             return url_meta["content"]
 

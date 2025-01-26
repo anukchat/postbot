@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from src.backend.config import Config, ConfigLoader
 
 load_dotenv()
-
+# litellm.set_verbose=True
 class Message:
     def __init__(self, content: str):
         self.content = content
