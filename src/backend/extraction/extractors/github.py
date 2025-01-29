@@ -1,4 +1,5 @@
 
+from typing import List
 import requests
 from src.backend.clients.github import GithubClient
 from src.backend.extraction.base import BaseExtractor
@@ -40,3 +41,6 @@ class GithubExtractor(BaseExtractor):
             "repo": repo,
             "readme_url": download_url
         }
+    
+    def create_summary(self, summary_obj: List[dict], **method_params) -> str:
+        pass

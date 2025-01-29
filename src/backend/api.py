@@ -92,6 +92,8 @@ class GeneratePostRequestModel(BaseModel):
     url: Optional[str] = None
     topic: Optional[str] = None
     feedback: Optional[str] = None  # Add this field
+    reddit_query: Optional[str] = None
+    subreddit: Optional[str] = None
 
 class SourceListResponse(BaseModel):
     items: List[Dict]

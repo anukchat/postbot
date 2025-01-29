@@ -45,7 +45,18 @@ class RedditExtractor(BaseExtractor):
         Ensure the summary is clear, concise, and captures the essence of the post and the discussion. Avoid unnecessary details but include enough depth for a comprehensive understanding.
         """
 
-
+        if method_params.get("skip_llm", False):
+            return {
+                "type": "reddit",
+                "content": content['selftext'],
+                "title": content['title'],
+                "author": content['author'],
+                "subreddit": submission.subreddit.display_name,
+                "score": content['score'],
+                "top_comments": content['comments'][:10],
+                "summary": "Summary generation skipped."
+            }
+        
         # Generate summary using LLM
         summary = self.llm.invoke([HumanMessage(content=summary_prompt)])
 
@@ -101,3 +112,43 @@ class RedditExtractor(BaseExtractor):
         for comment in comments:
             formatted.append(f"Comment by {comment['author']} (Score: {comment['score']}): {comment['body']}")
         return "\n\n".join(formatted)
+
+    def create_summary(self, reddit_data:List[dict]) -> str:
+        
+        #loop through the reddit data and create a summary with schema :,content: str, title: str, comments: List[str]
+        
+        pre_summary_prompt = self._create_pre_summary(reddit_data)
+        
+        summary_prompt = f"""
+        Summarize the following Reddit posts and its top comments into a detailed, well-structured summary:
+
+        {pre_summary_prompt}
+        
+        The summary should be structured as follows:
+        1. **Main Points from different Posts:** Clearly outline the key ideas, questions, or arguments presented in the various post. Include any relevant context or examples provided by the authors.
+        2. **Insights from Top Comments:** Highlight the most significant points from each post, counterpoints, or additional information shared by commenters. Include diverse perspectives and notable replies.
+        3. **Themes of the Discussion:** Provide an overview of recurring themes, debates, or consensus points that emerge from various discussions.
+        4. **Actionable Takeaways (if any):** Summarize practical suggestions, advice, or conclusions drawn from the various conversations.
+        
+        Ensure the summary is clear, concise, and captures the essence of the post and the discussion. Include enough depth for a comprehensive understanding.
+        """
+
+        summary = self.llm.invoke([HumanMessage(content=summary_prompt)])
+
+        return summary
+
+    def _create_pre_summary(self, reddit_data):
+        pre_summary_prompt=""
+        for data in reddit_data:
+            content = data['content']
+            title = data['title']
+            comments = data['top_comments']
+            pre_summary_prompt += f"""
+                **Post Title:** {title}
+                **Post Content:** {content}
+                **Top Comments:** 
+                {self._format_comments(comments)}
+                -----------------------------------------
+            """
+            
+        return pre_summary_prompt

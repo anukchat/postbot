@@ -1,4 +1,5 @@
 
+from typing import List
 from src.backend.extraction.base import BaseExtractor
 
 
@@ -15,3 +16,7 @@ class ResearchExtractor(BaseExtractor):
         params = self.merge_method_params(method_params)
         # Implement image extraction logic
         return {"type": "image", "path": source}
+    
+    def create_summary(self, summary_obj: List[dict], **method_params) -> str:
+        pass
+

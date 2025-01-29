@@ -45,6 +45,10 @@ TODO:
 32. Add batch news generation
 33. Change menu items layout, add more colored layout
 34. Queue based generation, async
+35. Generate multilingual content
+36. Generate audio voice overs
+37. Search images for article
+38. AI generated images
 
 Refactoring:
 1. Remove unnecessary packages and imports
@@ -93,3 +97,5 @@ When given a tweet
 2. Search web and create research content.
 3. Also extract from linked content if any
 4. 
+
+

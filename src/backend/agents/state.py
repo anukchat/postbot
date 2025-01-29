@@ -24,6 +24,7 @@ class BlogState:
     linkedin_post: Optional[str] = field(default=None)
     tags: Optional[List[str]] = field(default=None)
     feedback: Optional[str] = field(default=None)
+    input_reddit: Optional[str] = field(default=None)
     input_topic: Optional[str] = field(default=None)
     input_url: Optional[str] = field(default=None)
     input_content: Optional[str] = field(default=None)
@@ -37,6 +38,7 @@ class BlogState:
 
 @dataclass
 class BlogStateInput:
+    input_reddit: Optional[str] = field(default=None)
     input_topic: Optional[str] = field(default=None)
     input_url: Optional[str] = field(default=None)
     input_content: Optional[str] = field(default=None)

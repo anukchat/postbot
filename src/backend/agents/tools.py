@@ -1,10 +1,13 @@
 from abc import ABC, abstractmethod
 import os
-from googlesearch import search as google_search
-from duckduckgo_search import DDGS
 import time
 from urllib.error import HTTPError
 import praw
+from langchain_community.tools import DuckDuckGoSearchResults, BraveSearch
+from langchain_community.utilities import SerpAPIWrapper,GoogleSerperAPIWrapper,DuckDuckGoSearchAPIWrapper
+import json
+
+from src.backend.extraction.factory import ExtracterRegistry
 
 class Search(ABC):
     @abstractmethod
@@ -13,14 +16,15 @@ class Search(ABC):
 
 class WebSearch(Search):
     PROVIDERS = {
-        'google': lambda query, num_results: list(google_search(query, num=num_results)),
-        'duckduckgo': lambda query, num_results: list(DDGS().text(query, max_results=num_results))
+        'google': lambda: GoogleSerperAPIWrapper(k=15),
+        'serpapi': lambda: SerpAPIWrapper(),
+        'duckduckgo': lambda: DuckDuckGoSearchResults(output_format="list", num_results=15)
     }
 
-    def __init__(self, provider='google', num_results=10):
+    def __init__(self, provider='duckduckgo', num_results=15):
         """
         Initialize web search with specified provider
-        :param provider: Search provider ('google' or 'duckduckgo')
+        :param provider: Search provider ('google', 'serpapi', or 'duckduckgo')
         :param num_results: Number of results to return
         """
         self.provider = provider.lower()
@@ -30,6 +34,8 @@ class WebSearch(Search):
         if self.provider not in self.PROVIDERS:
             raise ValueError(f"Provider {provider} not supported. Use one of: {', '.join(self.PROVIDERS.keys())}")
         
+        self.search_tool = self.PROVIDERS[self.provider]()
+
     def search(self, query, max_retries=3):
         """
         Execute search using selected provider
@@ -39,47 +45,46 @@ class WebSearch(Search):
         """
         for attempt in range(max_retries):
             try:
-                self.results = self.PROVIDERS[self.provider](query, self.num_results)
-                return self
-            except HTTPError as e:
-                if e.code == 429 and attempt < max_retries - 1:
-                    time.sleep(5 * (attempt + 1))  # Exponential backoff
+
+                if self.provider in ['duckduckgo']:
+                    search_results = self.search_tool.invoke(query)
                 else:
-                    raise
-        self.results = self.PROVIDERS[self.provider](query, self.num_results)
+                    search_results =self.search_tool.results(query)
+                
+                # Parse results based on provider
+                if self.provider in ['google', 'serpapi']:
+                    self.results = search_results['organic']
+                else:  # duckduckgo
+                    self.results = search_results
+                    
+                return self
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)  # Exponential backoff
+                else:
+                    raise e
         return self
 
     def get_results(self):
         """Get all search results"""
         return self.results
 
-    def get_results_count(self):
-        """Get number of results"""
-        return len(self.results)
-
-    def get_result(self, index):
-        """Get single result by index"""
-        if 0 <= index < len(self.results):
-            return self.results[index]
-        raise IndexError("Result index out of range")
-
     def get_all_urls(self):
         """Get all result URLs"""
-        if self.provider == 'google':
-            return self.results
-        return [result['href'] for result in self.results]
+        if self.provider in ['google', 'serpapi']:
+            return [result['link'] for result in self.results]
+        return [result['link'] for result in self.results]  # DuckDuckGo format
 
     def get_all_titles(self):
         """Get all result titles"""
-        if self.provider == 'google':
-            return None  # Google search doesn't provide titles
-        return [result['title'] for result in self.results]
+        if self.provider in ['google', 'serpapi']:
+            return [result['title'] for result in self.results]
+        return [result['title'] for result in self.results]  # DuckDuckGo format
 
 class RedditSearch(Search):
 
     def __init__(self):
-        """Initialize Reddit API client"""
-
+        """Initialize Reddit API client and extractor"""
         client_id = os.getenv('REDDIT_CLIENT_ID')
         client_secret= os.getenv('REDDIT_CLIENT_SECRET')
         user_agent= os.getenv('REDDIT_USER_AGENT')
@@ -88,48 +93,54 @@ class RedditSearch(Search):
             client_secret=client_secret,
             user_agent=user_agent
         )
+        self.extractor=ExtracterRegistry.get_extractor("reddit")
         self.results = []
 
     def search(self, query, max_retries=3, subreddit=None, limit=10):
-        """Search Reddit posts"""
+        """Search Reddit posts and extract content"""
         for attempt in range(max_retries):
             try:
                 if query.startswith(('https://www.reddit.com/', 'https://reddit.com/')):
                     # Handle Reddit URL
                     submission = self.reddit.submission(url=query)
+                    extracted_content = self.extractor.extract(query,skip_llm=True)
                     self.results = [{
                         'title': submission.title,
                         'url': submission.url,
+                        'subreddit': submission.subreddit.display_name,
                         'score': submission.score,
-                        'text': submission.selftext,
-                        'author': str(submission.author),
-                        'subreddit': submission.subreddit.display_name
+                        'num_comments': submission.num_comments,
+                        'content': extracted_content.get('content', ''),
+                        # 'summary': extracted_content.get('summary', ''),
+                        'top_comments': extracted_content.get('top_comments', [])
                     }]
                 else:
-                    # Handle regular search query
+                    # Handle keyword search
                     if subreddit:
-                        posts = self.reddit.subreddit(subreddit).search(query, limit=limit)
+                        submissions = self.reddit.subreddit(subreddit).search(query, limit=limit)
                     else:
-                        posts = self.reddit.subreddit('all').search(query, limit=limit)
-                    
-                    self.results = [{
-                        'title': post.title,
-                        'url': post.url,
-                        'score': post.score,
-                        'text': post.selftext,
-                        'author': str(post.author),
-                        'subreddit': post.subreddit.display_name
-                    } for post in posts]
-                return self
-            except Exception as e:
-                if attempt < max_retries - 1:
-                    time.sleep(5 * (attempt + 1))
-                else:
-                    raise
+                        submissions = self.reddit.subreddit('all').search(query, limit=limit)
 
-    def get_results(self):
-        """Get all search results"""
-        return self.results
+                    self.results = []
+                    for submission in submissions:
+                        extracted_content = self.extractor.extract(f"https://reddit.com{submission.permalink}",skip_llm=True)
+                        self.results.append({
+                            'title': submission.title,
+                            'url': submission.url,
+                            'subreddit': submission.subreddit.display_name,
+                            'score': submission.score,
+                            'num_comments': submission.num_comments,
+                            'content': extracted_content.get('content', ''),
+                            # 'summary': extracted_content.get('summary', ''),
+                            'top_comments': extracted_content.get('top_comments', [])
+                        })
+                    
+                return self.results
+
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    raise e
+                time.sleep(2 ** attempt)
 
 def main():
     # Create an instance and use instance method

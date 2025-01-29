@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List
 from src.backend.config import Config, ConfigLoader
 
 class BaseExtractor(ABC):
@@ -21,6 +21,11 @@ class BaseExtractor(ABC):
     @abstractmethod
     def extract(self, source: str, **method_params) -> dict:
         """Extract data from the source"""
+        pass
+
+    @abstractmethod
+    def create_summary(self, summary_obj: List[dict], **method_params) -> str:
+        """Create a summary from the extracted data"""
         pass
     
     def merge_method_params(self, custom_params: Dict[str, Any]) -> Dict[str, Any]:

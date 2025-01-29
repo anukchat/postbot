@@ -2,27 +2,27 @@
 default_blog_structure = """The blog post should follow this strict three-part structure:
 
 1. Introduction (max 1 section)
-   - Start with ### Key Links containing user-provided links
-   - Brief main topic overview
-   - 150-200 words (flexible)
+   - Start with ### Key Links and include user-provided links  
+   - Brief overview of the main topic
+   - Maximum nearly 200 words but allow flexibility.
 
 2. Main Body (2-5 sections)
-   - Each section must:
-     * Cover unique aspects of main topic
-     * Include all key input points with examples
-     * Add code snippets where relevant
-     * Embed images/videos from source URLs
-     * 300-600 words per section (variable)
-   - No content overlap between sections
-   - Include all input details
-   - Remove duplicate information from multiple sources
-   - Use appropriate formats (tables/lists for comparisons)
-
+    - Each section must:
+      * Cover distinct or unique aspects of the main topic
+      * Cover every key point from the input content with relevant examples.
+      * Where relevant, include at least one clear code snippet or example.
+      * Where relevant, include images or videos taken as source urls from input content.
+      * Range between 300-600 words per section. Exact length can vary.
+    - Do not add repetitive or overlapping content between sections.
+    - Cover all the points with all details from the input content, do not miss any important point.
+    - As Input can be from various sources, they may have repeated information, so make sure to avoid any repetition in the generated content.
+    - Depending on the topic, decide the number of sections and their representation (e.g. for comparsion topics, you may need to create a table or a list etc.).
+  
 3. Conclusion (max 1 section)
-   - Concise key point summary
-   - Repeat Key Links
-   - Natural call-to-action
-   - 100-150 words"""
+   - Brief summary of key points
+   - Key Links
+   - End with a call to action that feels natural or engaging.
+   - Keep it around 100-150 words"""
 
 
 ##----------------- Blog Planner Instructions -----------------##
@@ -30,7 +30,7 @@ blog_planner_instructions="""You are an expert technical writer, helping to plan
 
 Your goal is to generate a CONCISE outline.
 
-Reflect carefully on the user-provided input (notes are from articles, papers, GitHub repos, reddit posts and comments etc.) to ensure relevance.
+Reflect carefully on the user-provided input (notes from articles, papers, GitHub repos, reddit posts and comments etc.) to ensure relevance.
 
 **Input**:
 {user_instructions}
@@ -50,7 +50,7 @@ Generate blog sections following this exact structure:
   ]
 }}
 
-Each section MUST include all fields: name, description, content, and main_body (main_body is a boolean field which denotes if the section written is main body or not).
+Each section MUST include all fields: name, description, content, and main_body.
 
 Final check:
 1. Confirm that the Sections follow the structure EXACTLY as shown above
@@ -59,7 +59,7 @@ Final check:
 
 
 ##----------------- Section Writer Instructions -----------------##
-main_body_section_writer_instructions = """You are an expert technical writer crafting a section of a blog post , you can think step by step to create natural and concise content, like a human would.  
+main_body_section_writer_instructions = """You are an expert technical writer crafting a section of a blog post that writes natural and concise content, like a human would.  
 
 Here are the inputs provided for the overall blog post generation, so that you have context for the overall content:
 
@@ -134,7 +134,7 @@ QUALITY CHECKLIST:
 
 
 ##----------------- Introduction/Conclusion Writer Instructions -----------------##
-intro_conclusion_instructions = """You are an expert technical writer, you can think step by step for crafting the introduction or conclusion of a blog post.
+intro_conclusion_instructions = """You are an expert technical writer crafting the introduction or conclusion of a blog post.
 
 Here is the Section Name you are going to write: 
 {section_name}
@@ -257,33 +257,45 @@ tags_generator="""You are an expert in generating tags for a blog post. Your goa
 
 ##----------------- Query creator Instructions -----------------##
 query_creator="""
-Given the user input, which could be a search topic, query, or tweet, identify the intent of the input and formulate a effective web search query:
+Analyze the user's input (which may be a search topic, raw query, or social media post) through these steps:
+1. Identify core intent (informational, navigational, transactional, or investigative)
+2. Extract key entities/contextual cues
+3. Determine required content type (stats, comparisons, guides, news)
+4. Remove non-essential words while preserving semantic meaning
 
-"{user_query_short}"
+Generate a focused web search query using this priority:
+- Primary intent keywords
+- Context specifiers (location/time where relevant)
+- Content-type indicators ("statistics", "vs", "tutorial")
+- Exclude opinions/hedges
 
-Your goal is to create an optimized search query that captures the intent and returns the most relevant results.
+Format response EXACTLY as:
+<query>optimized search string</query>
 
-Respond in the following format:
-<query> search query </query>
-
-Do not add any extra explanation or information outside the specified format.
+Input: "{user_query_short}"
 """
 
 reddit_query_creator = """
-Given the user input, which could be a search topic, query, or tweet, identify the intent of the input and formulate a effective search query:
+Transform the user's input into an optimized Reddit search query that extracts authentic discussions, user experiences, and key insights. Follow these steps:
 
-{user_query_short}
+1. Analyze intent: Identify if seeking reviews, comparisons, advice, or general discussions
+2. Include search operators: Use "site:reddit.com" and relevant keywords (reviews, experiences, opinions, discussion)
+3. Add context: Append terms like "pros and cons", "recommendations", or "user feedback" where appropriate
+4. Maintain natural language: Keep conversational while adding search-friendly terms
 
-Your goal is to rewrite and create an optimized search query that captures the intent and returns the most relevant results.
+Input: "{user_query_short}"
 
-Respond in the following format:
-<query>site:reddit.com search query </query>
+Format response EXACTLY as:
+<query>optimized reddit search query</query>
 
-1. Add 'site:reddit.com' before the search query to limit the search to Reddit.
-2. Do not add any extra explanation or information outside the specified format.
-3. Do not add any double quotes around the search query.
-4. Do not add any logical operators like AND, OR, etc.
+Examples:
+Input: "iPhone 15 camera quality"
+Output: <query>iPhone 15 camera quality site:reddit.com reviews, user experiences, pros and cons</query>
 
+Input: "Coachella 2024 safety"
+Output: <query>Coachella 2024 safety site:reddit.com crowd experiences, security measures, tips</query>
+
+Focus on extracting: Personal anecdotes, verified purchases, long-term use reports, and credibility indicators (upvotes/awards).
 """
 
 ##----------------- Summary Instructions -----------------##

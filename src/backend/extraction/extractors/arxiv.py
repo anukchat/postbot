@@ -1,5 +1,6 @@
 
 import tempfile
+from typing import List
 import requests
 from src.backend.extraction.base import BaseExtractor
 
@@ -32,3 +33,6 @@ class ArxivExtractor(BaseExtractor):
             
         except Exception as e:
             raise Exception(f"Failed to extract PDF from arXiv: {str(e)}")
+
+    def create_summary(self, summary_obj: List[dict], **method_params) -> str:
+        pass

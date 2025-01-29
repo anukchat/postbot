@@ -200,14 +200,40 @@ def classify_url(url):
         # Comprehensive URL type classification
         url_types = {
             # Code and Development Platforms
-            'github_code': {
-                'condition': 'github.com' in domain and ('/blob/' in path or '/tree/' in path),
-                'category': 'code'
+            # Document Types
+            'pdf': {
+                'condition': path.endswith('.pdf'),
+                'category': 'document'
+            },
+                        # Academic and Research
+            'arxiv': {
+                'condition': 'arxiv.org' in domain,
+                'category': 'document'
+            },    
+            # Social Media
+            'tweet': {
+                'condition': ('twitter.com' in domain or 'x.com' in domain) and '/status/' in path,
+                'category': 'metadata'
+            },
+            'reddit': {
+                'condition': 'reddit.com' in domain,
+                'category': 'metadata'
+            },
+            
+            # Web Content
+            'html': {
+                'condition': path.endswith('.html') or not path.endswith(('.pdf', '.ipynb')),
+                'category': 'webpage'
             },
             'github': {
                 'condition': 'github.com' in domain and ('/blob/' not in path or '/tree/' not in path or '/trending' not in path or '/explore' not in path or '/topics' not in path),   
                 'category': 'repo'
             },
+            'github_code': {
+                'condition': 'github.com' in domain and ('/blob/' in path or '/tree/' in path),
+                'category': 'code'
+            },
+
             'gitlab_code': {
                 'condition': 'gitlab.com' in domain and ('/blob/' in path or '/tree/' in path),
                 'category': 'code'
@@ -227,12 +253,6 @@ def classify_url(url):
                 ),
                 'category': 'code'
             },
-            
-            # Document Types
-            'pdf': {
-                'condition': path.endswith('.pdf'),
-                'category': 'document'
-            },
             'google_docs': {
                 'condition': 'docs.google.com' in domain,
                 'category': 'document'
@@ -247,27 +267,6 @@ def classify_url(url):
                 'condition': 'vimeo.com' in domain,
                 'category': 'video'
             },
-            
-            # Academic and Research
-            'arxiv': {
-                'condition': 'arxiv.org' in domain,
-                'category': 'document'
-            },    
-            # Social Media
-            'tweet': {
-                'condition': ('twitter.com' in domain or 'x.com' in domain) and '/status/' in path,
-                'category': 'metadata'
-            },
-            'reddit': {
-                'condition': 'reddit.com' in domain,
-                'category': 'metadata'
-            },
-            
-            # Web Content
-            'html': {
-                'condition': path.endswith('.html') or not path.endswith(('.pdf', '.ipynb')),
-                'category': 'webpage'
-            }
         }
         
         # Find the first matching type with most specific conditions

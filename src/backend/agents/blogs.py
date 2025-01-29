@@ -24,10 +24,12 @@ from agents.prompts import (
     twitter_post_instructions,
     tags_generator,
     query_creator,
+    reddit_query_creator,
     summary_instructions,
-    relevant_search_prompt
+    relevant_search_prompt,
+    relevant_reddit_prompt
 )
-from agents.tools import WebSearch
+from agents.tools import RedditSearch, WebSearch
 from clients.llm import LLMClient, HumanMessage, SystemMessage
 from agents.state import BlogState, BlogStateInput, BlogStateOutput, SectionState
 from agents.utils import *
@@ -45,7 +47,8 @@ class AgentWorkflow:
 
     def __init__(self):
         self.llm = LLMClient()
-        self.websearcher = WebSearch(provider='duckduckgo', num_results=15)
+        self.websearcher = WebSearch(provider='google', num_results=15)
+        self.reddit_searcher=RedditSearch()
         self.builder = StateGraph(
             BlogState,
             input=BlogStateInput,
@@ -388,8 +391,16 @@ class AgentWorkflow:
         
         return llm_response    
     
-    def _relevant_search_selection(self, urls,search_query):
+    def _relevant_search_selection(self, urls,payload):
         """Select relevant search results"""
+
+        if payload.get("topic"):
+            search_query = payload["topic"]
+        elif payload.get("reddit_query"):
+            search_query = payload["reddit_query"]
+        else:
+            search_query = ""
+
         relevance_prompt = relevant_search_prompt.format(search_results="\n".join(urls),user_query=search_query)
         
         llm_response= self.llm.invoke(
@@ -416,6 +427,48 @@ class AgentWorkflow:
         return relevant_urls
                 
     
+    def _relevant_reddit_post_selection(self,reddit_obj,topic):
+        """Select relevant search results"""
+
+        pre_relevance_prompt=""
+        for data in reddit_obj:
+            content = data['content']
+            title = data['title']
+            url=data['url']
+
+            pre_relevance_prompt += f"""
+                **Post Title:** {title}
+                **Post URL:** {url}
+                **Post Content:** {content}
+
+                -----------------------------------------
+            """
+
+        relevance_prompt = relevant_reddit_prompt.format(reddit_content=pre_relevance_prompt,topic=topic)
+        
+        llm_response= self.llm.invoke(
+            [
+                HumanMessage(content=relevance_prompt)
+            ]
+        )
+
+        def parse_url_string(relevant_match):
+            """Parse string of comma-separated URLs into list"""
+            if not relevant_match:
+                return []
+                
+            # Extract string and remove brackets
+            url_string = relevant_match[0].strip('[]')
+            
+            # Split by comma and clean each URL
+            urls = [url.strip() for url in url_string.split(',')]
+            
+            return urls
+        
+        relevant_match = re.findall(r"<relevant_urls>(.*?)</relevant_urls>", llm_response, re.DOTALL)
+        relevant_urls = parse_url_string(relevant_match)
+        return relevant_urls
+    
     def _initialize_workflow(self, payload,thread_id):
         """Initialize workflow with thread ID and empty source data"""
         thread_id = payload.get("thread_id") or thread_id
@@ -434,12 +487,12 @@ class AgentWorkflow:
             media_markdown=media_markdown,
         ), source_id
     
-    def _handle_topic_workflow(self, payload, thread_id, user):
+    def _handle_topic_workflow(self, payload, thread_id, user,type=None):
         """Handle workflow for URL-based content"""
         reference_content = ''
-        # query=self._query_rewriter(payload['topic'])
-        urls=self.websearcher.search(payload['topic']).get_all_urls()
-        urls=self._relevant_search_selection(urls,payload['topic'])
+        query=self._query_rewriter(payload,type=type)
+        urls=self.websearcher.search(query).get_all_urls()
+        urls=self._relevant_search_selection(urls,payload)
 
         source_id,url_meta = self._setup_topic_source(payload,urls ,thread_id, user)
 
@@ -461,10 +514,47 @@ class AgentWorkflow:
             thread_id=thread_id
         ), source_id
     
-    def _query_rewriter(self, search_query):
+    def _handle_reddit_workflow(self, payload, thread_id, user):
+        """Handle workflow for reddit-based content"""
+        reference_content = ''
+        query=self._query_rewriter(payload,type='reddit')
+        urls=self.websearcher.search(query).get_all_urls()
+        urls=self._relevant_search_selection(urls,payload)
+
+        # if payload.get("subreddit"):
+        #     reddit_obj=self.reddit_searcher.search(payload['reddit_query'],subreddit=payload.get("subreddit"))
+        # else:
+        reddit_obj=[]
+        for url in urls:
+            reddit_obj.append(self.reddit_searcher.search(url)[0])
+
+        # urls=self._relevant_reddit_post_selection(reddit_obj,payload['reddit_query'])
+
+        #filter reddit_obj based on the selected urls
+        # reddit_obj=[data for data in reddit_obj if data['url'] in urls]
+    
+        # reddit_summary=self.reddit_extracter.create_summary(reddit_obj)
+        reddit_pre_summary=self.reddit_extracter._create_pre_summary(reddit_obj)
+
+        source_id = self._setup_reddit_source(payload ,thread_id, user)
+
+
+        return BlogStateInput(
+            input_reddit=payload["reddit_query"],
+            input_url='',
+            input_content=reddit_pre_summary,
+            post_types=payload.get("post_types", ["blog"]),
+            thread_id=thread_id
+        ), source_id
+    
+
+    def _query_rewriter(self, payload,type=None):
         """Rewrite tweet text for queryable content"""
 
-        rewriter_instructions = query_creator.format(user_query_short=search_query)
+        if type=='reddit':
+            rewriter_instructions = reddit_query_creator.format(user_query_short=payload['reddit_query'])
+        else:
+            rewriter_instructions = query_creator.format(user_query_short=payload['topic'])
         
         llm_response= self.llm.invoke(
             [
@@ -476,7 +566,7 @@ class AgentWorkflow:
         if query_match:
             return query_match[0].strip()
         
-        return search_query
+        return payload
 
     def _handle_tweet_workflow(self, payload, thread_id, user):
         """Handle workflow for tweet-based content"""
@@ -548,6 +638,8 @@ class AgentWorkflow:
                     test_input, source_id = self._handle_tweet_workflow(payload, thread_id, user)
                 elif payload.get("topic"):
                     test_input,source_id=self._handle_topic_workflow(payload,thread_id,user)
+                elif payload.get("reddit_query"):
+                    test_input,source_id=self._handle_reddit_workflow(payload,thread_id,user)
                 else:
                     raise ValueError("Invalid payload - must contain url, tweet_id or feedback")
 
@@ -640,6 +732,26 @@ class AgentWorkflow:
                 
         return source_id, url_meta
 
+    def _setup_reddit_source(self, payload, thread_id, user):
+        """Setup source records for web URL"""
+        existing_source = (
+            supabase.table("sources")
+            .select("*")
+            .eq("source_identifier", payload["reddit_query"])
+            .eq("profile_id", user["id"])
+            .execute()
+        )
+
+        if existing_source.data:
+            source_id = existing_source.data[0]["source_id"]
+            self._validate_existing_content(source_id, payload)
+            
+            return source_id
+
+        source_id = self._create_source_record(payload["reddit_query"], thread_id, "reddit", user)
+                
+        return source_id
+    
     def _setup_web_url_source(self, payload, thread_id, user):
         """Setup source records for web URL"""
         existing_source = (
@@ -875,7 +987,7 @@ class AgentWorkflow:
         self.builder.add_node("write_final_sections", self.write_final_sections)
         self.builder.add_node("write_twitter_post", self.write_twitter_post)
         self.builder.add_node("write_linkedin_post", self.write_linkedin_post)
-        self.builder.add_node("generate_tags", self.generate_tags)
+        # self.builder.add_node("generate_tags", self.generate_tags)
         self.builder.add_node("handle_feedback", self.handle_feedback)
 
         # Add basic flow edges
@@ -890,7 +1002,7 @@ class AgentWorkflow:
             ["write_final_sections"],
         )
         self.builder.add_edge("write_final_sections", "compile_final_blog")
-        self.builder.add_edge("compile_final_blog", "generate_tags")
+        # self.builder.add_edge("compile_final_blog", "generate_tags")
 
         # Post-tags routing logic
         def route_after_tags(state: BlogState):
@@ -920,7 +1032,7 @@ class AgentWorkflow:
 
         # Add routing edges
         self.builder.add_conditional_edges(
-            "generate_tags",
+            "compile_final_blog",
             route_after_tags,
             ["write_linkedin_post", "write_twitter_post", "handle_feedback", END],
         )
@@ -957,7 +1069,8 @@ class AgentWorkflow:
         graph = self.builder.compile(
             checkpointer=self.checkpointer,
             interrupt_after=[
-                "generate_tags",
+                # "generate_tags",
+                "compile_final_blog",
                 "write_linkedin_post",
                 "write_twitter_post",
             ],

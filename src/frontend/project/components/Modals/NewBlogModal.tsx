@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog } from '@headlessui/react';
-import { Twitter, Globe, X, Loader, Search, ChevronLeft, Grid2X2, LayoutList } from 'lucide-react';
+import { Twitter, Globe, X, Loader, Search, ChevronLeft, Grid2X2, LayoutList, MessageCircle } from 'lucide-react';
 import { Tweet } from 'react-tweet';
 import { useEditorStore } from '../../store/editorStore';
 import Masonry from 'react-masonry-css';
@@ -51,12 +51,19 @@ interface SourceData {
   has_url: boolean;  // Changed from optional to required, defaults to false
 }
 
-type SourceType = 'twitter' | 'web' | 'topic';
+type SourceType = 'twitter' | 'web' | 'topic' | 'reddit';
 
 // Add interface for topic form
 interface TopicForm {
   topic: string;
   isValid: boolean;
+}
+
+// Add interface for Reddit form similar to TopicForm
+interface RedditForm {
+  query: string;
+  isValid: boolean;
+  subreddit?: string;  // Optional subreddit parameter
 }
 
 interface NewBlogModalProps {
@@ -104,15 +111,35 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
     'Cloud Computing Solutions',
     'Cybersecurity Essentials'
   ]);
+  // Add new state for Reddit search
+  const [redditSearch, setRedditSearch] = useState<RedditForm>({ 
+    query: '', 
+    isValid: false,
+    subreddit: undefined 
+  });
+  const [isRedditSearch, setIsRedditSearch] = useState(false);
+  const [trendingRedditTopics] = useState([
+    'Programming',
+    'Technology',
+    'WebDev',
+    'ArtificialIntelligence'
+  ]);
 
+  // Update fetchSources to handle Reddit search
   const fetchSources = async () => {
     if (!selectedSource) return;
+
+    if (selectedSource === 'reddit' && !redditSearch.query) return;
 
     setIsLoading(true);
     try {
       const params = {
-        type: selectedSource === 'twitter' ? 'twitter' : 'web_url',
-        source_identifier: searchText || undefined,
+        type: selectedSource === 'twitter' 
+          ? 'twitter' 
+          : selectedSource === 'reddit'
+            ? 'reddit'
+            : 'web_url',
+        source_identifier: selectedSource === 'reddit' ? redditSearch.query : searchText || undefined,
         skip: (currentPage - 1) * itemsPerPage,
         limit: itemsPerPage
       };
@@ -146,6 +173,13 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
   useEffect(() => {
     fetchSources();
   }, [selectedSource, searchText, currentPage]);
+
+  // Add effect to trigger search when Reddit query changes
+  useEffect(() => {
+    if (selectedSource === 'reddit' && redditSearch.isValid) {
+      fetchSources();
+    }
+  }, [redditSearch.query]);
 
   const totalPages = Math.ceil(totalItems / itemsPerPage);
 
@@ -188,6 +222,30 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
     });
   };
 
+  // Add Reddit validation similar to topic validation
+  const validateRedditSearch = (query: string): boolean => {
+    return query.length >= 3;
+  };
+
+  // Add handler for Reddit search input
+  const handleRedditSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setRedditSearch({
+      query,
+      isValid: validateRedditSearch(query)
+    });
+  };
+
+  // Add handler for subreddit selection
+  const handleSubredditSelect = (subreddit: string) => {
+    setRedditSearch(prev => ({
+      ...prev,
+      subreddit,
+      query: prev.query,  // Maintain existing search query
+      isValid: validateRedditSearch(prev.query)
+    }));
+  };
+
   // Add loading message rotation
   useEffect(() => {
     if (!isLoading) return;
@@ -203,8 +261,43 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
     return () => clearInterval(interval);
   }, [isLoading]);
 
-  // Update handleGenerate to directly use the URL
+  // Update handleGenerate to include Reddit search
   const handleGenerate = async () => {
+    if (isRedditSearch) {
+      if (!redditSearch.isValid) {
+        setError('Please enter a valid search query');
+        return;
+      }
+      setIsGenerating(true);
+      try {
+        const payload = {
+          post_types: ["blog"],
+          reddit_query: redditSearch.query,
+          subreddit: redditSearch.subreddit  // Include optional subreddit
+        };
+        await api.post('/content/generate', payload);
+        
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        await fetchPosts({
+          forceRefresh: true,
+          timestamp: Date.now(),
+          reset: true
+        }, 0, 20);
+        
+        onClose();
+      } catch (err: any) {
+        console.error('Failed to generate blog:', err);
+        if (err.response?.status === 403 && err.response?.data?.detail?.includes("Generation limit reached")) {
+          toast.error('User has exceeded the generation limit');
+        } else {
+          setError('Failed to generate blog');
+        }
+      } finally {
+        setIsGenerating(false);
+      }
+      return;
+    }
+
     if (isCustomTopic) {
       if (!customTopic.isValid) {
         setError('Please enter a valid topic');
@@ -306,7 +399,11 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
     try {
       const payload = {
         post_types: ["blog"],
-        [selectedSource === 'twitter' ? 'tweet_id' : 'url']: sourceData.source_identifier
+        [selectedSource === 'twitter' 
+          ? 'tweet_id' 
+          : selectedSource === 'reddit'
+            ? 'reddit_id'
+            : 'url']: sourceData.source_identifier
       };
       
       await api.post('/content/generate', payload);
@@ -511,9 +608,87 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
     </div>
   );
 
+  // Add Reddit search input section
+  const renderRedditSearch = () => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => {
+            setSelectedSource(null);
+            setIsRedditSearch(false);
+            setRedditSearch({ query: '', isValid: false });
+          }}
+          className="flex items-center gap-2 text-sm text-blue-500 hover:text-blue-600"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Back to sources
+        </button>
+      </div>
+      <div className="p-6 border rounded-lg dark:border-gray-700">
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Selected Subreddit
+          </label>
+          <div className="flex items-center gap-2">
+            {redditSearch.subreddit ? (
+              <>
+                <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-800 text-sm">
+                  r/{redditSearch.subreddit}
+                </span>
+                <button
+                  onClick={() => setRedditSearch(prev => ({ ...prev, subreddit: undefined }))}
+                  className="text-xs text-gray-500 hover:text-gray-700"
+                >
+                  Clear
+                </button>
+              </>
+            ) : (
+              <span className="text-sm text-gray-500">Searching all subreddits</span>
+            )}
+          </div>
+        </div>
+
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Search Reddit Posts
+        </label>
+        <input
+          type="text"
+          value={redditSearch.query}
+          onChange={handleRedditSearchChange}
+          placeholder="Enter subreddit or search query..."
+          className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+        />
+        {redditSearch.query && !redditSearch.isValid && (
+          <p className="mt-2 text-sm text-red-600">Search query must be at least 3 characters long</p>
+        )}
+        
+        <div className="mt-6">
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            Popular Subreddits
+          </h4>
+          <div className="grid grid-cols-2 gap-2">
+            {trendingRedditTopics.map((topic) => (
+              <button
+                key={topic}
+                onClick={() => handleSubredditSelect(topic)}
+                className={`text-left px-3 py-2 text-sm rounded-lg border 
+                  ${redditSearch.subreddit === topic 
+                    ? 'border-orange-500 bg-orange-50 text-orange-700' 
+                    : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+              >
+                r/{topic}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   // Update the source selection UI to include custom URL option
   const renderSourceSelection = () => (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-4 gap-4">
       <button
         onClick={() => setSelectedSource('twitter')}
         disabled={false} // Temporarily disabled
@@ -543,6 +718,18 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
         <div className="flex flex-col items-center gap-4">
           <Search className="h-8 w-8 text-purple-500" />
           <span className="text-sm font-medium">From Topic</span>
+        </div>
+      </button>
+      <button
+        onClick={() => {
+          setSelectedSource('reddit');
+          setIsRedditSearch(true);
+        }}
+        className="group relative rounded-xl border border-gray-200 dark:border-gray-700 p-6 hover:border-orange-500 dark:hover:border-orange-500 transition-colors"
+      >
+        <div className="flex flex-col items-center gap-4">
+          <MessageCircle className="h-8 w-8 text-orange-500" />
+          <span className="text-sm font-medium">From Reddit</span>
         </div>
       </button>
     </div>
@@ -577,7 +764,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder={`Search ${selectedSource === 'twitter' ? 'tweets' : 'URLs'}...`}
+              placeholder={getSearchPlaceholder()}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               className="pl-9 pr-4 py-2 w-72 rounded-full border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -657,6 +844,11 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
 
   // Update the isGenerateDisabled function with null checks
   const isGenerateDisabled = useCallback((source?: SourceData) => {
+    // For Reddit search case
+    if (isRedditSearch) {
+      return !redditSearch.isValid || isGenerating;
+    }
+    
     // For topic case
     if (isCustomTopic) {
       return !customTopic.isValid || isGenerating;
@@ -669,9 +861,16 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
     
     // For regular sources
     return isGenerating || !selectedIdentifier;
-  }, [isGenerating, selectedIdentifier, isCustomUrl, customUrl.isValid, isCustomTopic, customTopic.isValid]);
+  }, [isGenerating, selectedIdentifier, isCustomUrl, customUrl.isValid, isCustomTopic, customTopic.isValid, isRedditSearch, redditSearch.isValid]);
 
   const getGenerateButtonTooltip = useCallback((source?: SourceData) => {
+    // For Reddit search case
+    if (isRedditSearch) {
+      if (!redditSearch.isValid) return 'Please enter a valid search query';
+      if (isGenerating) return 'Generation in progress...';
+      return 'Generate Blog';
+    }
+    
     // For topic case
     if (isCustomTopic) {
       if (!customTopic.isValid) return 'Please enter a valid topic';
@@ -690,7 +889,19 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
     if (isGenerating) return 'Generation in progress...';
     if (!selectedIdentifier) return 'Please select a source';
     return 'Generate Blog';
-  }, [isGenerating, selectedIdentifier, isCustomUrl, customUrl.isValid, isCustomTopic, customTopic.isValid]);
+  }, [isGenerating, selectedIdentifier, isCustomUrl, customUrl.isValid, isCustomTopic, customTopic.isValid, isRedditSearch, redditSearch.isValid]);
+
+  // Add getSearchPlaceholder function
+  const getSearchPlaceholder = () => {
+    switch(selectedSource) {
+      case 'twitter':
+        return 'Search tweets...';
+      case 'reddit':
+        return 'Search Reddit posts...';
+      default:
+        return 'Search URLs...';
+    }
+  };
 
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">
@@ -724,7 +935,9 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
 
               {!selectedSource && renderSourceSelection()}
               {selectedSource === 'topic' && renderTopicInput()}
-              {selectedSource && selectedSource !== 'topic' && !isCustomUrl && renderSourceContentSection()}
+              {selectedSource === 'reddit' && renderRedditSearch()}
+              {selectedSource === 'web' && !isCustomUrl && renderSourceContentSection()}
+              {selectedSource === 'twitter' && !isCustomUrl && renderSourceContentSection()}
               {selectedSource === 'web' && isCustomUrl && renderCustomUrlInput()}
             </div>
 
@@ -742,11 +955,13 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
                 )}>
                   <button
                     onClick={handleGenerate}
-                    disabled={isCustomTopic 
-                      ? !customTopic.isValid || isGenerating
-                      : isCustomUrl 
-                        ? !customUrl.isValid || isGenerating
-                        : isGenerateDisabled(sources.find(s => getUniqueId(s) === selectedIdentifier))
+                    disabled={isRedditSearch
+                      ? !redditSearch.isValid || isGenerating
+                      : isCustomTopic 
+                        ? !customTopic.isValid || isGenerating
+                        : isCustomUrl 
+                          ? !customUrl.isValid || isGenerating
+                          : isGenerateDisabled(sources.find(s => getUniqueId(s) === selectedIdentifier))
                     }
                     className={`px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2`}
                   >

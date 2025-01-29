@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import List
 from src.backend.extraction.base import BaseExtractor
 
 class ImageExtractor(BaseExtractor):
@@ -14,3 +15,7 @@ class ImageExtractor(BaseExtractor):
         params = self.merge_method_params(method_params)
         # Implement image extraction logic using params
         return {"type": "image", "path": source}
+    
+    def create_summary(self, summary_obj: List[dict], **method_params) -> str:
+        pass
+
