@@ -49,6 +49,7 @@ TODO:
 36. Generate audio voice overs
 37. Search images for article
 38. AI generated images
+39. Add different website based filter for search, eg. search in linkedin, search, multi websites etc., search domain experts
 
 Refactoring:
 1. Remove unnecessary packages and imports
