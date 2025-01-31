@@ -14,7 +14,7 @@ from psycopg import Connection
 from supabase import Client
 
 # from src.agents import configuration
-from agents.prompts import (
+from src.backend.agents.prompts import (
     default_blog_structure,
     blog_planner_instructions,
     main_body_section_writer_instructions,
@@ -28,12 +28,11 @@ from agents.prompts import (
     relevant_search_prompt,
     relevant_reddit_prompt
 )
-from agents.tools import RedditSearch, WebSearch
-from clients.llm import LLMClient, HumanMessage, SystemMessage
-from agents.state import BlogState, BlogStateInput, BlogStateOutput, SectionState
-from agents.utils import *
-from db.supabaseclient import supabase_client
-from extraction.docintelligence import DocumentExtractor
+from src.backend.agents.tools import RedditSearch, WebSearch
+from src.backend.clients.llm import LLMClient, HumanMessage, SystemMessage
+from src.backend.agents.state import BlogState, BlogStateInput, BlogStateOutput, SectionState
+from src.backend.agents.utils import *
+from src.backend.db.supabaseclient import supabase_client
 from src.backend.extraction.factory import ConverterRegistry, ExtracterRegistry
 import atexit
 
@@ -73,7 +72,6 @@ class AgentWorkflow:
         self.arxiv_extracter=ExtracterRegistry.get_extractor("arxiv")
         self.github_extracter=ExtracterRegistry.get_extractor("github")
         self.reddit_extracter=ExtracterRegistry.get_extractor("reddit")
-        self.extractor = DocumentExtractor()
 
     def _cleanup(self):
         """Close database connection on exit"""

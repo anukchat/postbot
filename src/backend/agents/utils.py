@@ -1,8 +1,8 @@
 import time
 from typing import Dict, List, Tuple, Union
 import urllib
-from agents.state import Section
-from extraction.docintelligence import DocumentExtractor
+from src.backend.agents.state import Section
+from src.backend.extraction.docintelligence import DocumentExtractor
 import requests
 import re
 import logging
