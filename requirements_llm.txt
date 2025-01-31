@@ -13,3 +13,4 @@ markdownify
 litellm
 duckduckgo-search
 praw
+langchain_community
