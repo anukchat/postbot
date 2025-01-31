@@ -2,8 +2,8 @@ import os
 import uuid
 from fastapi import FastAPI, HTTPException, Depends, Query, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from db.supabaseclient import supabase_client
-from db.supabasedatamodel import *
+from src.backend.db.supabaseclient import supabase_client
+from src.backend.db.supabasedatamodel import *
 from typing import List, Optional
 import uvicorn
 from src.backend.agents.blogs import AgentWorkflow
