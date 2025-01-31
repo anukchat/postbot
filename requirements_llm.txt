@@ -1,6 +1,7 @@
-docling
+markitdown
 langchain
-qdrant_client
+langchain_openai
+langchain_google_genai
 langgraph
 openai
 python-dotenv
@@ -8,5 +9,7 @@ langchain-core>=0.1.0
 langgraph>=0.0.15
 langgraph-checkpoint-postgres
 google-generativeai
-pypandoc
 markdownify
+litellm
+duckduckgo-search
+praw

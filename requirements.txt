@@ -1,14 +1,10 @@
 pandas
 requests
 beautifulsoup4
-fitz
-mime
 python-magic
 html2text
-sqlalchemy
 fastapi
 uvicorn
 psycopg2
-alembic
 supabase
-linkpreview
+backoff
