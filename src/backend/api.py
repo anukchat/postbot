@@ -804,7 +804,7 @@ def filter_sources(
         supabase.table("sources")
         .select("*,source_types(source_type_id,name),content_sources(content:content_id(content_id,title,thread_id,content_types(name))),url_references(*)")
         .eq('profile_id', profile['id'])  # Filter by profile_id instead of user_id
-        .order("created_at", desc=False)
+        .order("created_at", desc=True)
     )
     
     # Apply filters

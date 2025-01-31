@@ -14,7 +14,6 @@ from psycopg import Connection
 from supabase import Client
 
 # from src.agents import configuration
-from agents.llm import get_gemini
 from agents.prompts import (
     default_blog_structure,
     blog_planner_instructions,
@@ -58,6 +57,10 @@ class AgentWorkflow:
         dsn = os.getenv("SUPABASE_POSTGRES_DSN", "")
         connection_kwargs = {
             "autocommit": True,
+            "keepalives": 1,
+            "keepalives_idle": 60,
+            "keepalives_interval": 10,
+            "keepalives_count": 5,
         }
         self.conn = Connection.connect(dsn, **connection_kwargs)
         self.checkpointer = PostgresSaver(self.conn)
@@ -900,36 +903,60 @@ class AgentWorkflow:
 
     def _store_new_content(self, result, thread_id, source_id, payload, user):
         """Store newly generated content"""
-        for post_type in payload.get("post_types", ["blog"]):
-            content_type = (
-                supabase.table("content_types")
-                .select("*")
-                .eq("name", post_type)
-                .execute()
-            )
+        try:
+            for post_type in payload.get("post_types", ["blog"]):
+                # Validate post type exists
+                content_type_result = (
+                    supabase.table("content_types")
+                    .select("*")
+                    .eq("name", post_type)
+                    .execute()
+                )
+                
+                if not content_type_result.data:
+                    logging.error(f"Content type {post_type} not found")
+                    continue
 
-            content_data = {
-                "profile_id": user["id"],
-                "content_type_id": content_type.data[0]["content_type_id"],
-                "title": result.get("blog_title") if post_type == "blog" else None,
-                "body": result.get(
-                    "final_blog" if post_type == "blog" else f"{post_type}_post"
-                ),
-                "status": "Draft",
-                "thread_id": thread_id,
-            }
+                # Clean and validate content
+                blog_title = result.get("blog_title", "").strip() if post_type == "blog" else None
+                blog_body = result.get("final_blog" if post_type == "blog" else f"{post_type}_post", "")
+                
+                if isinstance(blog_body, str):
+                    blog_body = blog_body.strip()
 
-            content = supabase.table("content").insert(content_data).execute()
-            content_id = content.data[0]["content_id"]
-
-            if source_id:
-                content_source_data = {
-                    "content_id": content_id,
-                    "source_id": source_id,
+                content_data = {
+                    "profile_id": user["id"],
+                    "content_type_id": content_type_result.data[0]["content_type_id"],
+                    "title": blog_title,
+                    "body": blog_body,
+                    "status": "Draft",
+                    "thread_id": thread_id,
                 }
-                supabase.table("content_sources").insert(content_source_data).execute()
 
-            self._store_tags(result, content_id)
+                # Insert content with error handling
+                try:
+                    content = supabase.table("content").insert(content_data).execute()
+                    content_id = content.data[0]["content_id"]
+
+                    # Store source reference if provided
+                    if source_id:
+                        content_source_data = {
+                            "content_id": content_id,
+                            "source_id": source_id,
+                        }
+                        supabase.table("content_sources").insert(content_source_data).execute()
+
+                    # Store tags
+                    if result:
+                        self._store_tags(result, content_id)
+
+                except Exception as e:
+                    logging.error(f"Error storing content: {str(e)}")
+                    raise Exception(f"Failed to store content: {str(e)}")
+
+        except Exception as e:
+            logging.error(f"Error in _store_new_content: {str(e)}")
+            raise
 
     def _store_tags(self, result, content_id):
         """Store tags for content"""

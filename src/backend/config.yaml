@@ -62,7 +62,14 @@ llm:
       model: gemini/gemini-2.0-flash-exp
       temperature: 0.5
     method_params: {}
-    
+  
+  ollama:
+    class_params:
+      model: ollama/deepseek-r1:1.5b
+      temperature: 0.5
+      api_base: http://192.168.1.58
+    method_params: {}
+
   chat:
     class_params:
       model: gpt-3.5-turbo
