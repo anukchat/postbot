@@ -490,10 +490,10 @@ class AgentWorkflow:
             media_markdown=media_markdown,
         ), source_id
     
-    def _handle_topic_workflow(self, payload, thread_id, user,type=None):
+    def _handle_topic_workflow(self, payload, thread_id, user):
         """Handle workflow for URL-based content"""
         reference_content = ''
-        query=self._query_rewriter(payload,type=type)
+        query=self._query_rewriter(payload['topic'],type='topic')
         urls=self.websearcher.search(query).get_all_urls()
         urls=self._relevant_search_selection(urls,payload)
 
@@ -520,7 +520,7 @@ class AgentWorkflow:
     def _handle_reddit_workflow(self, payload, thread_id, user):
         """Handle workflow for reddit-based content"""
         reference_content = ''
-        query=self._query_rewriter(payload,type='reddit')
+        query=self._query_rewriter(payload['reddit_query'],type='reddit')
         urls=self.websearcher.search(query).get_all_urls()
         urls=self._relevant_search_selection(urls,payload)
 
@@ -551,13 +551,13 @@ class AgentWorkflow:
         ), source_id
     
 
-    def _query_rewriter(self, payload,type=None):
+    def _query_rewriter(self, query,type=None):
         """Rewrite tweet text for queryable content"""
 
         if type=='reddit':
-            rewriter_instructions = reddit_query_creator.format(user_query_short=payload['reddit_query'])
+            rewriter_instructions = reddit_query_creator.format(user_query_short=query)
         else:
-            rewriter_instructions = query_creator.format(user_query_short=payload['topic'])
+            rewriter_instructions = query_creator.format(user_query_short=query)
         
         llm_response= self.llm.invoke(
             [
@@ -569,7 +569,7 @@ class AgentWorkflow:
         if query_match:
             return query_match[0].strip()
         
-        return payload
+        return query
 
     def _handle_tweet_workflow(self, payload, thread_id, user):
         """Handle workflow for tweet-based content"""

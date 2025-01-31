@@ -257,7 +257,7 @@ tags_generator="""You are an expert in generating tags for a blog post. Your goa
 
 ##----------------- Query creator Instructions -----------------##
 query_creator="""
-Given the user input, which could be a search topic, query, or tweet, identify the intent of the input and formulate a effective web search query:
+Given the user input, which could be a short topic, query, or tweet text, identify the intent and formulate a effective web search query:
 
 "{user_query_short}"
 
@@ -270,7 +270,7 @@ Do not add any extra explanation or information outside the specified format.
 """
 
 reddit_query_creator = """
-Given the user input, which could be a search topic, query, or tweet, identify the intent of the input and formulate a effective search query:
+Given the user input query identify the intent and formulate a effective search query:
 
 {user_query_short}
 
