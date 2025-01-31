@@ -50,13 +50,13 @@ export const SourceCard: React.FC<SourceCardProps> = ({
       onClick={onSelect}
     >
       {/* Warning indicator - Update z-index and positioning */}
-      {source?.source_type === 'twitter' && source.has_url === false && (
+      {/* {source?.source_type === 'twitter' && source.has_url === false && (
         <Tippy content="This tweet has no URLs. Content generation may be limited.">
           <div className="absolute top-2 right-2 z-[80]">
             <AlertCircle className="w-5 h-5 text-amber-500" />
           </div>
         </Tippy>
-      )}
+      )} */}
 
       {/* Blog availability indicator - Adjust left position to avoid overlap */}
       {hasExistingBlog && (

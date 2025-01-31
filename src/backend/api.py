@@ -6,7 +6,7 @@ from db.supabaseclient import supabase_client
 from db.supabasedatamodel import *
 from typing import List, Optional
 import uvicorn
-from agents.graph import AgentWorkflow
+from src.backend.agents.blogs import AgentWorkflow
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any
@@ -92,6 +92,8 @@ class GeneratePostRequestModel(BaseModel):
     url: Optional[str] = None
     topic: Optional[str] = None
     feedback: Optional[str] = None  # Add this field
+    reddit_query: Optional[str] = None
+    subreddit: Optional[str] = None
 
 class SourceListResponse(BaseModel):
     items: List[Dict]
@@ -802,7 +804,7 @@ def filter_sources(
         supabase.table("sources")
         .select("*,source_types(source_type_id,name),content_sources(content:content_id(content_id,title,thread_id,content_types(name))),url_references(*)")
         .eq('profile_id', profile['id'])  # Filter by profile_id instead of user_id
-        .order("created_at", desc=False)
+        .order("created_at", desc=True)
     )
     
     # Apply filters

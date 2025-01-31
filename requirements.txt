@@ -7,3 +7,4 @@ fastapi
 uvicorn
 psycopg2
 supabase
+backoff

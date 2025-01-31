@@ -14,7 +14,7 @@ import ast
 import magic
 import time
 from bs4 import BeautifulSoup 
-from db.supabaseclient import supabase_client
+from src.backend.db.supabaseclient import supabase_client
 
 # Configure logging
 logging.basicConfig(
@@ -860,7 +860,7 @@ class TweetMetadataCollector:
                     "source_type_id": source_type_id,  # Use source_type_id instead of type
                     "source_identifier": tweet["tweet_id"],
                     "batch_id": batch_id,
-                    "created_at": datetime.now().isoformat(),
+                    "created_at": tweet["created_at"].strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
                     "updated_at": datetime.now().isoformat()
                 }).execute()
 
@@ -899,7 +899,6 @@ class TweetMetadataCollector:
             print("Data inserted successfully!")
         except Exception as e:
             print(f"Error inserting data: {e}")
-
 
     def read_tweet_data(self,csv_path, recent_k=None):
         """
@@ -957,7 +956,7 @@ if __name__ == "__main__":
         collector = TweetMetadataCollector()
 
         # Read tweet data
-        tweets_df=collector.read_tweet_data(csv_path,recent_k=200)
+        tweets_df=collector.read_tweet_data(csv_path,recent_k=100)
         # Process tweets
         processed_tweets = collector.collect_tweets_batch(tweets_df)
         collector.process_tweets_batch(processed_tweets)

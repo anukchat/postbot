@@ -1,14 +1,23 @@
+import time
+from typing import Dict, List, Tuple, Union
 import urllib
 from agents.state import Section
-from extractors.docintelligence import DocumentExtractor
+from extraction.docintelligence import DocumentExtractor
 import requests
 import re
 import logging
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
+
+from src.backend.extraction.factory import ConverterRegistry, ExtracterRegistry
 
 logger = logging.getLogger(__name__)
 extractor = DocumentExtractor()
+extractor_factory = ExtracterRegistry()
+converter_factory= ConverterRegistry()
+
+
+pdf_extractor = extractor_factory.get_extractor('pdf', 'default')
 
 def process_url_content(url_meta):
     """Helper to process URL content based on type"""
@@ -191,14 +200,40 @@ def classify_url(url):
         # Comprehensive URL type classification
         url_types = {
             # Code and Development Platforms
+            # Document Types
+            'pdf': {
+                'condition': path.endswith('.pdf'),
+                'category': 'document'
+            },
+                        # Academic and Research
+            'arxiv': {
+                'condition': 'arxiv.org' in domain,
+                'category': 'document'
+            },    
+            # Social Media
+            'tweet': {
+                'condition': ('twitter.com' in domain or 'x.com' in domain) and '/status/' in path,
+                'category': 'metadata'
+            },
+            'reddit': {
+                'condition': 'reddit.com' in domain,
+                'category': 'metadata'
+            },
+            
+            # Web Content
+            'html': {
+                'condition': path.endswith('.html') or not path.endswith(('.pdf', '.ipynb')),
+                'category': 'webpage'
+            },
+            'github': {
+                'condition': 'github.com' in domain and ('/blob/' not in path or '/tree/' not in path or '/trending' not in path or '/explore' not in path or '/topics' not in path),   
+                'category': 'repo'
+            },
             'github_code': {
                 'condition': 'github.com' in domain and ('/blob/' in path or '/tree/' in path),
                 'category': 'code'
             },
-            'github': {
-                'condition': 'github.com' in domain and ('/blob/' not in path or '/tree/' not in path),
-                'category': 'repo'
-            },
+
             'gitlab_code': {
                 'condition': 'gitlab.com' in domain and ('/blob/' in path or '/tree/' in path),
                 'category': 'code'
@@ -218,12 +253,6 @@ def classify_url(url):
                 ),
                 'category': 'code'
             },
-            
-            # Document Types
-            'pdf': {
-                'condition': path.endswith('.pdf'),
-                'category': 'document'
-            },
             'google_docs': {
                 'condition': 'docs.google.com' in domain,
                 'category': 'document'
@@ -238,24 +267,6 @@ def classify_url(url):
                 'condition': 'vimeo.com' in domain,
                 'category': 'video'
             },
-            
-            # Academic and Research
-            'arxiv': {
-                'condition': 'arxiv.org' in domain,
-                'category': 'document'
-            },
-            
-            # Web Content
-            'html': {
-                'condition': path.endswith('.html') or not path.endswith(('.pdf', '.ipynb')),
-                'category': 'webpage'
-            },
-            
-            # Social Media
-            'tweet': {
-                'condition': ('twitter.com' in domain or 'x.com' in domain) and '/status/' in path,
-                'category': 'metadata'
-            }
         }
         
         # Find the first matching type with most specific conditions
@@ -304,75 +315,73 @@ def get_url_metadata(url):
         
         
         # Custom headers to handle different content types
-        headers = headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        headers.update({
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Referer': parsed_url.scheme + '://' + parsed_url.netloc
-        })
+        # headers = headers = {
+        #     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        # }
+        # headers.update({
+        #     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        #     'Accept-Language': 'en-US,en;q=0.5',
+        #     'Referer': parsed_url.scheme + '://' + parsed_url.netloc
+        # })
         
-        # Download content with enhanced error handling
-        response = requests.get(
-            url, 
-            headers=headers, 
-            timeout=15, 
-            allow_redirects=True,
-            stream=True
-        )
+        # # Download content with enhanced error handling
+        # response = requests.get(
+        #     url, 
+        #     headers=headers, 
+        #     timeout=15, 
+        #     allow_redirects=True,
+        #     stream=True
+        # )
         
         # Raise exception for bad status codes
-        response.raise_for_status()
+        # response.raise_for_status()
         
         # Detect content type
-        content_type = response.headers.get('Content-Type', '').lower()
+        # content_type = response.headers.get('Content-Type', '').lower()
 
         # Check if content is a redirect HTML response
-        if 'html' in content_type:
-            content = response.content
-            soup = BeautifulSoup(content, 'html.parser')
-            redirect_url = soup.find('meta', attrs={'http-equiv': 'refresh'})
-            if redirect_url:
-                url = redirect_url.get('content').split('URL=')[1]
-                # Check if the redirected URL is to Twitter
-                if 'twitter.com' in redirect_url:
-                    logger.info(f"Redirect to Twitter detected for {url}, ignoring.")
-                    return None
-                else:
-                    response = requests.get(
-                        url, 
-                        headers=headers, 
-                        timeout=15, 
-                        allow_redirects=True,
-                        stream=True
-                    )
-                    response.raise_for_status()
+        # if 'html' in content_type:
+        #     content = response.content
+        #     soup = BeautifulSoup(content, 'html.parser')
+        #     redirect_url = soup.find('meta', attrs={'http-equiv': 'refresh'})
+        #     if redirect_url:
+        #         url = redirect_url.get('content').split('URL=')[1]
+        #         # Check if the redirected URL is to Twitter
+        #         if 'twitter.com' in redirect_url:
+        #             logger.info(f"Redirect to Twitter detected for {url}, ignoring.")
+        #             return None
+        #         else:
+        #             response = requests.get(
+        #                 url, 
+        #                 headers=headers, 
+        #                 timeout=15, 
+        #                 allow_redirects=True,
+        #                 stream=True
+        #             )
+        #             response.raise_for_status()
 
-            #detect url_type
-            url_type = classify_url(url)
+        #     #detect url_type
+        #     url_type = classify_url(url)
 
-            content_type = response.headers.get('Content-Type', '').lower()
-                # # Insert into media table
-                # for media in tweet["media"]:
-                #     supabase_client.table('media').insert({
-                #         "media_id": str(uuid.uuid4()),
-                #         "source_id": source_id,
-                #         "media_url": media["original_url"],
-                #         "media_type": media["type"],
-                #         "created_at": datetime.now().isoformat()
-                #     }).execute()
+        #     content_type = response.headers.get('Content-Type', '').lower()
+        #         # # Insert into media table
+        #         # for media in tweet["media"]:
+        #         #     supabase_client.table('media').insert({
+        #         #         "media_id": str(uuid.uuid4()),
+        #         #         "source_id": source_id,
+        #         #         "media_url": media["original_url"],
+        #         #         "media_type": media["type"],
+        #         #         "created_at": datetime.now().isoformat()
+        #         #     }).execute()
 
-            # content_type = response.headers.get('Content-Type', '').lower()
+        #     # content_type = response.headers.get('Content-Type', '').lower()
 
-            return {"original_url": url, "content":response.content,"content_type": content_type, "type": url_type['type'], "domain": url_type['domain'], "file_category": url_type['category']}
+        #     return {"original_url": url, "content":response.content,"content_type": content_type, "type": url_type['type'], "domain": url_type['domain'], "file_category": url_type['category']}
             
-        else:
-            url_type = classify_url(url)            # # Create a temporary file
-            return {"original_url": url, "content":response.content,"content_type": content_type, "type": url_type['type'], "domain": url_type['domain'], "file_category": url_type['category']}
+        # else:
+        url_type = classify_url(url)            # # Create a temporary file
+        return {"original_url": url, "content_type": url_type['type'], "type": url_type['type'], "domain": url_type['domain'], "file_category": url_type['category']}
    
     except Exception as e:
         logger.warning(f"Error downloading URL content: {e}")
         return None
-
-    
