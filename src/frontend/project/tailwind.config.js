@@ -1,10 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    './**/*.{js,jsx,ts,tsx}',
-    './index.html',
-    '!**/node_modules/**',
-  ],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   darkMode: 'class',
   theme: {
     extend: {
@@ -39,7 +35,5 @@ export default {
   plugins: [
     require('@tailwindcss/typography'),
   ],
-
-  
+  purge: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'], // Enable purging unused styles
 };
-
