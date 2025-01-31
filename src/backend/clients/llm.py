@@ -2,6 +2,7 @@ from typing import Any, List, Optional, Dict
 from litellm import completion
 from dotenv import load_dotenv
 from src.backend.config import Config, ConfigLoader
+import time
 
 load_dotenv()
 # litellm.set_verbose=True
@@ -55,7 +56,7 @@ class LLMClient:
                 raise ValueError(f"Unsupported message type: {type(msg)}")
         return converted
     
-    def invoke(self, messages: List[Any], **kwargs) -> str:
+    def invoke(self, messages: List[Any], max_retries: int = 3, initial_delay: float = 1.0, **kwargs) -> str:
         if not messages:
             raise ValueError("Messages cannot be empty")
         
@@ -69,11 +70,21 @@ class LLMClient:
             **params
         }
 
-        try:
-            response = completion(**model_config)
-            return response.choices[0].message.content
-        except Exception as e:
-            raise Exception(f"LLM invocation failed: {str(e)}")
+        last_exception = None
+        delay = initial_delay
+
+        for attempt in range(max_retries):
+            try:
+                response = completion(**model_config)
+                return response.choices[0].message.content
+            except Exception as e:
+                last_exception = e
+                if attempt < max_retries - 1:
+                    time.sleep(delay)
+                    delay *= 2  # Exponential backoff
+                    continue
+                
+        raise Exception(f"LLM invocation failed after {max_retries} attempts: {str(last_exception)}")
 
 # Usage examples:
 # llm = LLMClient()  # uses llm.default 

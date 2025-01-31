@@ -102,7 +102,7 @@ class AgentWorkflow:
         match = re.search(pattern, report_sections)
 
         if match:
-            parsed = json.loads(match.group(1))
+            parsed = safe_json_loads(match.group(1))
         else:
             parsed = {"sections": []}
 

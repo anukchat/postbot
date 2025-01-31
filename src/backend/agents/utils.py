@@ -8,6 +8,8 @@ import re
 import logging
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
+import json
+import re
 
 from src.backend.extraction.factory import ConverterRegistry, ExtracterRegistry
 
@@ -384,4 +386,17 @@ def get_url_metadata(url):
    
     except Exception as e:
         logger.warning(f"Error downloading URL content: {e}")
+        return None
+
+def clean_json_string(json_string):
+    # Fix invalid backslashes by replacing single \ with double \\ (except valid escapes)
+    json_string = re.sub(r'(?<!\\)\\(?![\"\\/bfnrt])', r'\\\\', json_string)
+    return json_string
+
+def safe_json_loads(json_string):
+    try:
+        json_string = clean_json_string(json_string)
+        return json.loads(json_string)
+    except json.JSONDecodeError as e:
+        print("JSON Decode Error:", e)
         return None
