@@ -25,6 +25,10 @@ ENV PORT=8000
 ENV MODULE_NAME=src.backend.api
 ENV VARIABLE_NAME=app
 
+# Print environment variables for debugging
+RUN echo "Module: ${MODULE_NAME}"
+RUN echo "Variable: ${VARIABLE_NAME}"
+RUN echo "Port: ${PORT}"
 # Expose the port
 EXPOSE 8000
 
