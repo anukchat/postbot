@@ -22,7 +22,7 @@ COPY src/ ./src/
 
 # Set environment variables
 ENV PORT=8000
-ENV MODULE_NAME=src.api
+ENV MODULE_NAME=src.backend.api
 ENV VARIABLE_NAME=app
 
 # Expose the port
