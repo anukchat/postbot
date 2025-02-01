@@ -398,17 +398,17 @@ class AgentWorkflow:
         
         return llm_response    
     
-    def _relevant_search_selection(self, urls,payload):
+    def _relevant_search_selection(self, urls,query):
         """Select relevant search results"""
 
-        if payload.get("topic"):
-            search_query = payload["topic"]
-        elif payload.get("reddit_query"):
-            search_query = payload["reddit_query"]
-        else:
-            search_query = ""
+        # if payload.get("topic"):
+        #     search_query = payload["topic"]
+        # elif payload.get("reddit_query"):
+        #     search_query = payload["reddit_query"]
+        # elif :
+        #     search_query = ""
 
-        relevance_prompt = relevant_search_prompt.format(search_results="\n".join(urls),user_query=search_query)
+        relevance_prompt = relevant_search_prompt.format(search_results="\n".join(urls),user_query=query)
         
         llm_response= self.llm.invoke(
             [
@@ -499,7 +499,7 @@ class AgentWorkflow:
         reference_content = ''
         query=self._query_rewriter(payload['topic'],type='topic')
         urls=self.websearcher.search(query).get_all_urls()
-        urls=self._relevant_search_selection(urls,payload)
+        urls=self._relevant_search_selection(urls,query)
 
         source_id,url_meta = self._setup_topic_source(payload,urls ,thread_id, user)
 
@@ -526,7 +526,7 @@ class AgentWorkflow:
         reference_content = ''
         query=self._query_rewriter(payload['reddit_query'],type='reddit')
         urls=self.websearcher.search(query).get_all_urls()
-        urls=self._relevant_search_selection(urls,payload)
+        urls=self._relevant_search_selection(urls,query)
 
         # if payload.get("subreddit"):
         #     reddit_obj=self.reddit_searcher.search(payload['reddit_query'],subreddit=payload.get("subreddit"))
@@ -589,6 +589,7 @@ class AgentWorkflow:
             # first call llm to rewrite teweet text for searchable queries
             # second call the tool to research content based on the rewritten tweet text
             urls=self.websearcher.search(query).get_all_urls()
+            urls=self._relevant_search_selection(urls,query)
 
             for url in urls:
                 try:
