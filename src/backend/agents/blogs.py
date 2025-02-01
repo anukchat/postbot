@@ -26,7 +26,8 @@ from src.backend.agents.prompts import (
     reddit_query_creator,
     summary_instructions,
     relevant_search_prompt,
-    relevant_reddit_prompt
+    relevant_reddit_prompt,
+    twitter_query_creator
 )
 from src.backend.agents.tools import RedditSearch, WebSearch
 from src.backend.clients.llm import LLMClient, HumanMessage, SystemMessage
@@ -559,6 +560,8 @@ class AgentWorkflow:
 
         if type=='reddit':
             rewriter_instructions = reddit_query_creator.format(user_query_short=query)
+        elif type=='tweet':
+            rewriter_instructions = twitter_query_creator.format(user_query_short=query)
         else:
             rewriter_instructions = query_creator.format(user_query_short=query)
         
@@ -582,7 +585,7 @@ class AgentWorkflow:
 
         if not url_meta:
             reference_content = ''            
-            query=self._query_rewriter(tweet_text)
+            query=self._query_rewriter(tweet_text,type='tweet')
             # first call llm to rewrite teweet text for searchable queries
             # second call the tool to research content based on the rewritten tweet text
             urls=self.websearcher.search(query).get_all_urls()

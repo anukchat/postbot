@@ -50,13 +50,12 @@ Generate blog sections following this exact structure:
   ]
 }}
 
-Each section MUST include all fields: name, description, content, and main_body (main_body is a boolean field which denotes if the section written is of main body or not).
+Each section MUST include all fields: name, description, content, and main_body (main_body is a boolean field which denotes if the section is main body or not).
 
 Final check:
 1. Confirm that the Sections follow the structure EXACTLY as shown above
 2. Confirm that each Section Description has a clearly stated scope that does not conflict with other sections and is not duplicated.
-3. Confirm that a section is marked as main_body as true only if it is part of the main body of the blog post.
-4. Confirm that the Sections are grounded in the user notes"""
+3. Confirm that the Sections are grounded in the user notes"""
 
 
 ##----------------- Section Writer Instructions -----------------##
