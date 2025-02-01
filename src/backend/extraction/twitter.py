@@ -15,17 +15,10 @@ import magic
 import time
 from bs4 import BeautifulSoup 
 from src.backend.db.supabaseclient import supabase_client
+from src.backend.utils.logger import setup_logger
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('tweet_collector.log'),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# Replace existing logging setup with new logger
+logger = setup_logger(__name__)
 
 class TweetMetadataCollector:
     def __init__(self, output_base_dir='tweet_collection'):

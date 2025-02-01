@@ -13,6 +13,7 @@ from typing import Dict, Any
 import asyncio
 from datetime import datetime
 from uuid import UUID
+from src.backend.utils.logger import setup_logger
 
 # Get settings from environment variables
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
@@ -37,6 +38,9 @@ app.add_middleware(
 
 supabase = supabase_client()
 security = HTTPBearer()
+
+# Setup logger
+logger = setup_logger(__name__)
 
 # Token Generation Models
 class TokenRequest(BaseModel):
@@ -421,25 +425,34 @@ async def generate_generic_blog(
     user: dict = Depends(get_current_user_profile),
 ):
     """Initiate the workflow with the provided data."""
+    logger.info(f"Starting content generation for user {user['id']} with payload type: {type(payload).__name__}")
     try:
-        
-        #generate thread_id
         thread_id = payload.thread_id or str(uuid.uuid4())
+        logger.debug(f"Using thread_id: {thread_id}")
+        
         # Check generation limit        
         limit_response = await check_generation_limit(user['id'])
+        logger.info(f"Generation limit check: {limit_response}")
+        
         if limit_response['generations_used'] >= limit_response['max_generations']:
+            logger.warning(f"Generation limit reached for user {user['id']}")
             raise HTTPException(status_code=403, detail="Generation limit reached for this thread")
 
         # Proceed with generation
-        result = workflow.run_generic_workflow(payload.dict(),thread_id, user)
+        logger.debug("Starting workflow execution")
+        result = workflow.run_generic_workflow(payload.dict(), thread_id, user)
+        logger.debug("Workflow execution completed")
 
         # Increment generation count
         await increment_generation_count(user['id'])
+        logger.info(f"Generation count incremented for user {user['id']}")
 
         return result
     except HTTPException as e:
+        logger.error(f"HTTP Exception in generate_generic_blog: {str(e)}")
         raise e
     except Exception as e:
+        logger.error(f"Unexpected error in generate_generic_blog: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
 
 async def check_generation_limit(profile_id: UUID) -> Dict:

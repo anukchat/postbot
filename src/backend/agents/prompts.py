@@ -50,12 +50,13 @@ Generate blog sections following this exact structure:
   ]
 }}
 
-Each section MUST include all fields: name, description, content, and main_body (main_body is a boolean field which denotes if the section written is main body or not).
+Each section MUST include all fields: name, description, content, and main_body (main_body is a boolean field which denotes if the section written is of main body or not).
 
 Final check:
 1. Confirm that the Sections follow the structure EXACTLY as shown above
 2. Confirm that each Section Description has a clearly stated scope that does not conflict with other sections and is not duplicated.
-3. Confirm that the Sections are grounded in the user notes"""
+3. Confirm that a section is marked as main_body as true only if it is part of the main body of the blog post.
+4. Confirm that the Sections are grounded in the user notes"""
 
 
 ##----------------- Section Writer Instructions -----------------##
@@ -256,18 +257,40 @@ tags_generator="""You are an expert in generating tags for a blog post. Your goa
 """
 
 ##----------------- Query creator Instructions -----------------##
-query_creator="""
-Given the user input, which could be a short topic, query, or tweet text, identify the intent and formulate a effective web search query:
+query_creator = """
+Given a blog topic or theme, identify the intent and formulate an optimized web search query:
 
 "{user_query_short}"
 
-Your goal is to create an optimized search query that captures the intent and returns the most relevant results.
+Formulate a search query that includes relevant keywords and entities to retrieve the most pertinent results.
 
 Respond in the following format:
 <query> search query </query>
 
 Do not add any extra explanation or information outside the specified format.
 """
+
+
+twitter_query_creator = """
+Given a short tweet text, identify the intent and formulate an optimized web search query:
+
+"{user_query_short}"
+
+Interpret any informal language, hashtags, or emojis to extract the underlying intent. Formulate a search query that includes relevant keywords and entities to retrieve the most pertinent results.
+
+Respond in the following format:
+<query> search query </query>
+
+Do not add any extra explanation or information outside the specified format.
+
+Example:
+Tweet:
+"Introducing 1.58bit DeepSeek-R1 GGUFs! 🐋 DeepSeek-R1 can now run in 1.58-bit, while being fully functional. We shrank the 671B parameter model from 720GB to just 131GB - an 80% size reduction."
+
+Expected Output:
+<query> 1.58bit DeepSeek-R1 GGUF </query>
+"""
+
 
 reddit_query_creator = """
 Given the user input query identify the intent and formulate a effective search query:

@@ -35,6 +35,10 @@ from src.backend.agents.utils import *
 from src.backend.db.supabaseclient import supabase_client
 from src.backend.extraction.factory import ConverterRegistry, ExtracterRegistry
 import atexit
+from src.backend.utils.logger import setup_logger
+
+# Setup logger
+logger = setup_logger(__name__)
 
 supabase: Client = supabase_client()
 logging.basicConfig(level=logging.ERROR)
@@ -44,6 +48,7 @@ logger = logging.getLogger(__name__)
 class AgentWorkflow:
 
     def __init__(self):
+        logger.info("Initializing AgentWorkflow")
         self.llm = LLMClient()
         self.websearcher = WebSearch(provider='google', num_results=15)
         self.reddit_searcher=RedditSearch()
@@ -620,35 +625,46 @@ class AgentWorkflow:
 
     def run_generic_workflow(self, payload, thread_id,user):
         """Universal handler for all workflow types with database integration"""
+        logger.info(f"Starting generic workflow with payload type: {type(payload).__name__}")
         try:
             thread_id, source_id, url_meta, media_meta = self._initialize_workflow(payload,thread_id)
+            logger.debug(f"Initialized workflow: thread_id={thread_id}, source_id={source_id}")
 
             # Handle existing thread with no feedback
             if payload.get("thread_id") and not payload.get("feedback"):
+                logger.info("Handling existing thread without feedback")
                 return BlogStateOutput(**self._handle_social_post_generation(thread_id, payload, user))
             
             # Handle feedback
             elif payload.get("feedback") and payload.get("thread_id"):
+                logger.info(f"Handling feedback for thread {thread_id}")
                 return BlogStateOutput(**self._handle_feedback(thread_id, payload))
             
             # Handle new content generation
             else:
+                logger.info("Handling new content generation")
                 if payload.get("url"):
+                    logger.debug(f"Processing URL: {payload['url']}")
                     test_input, source_id = self._handle_url_workflow(payload, thread_id, user)
                 elif payload.get("tweet_id"):
+                    logger.debug(f"Processing tweet: {payload['tweet_id']}")
                     test_input, source_id = self._handle_tweet_workflow(payload, thread_id, user)
                 elif payload.get("topic"):
-                    test_input,source_id=self._handle_topic_workflow(payload,thread_id,user)
+                    logger.debug(f"Processing topic: {payload['topic']}")
+                    test_input, source_id = self._handle_topic_workflow(payload, thread_id, user)
                 elif payload.get("reddit_query"):
-                    test_input,source_id=self._handle_reddit_workflow(payload,thread_id,user)
+                    logger.debug(f"Processing reddit query: {payload['reddit_query']}")
+                    test_input, source_id = self._handle_reddit_workflow(payload, thread_id, user)
                 else:
+                    logger.error("Invalid payload - missing required fields")
                     raise ValueError("Invalid payload - must contain url, tweet_id or feedback")
 
                 result = self._generate_new_content(test_input, thread_id, source_id, payload, user)
+                logger.info("Content generation completed successfully")
                 return BlogStateOutput(**result)
 
         except Exception as e:
-            logger.error(f"Error in workflow: {str(e)}")
+            logger.error(f"Error in workflow: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
     def _validate_existing_content(self, source_id, payload):
