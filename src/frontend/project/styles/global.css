@@ -16,3 +16,45 @@
   .animation-delay-4000 {
     animation-delay: 4s;
   }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --primary-blue: #2563eb;
+  --primary-text: #111827;
+  --secondary-text: #4B5563;
+  --background-color: #fcfaf5;
+  --primary-color: #1d4ed8;
+  --primary-hover-color: #1e40af;
+  --text-color: #111827;
+  --text-light-color: #6b7280;
+  --border-color: #d1d5db;
+  --border-radius: 0.375rem;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--primary-hover-color);
+}
+
+button {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: var(--primary-hover-color);
+}

@@ -4,7 +4,7 @@ import { Mail, MessageCircle, Phone, MapPin } from 'lucide-react';
 
 const Contact: React.FC = () => {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-[#fcfaf5] dark:bg-gray-900">
       <Navbar />
       <div className="pt-20 pb-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
@@ -21,7 +21,7 @@ const Contact: React.FC = () => {
                 <Mail className="w-6 h-6 text-blue-500 mt-1" />
                 <div>
                   <h3 className="text-lg font-medium">Email Us</h3>
-                  <p className="text-gray-600 dark:text-gray-300">support@postbot.com</p>
+                  <p className="text-gray-600 dark:text-gray-300">support@riteup.com</p>
                 </div>
               </div>
 

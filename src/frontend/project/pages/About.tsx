@@ -4,12 +4,12 @@ import { Bot, Users, Code, Globe } from 'lucide-react';
 
 const About: React.FC = () => {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-[#fcfaf5] dark:bg-gray-900">
       <Navbar />
       <div className="pt-20 pb-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h1 className="text-4xl font-bold mb-4">About PostBot</h1>
+            <h1 className="text-4xl font-bold mb-4">About Riteup</h1>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
               We're building the future of content creation, helping creators transform their social media presence into lasting, meaningful content.
             </p>
