@@ -50,6 +50,14 @@ TODO:
 37. Search images for article
 38. AI generated images
 39. Add different website based filter for search, eg. search in linkedin, search, multi websites etc., search domain experts
+40. Correct versioning of packages,
+41. use toml file
+42. Add correct migration scripts
+43. Add set up step for checkpointers db
+44. Add docker based set up
+45. Add TextToSpeech feature
+46. Add reddit trending
+
 
 Refactoring:
 1. Remove unnecessary packages and imports

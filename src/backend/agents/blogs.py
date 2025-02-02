@@ -70,6 +70,8 @@ class AgentWorkflow:
         self.conn = Connection.connect(dsn, **connection_kwargs)
         self.checkpointer = PostgresSaver(self.conn)
 
+        # self.checkpointer.setup()
+
         # Add finalizer to close connection when object is destroyed
         atexit.register(self._cleanup)
         self.graph = self.setup_workflow()
