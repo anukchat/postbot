@@ -3,6 +3,7 @@ import * as MenubarPrimitive from '@radix-ui/react-menubar';
 import { Check, ChevronRight, Circle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useEditorStore } from '../../store/editorStore';
+import UserMenu from '../Auth/UserMenu';
 
 const MenuBar = React.forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<typeof MenubarPrimitive.Root>>(
   ({ className, ...props }, ref) => (
@@ -96,50 +97,57 @@ export const MainMenuBar = () => {
   const { savePost, currentPost, downloadMarkdown } = useEditorStore();
 
   return (
-    <MenuBar className="px-2 border-b rounded-none w-full">
-      <MenubarPrimitive.Menu>
-        <MenuBarTrigger>File</MenuBarTrigger>
-        <MenuBarContent>
-          <MenuBarItem onSelect={() => savePost()}>
-            Save
-            <span className="ml-auto text-xs text-gray-500">⌘S</span>
-          </MenuBarItem>
-          <MenuBarItem onSelect={() => downloadMarkdown()}>
-            Download Markdown
-            <span className="ml-auto text-xs text-gray-500">⌘D</span>
-          </MenuBarItem>
-        </MenuBarContent>
-      </MenubarPrimitive.Menu>
+    <div className="flex justify-between items-center w-full bg-white dark:bg-gray-800 border-b">
+      <MenuBar className="px-2 rounded-none">
+        <MenubarPrimitive.Menu>
+          <MenuBarTrigger>File</MenuBarTrigger>
+          <MenuBarContent>
+            <MenuBarItem onSelect={() => savePost()}>
+              Save
+              <span className="ml-auto text-xs text-gray-500">⌘S</span>
+            </MenuBarItem>
+            <MenuBarItem onSelect={() => downloadMarkdown()}>
+              Download Markdown
+              <span className="ml-auto text-xs text-gray-500">⌘D</span>
+            </MenuBarItem>
+          </MenuBarContent>
+        </MenubarPrimitive.Menu>
 
-      <MenubarPrimitive.Menu>
-        <MenuBarTrigger>Edit</MenuBarTrigger>
-        <MenuBarContent>
-          <MenuBarItem>
-            Undo
-            <span className="ml-auto text-xs text-gray-500">⌘Z</span>
-          </MenuBarItem>
-          <MenuBarItem>
-            Redo
-            <span className="ml-auto text-xs text-gray-500">⌘Y</span>
-          </MenuBarItem>
-        </MenuBarContent>
-      </MenubarPrimitive.Menu>
+        <MenubarPrimitive.Menu>
+          <MenuBarTrigger>Edit</MenuBarTrigger>
+          <MenuBarContent>
+            <MenuBarItem>
+              Undo
+              <span className="ml-auto text-xs text-gray-500">⌘Z</span>
+            </MenuBarItem>
+            <MenuBarItem>
+              Redo
+              <span className="ml-auto text-xs text-gray-500">⌘Y</span>
+            </MenuBarItem>
+          </MenuBarContent>
+        </MenubarPrimitive.Menu>
 
-      <MenubarPrimitive.Menu>
-        <MenuBarTrigger>View</MenuBarTrigger>
-        <MenuBarContent>
-          <MenuBarItem>
-            Toggle Preview
-            <span className="ml-auto text-xs text-gray-500">⌘P</span>
-          </MenuBarItem>
-          <MenuBarSeparator />
-          <MenuBarItem>
-            Full Screen
-            <span className="ml-auto text-xs text-gray-500">F11</span>
-          </MenuBarItem>
-        </MenuBarContent>
-      </MenubarPrimitive.Menu>
-    </MenuBar>
+        <MenubarPrimitive.Menu>
+          <MenuBarTrigger>View</MenuBarTrigger>
+          <MenuBarContent>
+            <MenuBarItem>
+              Toggle Preview
+              <span className="ml-auto text-xs text-gray-500">⌘P</span>
+            </MenuBarItem>
+            <MenuBarSeparator />
+            <MenuBarItem>
+              Full Screen
+              <span className="ml-auto text-xs text-gray-500">F11</span>
+            </MenuBarItem>
+          </MenuBarContent>
+        </MenubarPrimitive.Menu>
+      </MenuBar>
+
+      {/* Add UserMenu to the right */}
+      <div className="flex-shrink-0 mr-4">
+        <UserMenu />
+      </div>
+    </div>
   );
 };
 

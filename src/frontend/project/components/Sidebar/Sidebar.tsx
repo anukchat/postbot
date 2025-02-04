@@ -173,7 +173,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse 
       {/* <EditorToolbar isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse} /> */}
       {!isCollapsed && (
         <>
-          <div className="p-4 border-b">
+          <div className="p-4 border-b dark:border-gray-700">
             <div className="relative border dark:border-gray-700 rounded-lg">
               <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input

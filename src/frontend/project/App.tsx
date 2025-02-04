@@ -190,7 +190,7 @@ const MainAppLayout: React.FC = () => {
         {/* Sidebar Drawer */}
         <div
           className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 
-            transition-transform duration-300 ease-in-out border-r 
+            transition-transform duration-300 ease-in-out border-r dark:border-gray-700 
             ${isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'}
             w-[280px] sm:w-[320px] md:w-[350px] lg:w-[400px]
             overflow-hidden`}
@@ -279,9 +279,6 @@ const MainAppLayout: React.FC = () => {
                     </button>
                   </div>
                 </div>
-              </div>
-              <div className="flex-shrink-0 ml-2">
-                <UserMenu />
               </div>
             </div>
             
