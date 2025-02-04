@@ -16,6 +16,7 @@
     "@headlessui/react": "^2.2.0",
     "@microlink/react": "^5.5.22",
     "@radix-ui/react-dropdown-menu": "^2.1.4",
+    "@radix-ui/react-menubar": "^1.1.5",
     "@radix-ui/react-tabs": "^1.1.2",
     "@react-pdf/renderer": "^4.1.6",
     "@supabase/supabase-js": "^2.47.10",

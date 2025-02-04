@@ -22,6 +22,7 @@ import Modal from 'react-modal';
 import { ErrorBoundary } from 'react-error-boundary';
 import { SidebarToggle } from './components/Sidebar/SidebarToggle';
 import { EditorToolbar } from './components/Sidebar/EditorToolbar';
+import { MainMenuBar } from './components/MenuBar/MenuBar';
 
 // Set the root element for accessibility
 Modal.setAppElement('#root');
@@ -212,6 +213,8 @@ const MainAppLayout: React.FC = () => {
         {/* Main Content Area with fixed width */}
         <div className="flex-1 ml-12 sm:ml-16 min-w-0 relative">
           <div className="flex flex-col h-full max-w-full overflow-x-hidden">
+            {/* Add MenuBar here */}
+            <MainMenuBar />
             {/* Header with contained width */}
             <div className="border-b p-2 sm:p-3 md:p-4 flex justify-between items-center bg-white dark:bg-gray-800 w-full">
               <div className="flex-1 flex justify-center min-w-0">

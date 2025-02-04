@@ -7,7 +7,6 @@ import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView, lightDefaultTheme, darkDefaultTheme } from "@blocknote/mantine";
 import katex from "katex";
 import "./wysiwygStyles.css";
-import { diffChars } from 'diff';
 import { useEditorStore } from '../../store/editorStore';
 
 interface WysiwygEditorProps {
