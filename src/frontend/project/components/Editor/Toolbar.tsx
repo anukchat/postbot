@@ -127,11 +127,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onCommandInsert, selectedTab }
 
   return (
     <>
-      <div className="sticky top-0 z-20 flex flex-wrap gap-1 sm:gap-2 md:gap-4 p-2 sm:p-4 bg-white dark:bg-gray-800 shadow-lg rounded-lg">
-        {/* Add proper spacing between button groups */}
+      <div className="sticky top-0 z-10 flex flex-wrap gap-1 sm:gap-2 md:gap-4 p-2 sm:p-4 bg-white dark:bg-gray-800 shadow-lg rounded-lg">
         <div className="flex flex-wrap gap-0.5 sm:gap-1 md:gap-2 items-center justify-center w-full sm:w-auto">
-          {/* Group common actions with dividers */}
-          <div className="flex gap-0.5 sm:gap-1 items-center border-r pr-2 dark:border-gray-700">
+          {/* Group common actions */}
+          <div className="flex gap-0.5 sm:gap-1 items-center">
             <Tippy content="Undo">
               <button onClick={() => undo(selectedTab)} className="p-1 sm:p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
                 <Undo className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -143,8 +142,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onCommandInsert, selectedTab }
             <Tippy content="Heading 3"><button onClick={() => onCommandInsert('### ', 0)} className="p-1 sm:p-1.5"><Heading3 className="w-3 h-3 sm:w-4 sm:h-4" /></button></Tippy>
           </div>
 
-          {/* Group formatting actions with dividers */}
-          <div className="flex gap-0.5 sm:gap-1 items-center border-r pr-2 dark:border-gray-700">
+          {/* Group formatting actions */}
+          <div className="flex gap-0.5 sm:gap-1 items-center">
             <Tippy content="Bold"><button onClick={() => onCommandInsert('**', 0)} className="p-1 sm:p-1.5"><Bold className="w-3 h-3 sm:w-4 sm:h-4" /></button></Tippy>
             <Tippy content="Italic"><button onClick={() => onCommandInsert('*', 0)} className="p-1 sm:p-1.5"><Italic className="w-3 h-3 sm:w-4 sm:h-4" /></button></Tippy>
             <Tippy content="Strikethrough"><button onClick={() => onCommandInsert('~~', 0)} className="p-1 sm:p-1.5"><Strikethrough className="w-3 h-3 sm:w-4 sm:h-4" /></button></Tippy>

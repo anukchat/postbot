@@ -30,13 +30,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse 
     currentPost, 
     setCurrentPost, 
     fetchPosts, 
-    fetchMorePosts, 
     limit, 
     totalPosts, 
     isLoading,
     hasReachedEnd, 
   } = useEditorStore();
-  const { theme, setTheme } = useThemeStore();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
@@ -162,10 +160,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse 
 
   const handlePostSelect = (post: Post) => {
     setCurrentPost(post);
-  };
-
-  const handleThemeToggle = () => {
-    setTheme(theme === 'light' ? 'dark' : 'light');
   };
 
   return (

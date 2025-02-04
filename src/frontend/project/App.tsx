@@ -16,7 +16,6 @@ import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import Settings from './pages/Settings';
 import { Toaster } from 'react-hot-toast';
-import UserMenu from './components/Auth/UserMenu';
 import AuthCallback from './components/Auth/AuthCallback';
 import Modal from 'react-modal';
 import { ErrorBoundary } from 'react-error-boundary';
