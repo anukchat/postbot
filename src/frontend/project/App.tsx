@@ -189,7 +189,7 @@ const MainAppLayout: React.FC = () => {
         {/* Sidebar Drawer */}
         <div
           className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 
-            transition-transform duration-300 ease-in-out border-r dark:border-gray-700
+            transition-transform duration-300 ease-in-out border-r 
             ${isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'}
             w-[280px] sm:w-[320px] md:w-[350px] lg:w-[400px]
             overflow-hidden`}
@@ -284,7 +284,7 @@ const MainAppLayout: React.FC = () => {
             
             {/* Content area with contained width */}
             <div className="flex-1 overflow-hidden">
-              <div className="h-full max-w-full px-2 sm:px-4 md:px-6 pt-4">
+              <div className="h-full max-w-full pt-4">
                 {isCanvasView ? (
                   <CanvasView />
                 ) : isPostDetailsView ? (

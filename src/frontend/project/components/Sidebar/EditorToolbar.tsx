@@ -66,12 +66,12 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isCollapsed, onTog
     <>
       <div className={`bg-white dark:bg-gray-800 ${
         isCollapsed 
-          ? 'fixed left-0 top-0 h-full w-16 flex flex-col items-center py-16 gap-4 border-r dark:border-gray-700'
+          ? 'fixed left-0 top-0 h-full w-16 flex flex-col items-center py-16 gap-4 dark:border-gray-700 border-r'
           : 'w-full border-b'
       }`}>
         {!isCollapsed && (
-          <div className="flex justify-between items-center p-6">
-            <div className="flex items-center gap-2">
+          <div className="p-2 sm:p-3 md:p-4 flex justify-between items-center w-full">
+            <div className="flex items-center gap-2 p-2">
               {renderToolbarItems()}
             </div>
             <button

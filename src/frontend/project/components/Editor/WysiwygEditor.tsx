@@ -4,10 +4,11 @@ import "@blocknote/mantine/style.css";
 import "katex/dist/katex.min.css";
 import { BlockNoteEditor, PartialBlock } from "@blocknote/core";
 import { useCreateBlockNote } from "@blocknote/react";
-import { BlockNoteView, lightDefaultTheme } from "@blocknote/mantine";
+import { BlockNoteView, lightDefaultTheme, darkDefaultTheme } from "@blocknote/mantine";
 import katex from "katex";
 import "./wysiwygStyles.css";
 import { diffChars } from 'diff';
+import { useEditorStore } from '../../store/editorStore';
 
 interface WysiwygEditorProps {
   content: string;
@@ -19,6 +20,7 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({
   onChange,
   readOnly = false 
 }) => {
+  const { isDarkMode } = useEditorStore();
   const editor = useCreateBlockNote();
 
   useEffect(() => {
@@ -81,7 +83,7 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({
     >
       <BlockNoteView
         editor={editor}
-        theme={lightDefaultTheme}
+        theme={isDarkMode ? darkDefaultTheme : lightDefaultTheme}
         editable={!readOnly}
         onChange={handleChange}
         formattingToolbar={true}

@@ -8,6 +8,7 @@ import { useEditorStore } from '../../store/editorStore';
 import { EditorToolbar } from './EditorToolbar';
 import debounce from 'lodash.debounce'; // Add this import
 import { Post } from '../../types';
+import { useThemeStore } from '../../store/themeStore';
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -35,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse 
     isLoading,
     hasReachedEnd, 
   } = useEditorStore();
+  const { theme, setTheme } = useThemeStore();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
@@ -162,8 +164,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse 
     setCurrentPost(post);
   };
 
+  const handleThemeToggle = () => {
+    setTheme(theme === 'light' ? 'dark' : 'light');
+  };
+
   return (
-    <div className="transition-all duration-300 bg-white dark:bg-gray-800 border-r flex flex-col h-full relative">
+    <div className="transition-all duration-300 bg-white dark:bg-gray-800 flex flex-col h-full relative">
       {/* <EditorToolbar isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse} /> */}
       {!isCollapsed && (
         <>
