@@ -98,7 +98,7 @@ export const MainMenuBar = () => {
 
   return (
     <div className="flex justify-between items-center w-full bg-white dark:bg-gray-800 border-b">
-      <MenuBar className="px-2 rounded-none">
+      <MenuBar className="px-2 rounded-none flex-1">
         <MenubarPrimitive.Menu>
           <MenuBarTrigger>File</MenuBarTrigger>
           <MenuBarContent>
@@ -143,8 +143,8 @@ export const MainMenuBar = () => {
         </MenubarPrimitive.Menu>
       </MenuBar>
 
-      {/* Add UserMenu to the right */}
-      <div className="flex-shrink-0 mr-4">
+      {/* Add proper spacing and alignment for UserMenu */}
+      <div className="flex-shrink-0 px-4 border-l dark:border-gray-700">
         <UserMenu />
       </div>
     </div>

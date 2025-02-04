@@ -23,6 +23,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { SidebarToggle } from './components/Sidebar/SidebarToggle';
 import { EditorToolbar } from './components/Sidebar/EditorToolbar';
 import { MainMenuBar } from './components/MenuBar/MenuBar';
+import { IconMenuBar } from './components/MenuBar/IconMenuBar';
 
 // Set the root element for accessibility
 Modal.setAppElement('#root');
@@ -172,6 +173,11 @@ const MainAppLayout: React.FC = () => {
     }
   };
 
+  const handleCommandInsert = (commandText: string, replaceLength: number) => {
+    // Handle command insert logic here
+    console.log('Command insert:', commandText, replaceLength);
+  };
+
   return (
     <div className={`h-screen ${isDarkMode ? 'dark' : ''}`}>
       <div className="h-full flex dark:bg-gray-900 dark:text-white">
@@ -281,6 +287,9 @@ const MainAppLayout: React.FC = () => {
                 </div>
               </div>
             </div>
+            
+            {/* Add IconMenuBar here */}
+            <IconMenuBar selectedTab={selectedTab} onCommandInsert={handleCommandInsert} />
             
             {/* Content area with contained width */}
             <div className="flex-1 overflow-hidden">
