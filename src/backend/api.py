@@ -1,6 +1,6 @@
 import os
 import uuid
-from fastapi import FastAPI, HTTPException, Depends, Query, Security
+from fastapi import FastAPI, HTTPException, Depends, Query, Security, Body
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from src.backend.db.supabaseclient import supabase_client
 from src.backend.db.supabasedatamodel import *
@@ -14,6 +14,7 @@ import asyncio
 from datetime import datetime
 from uuid import UUID
 from src.backend.utils.logger import setup_logger
+from src.backend.extraction.extractors.reddit import RedditExtractor
 
 # Get settings from environment variables
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
@@ -109,6 +110,18 @@ class GenerationLimitResponse(BaseModel):
     tier: str
     max_generations: int
     generations_used: int
+
+# Add new models for Reddit endpoints
+class RedditRequest(BaseModel):
+    subreddits: Optional[List[str]] = None
+    category: Optional[str] = None
+    timeframe: Optional[str] = 'day'
+    limit: Optional[int] = 10
+
+class RedditResponse(BaseModel):
+    data: Dict[str, Any]
+    status: str
+    error: Optional[str] = None
 
 # Agent Workflow Endpoint
 def get_workflow() -> AgentWorkflow:
@@ -969,6 +982,129 @@ async def get_content_by_thread(
 
     return content_item
 
+@app.get("/reddit/trending", response_model=RedditResponse, tags=["reddit"])
+async def get_trending_reddit_topics(
+    limit: int = Query(10, description="Number of posts to fetch per subreddit"),
+    subreddits: Optional[str] = Query(None, description="Comma-separated list of subreddits"),
+    user: dict = Depends(get_current_user_profile)
+):
+    """Fetch trending topics from specified subreddits or r/all"""
+    try:
+        reddit_extractor = RedditExtractor()
+        subreddit_list = subreddits.split(',') if subreddits else None
+        trending_data = reddit_extractor.get_trending_topics(
+            limit=limit,
+            subreddits=subreddit_list
+        )
+        
+        return RedditResponse(
+            data=trending_data,
+            status="success"
+        )
+    except Exception as e:
+        return RedditResponse(
+            data={},
+            status="error",
+            error=str(e)
+        )
+
+@app.get("/reddit/discussions", response_model=RedditResponse, tags=["reddit"])
+async def get_trending_discussions(
+    category: str = Query('all', description="Category/subreddit to fetch from"),
+    timeframe: str = Query('day', description="Time period (hour, day, week, month, year, all)"),
+    limit: int = Query(10, description="Number of posts to fetch"),
+    user: dict = Depends(get_current_user_profile)
+):
+    """Fetch trending discussion posts based on category and timeframe"""
+    try:
+        reddit_extractor = RedditExtractor()
+        discussions = reddit_extractor.get_trending_discussions(
+            category=category,
+            timeframe=timeframe,
+            limit=limit
+        )
+        
+        return RedditResponse(
+            data=discussions,
+            status="success"
+        )
+    except Exception as e:
+        return RedditResponse(
+            data={},
+            status="error",
+            error=str(e)
+        )
+
+@app.get("/reddit/active-subreddits", response_model=RedditResponse, tags=["reddit"])
+async def get_active_subreddits(
+    category: Optional[str] = Query(None, description="Category filter"),
+    limit: int = Query(10, description="Number of subreddits to return"),
+    user: dict = Depends(get_current_user_profile)
+):
+    """Get most active subreddits for a given category"""
+    try:
+        reddit_extractor = RedditExtractor()
+        active_subs = reddit_extractor.get_active_subreddits(
+            category=category,
+            limit=limit
+        )
+        
+        return RedditResponse(
+            data={"subreddits": active_subs},
+            status="success"
+        )
+    except Exception as e:
+        return RedditResponse(
+            data={},
+            status="error",
+            error=str(e)
+        )
+
+@app.post("/reddit/extract", response_model=RedditResponse, tags=["reddit"])
+async def extract_reddit_content(
+    url: str = Body(..., description="Reddit post URL to extract"),
+    skip_llm: bool = Body(False, description="Skip LLM processing"),
+    user: dict = Depends(get_current_user_profile)
+):
+    """Extract content from a Reddit post URL"""
+    try:
+        reddit_extractor = RedditExtractor()
+        content = reddit_extractor.extract(
+            source=url,
+            skip_llm=skip_llm
+        )
+        
+        return RedditResponse(
+            data=content,
+            status="success"
+        )
+    except Exception as e:
+        return RedditResponse(
+            data={},
+            status="error",
+            error=str(e)
+        )
+
+@app.post("/reddit/batch-summary", response_model=RedditResponse, tags=["reddit"])
+async def create_reddit_summary(
+    posts: List[Dict] = Body(..., description="List of Reddit posts to summarize"),
+    user: dict = Depends(get_current_user_profile)
+):
+    """Create a summary from multiple Reddit posts"""
+    try:
+        reddit_extractor = RedditExtractor()
+        summary = reddit_extractor.create_summary(posts)
+        
+        return RedditResponse(
+            data={"summary": summary},
+            status="success"
+        )
+    except Exception as e:
+        return RedditResponse(
+            data={},
+            status="error",
+            error=str(e)
+        )
 
 if __name__ == "__main__":
     uvicorn.run("src.backend.api:app", host="0.0.0.0", port=8000, reload=False)

@@ -152,3 +152,153 @@ class RedditExtractor(BaseExtractor):
             """
             
         return pre_summary_prompt
+
+    def get_trending_topics(self, limit: int = 10, subreddits: List[str] = None) -> Dict[str, Any]:
+        """
+        Fetch trending topics from specified subreddits or r/all
+        
+        Args:
+            limit: Number of trending posts to fetch per subreddit
+            subreddits: List of subreddit names to check. If None, checks r/all
+        
+        Returns:
+            Dictionary containing trending topics and their metadata
+        """
+        trending_data = {}
+        
+        if subreddits is None:
+            # Get trending from r/all
+            hot_posts = self.reddit.subreddit('all').hot(limit=limit)
+            trending_data['all'] = self._process_trending_posts(hot_posts)
+        else:
+            # Get trending from specific subreddits
+            for subreddit_name in subreddits:
+                try:
+                    subreddit = self.reddit.subreddit(subreddit_name)
+                    hot_posts = subreddit.hot(limit=limit)
+                    trending_data[subreddit_name] = self._process_trending_posts(hot_posts)
+                except Exception as e:
+                    print(f"Error fetching from r/{subreddit_name}: {str(e)}")
+                    continue
+        
+        return trending_data
+
+    def get_trending_discussions(self, category: str = 'all', timeframe: str = 'day', limit: int = 10) -> Dict[str, Any]:
+        """
+        Fetch trending discussion posts based on category and timeframe
+        
+        Args:
+            category: Category to fetch from ('all', 'technology', 'science', etc.)
+            timeframe: Time period ('hour', 'day', 'week', 'month', 'year', 'all')
+            limit: Number of posts to fetch
+            
+        Returns:
+            Dictionary containing trending discussions
+        """
+        try:
+            subreddit = self.reddit.subreddit(category)
+            
+            # Get discussion-oriented posts
+            if timeframe == 'day':
+                posts = subreddit.top('day', limit=limit)
+            else:
+                posts = getattr(subreddit, timeframe)(limit=limit)
+            
+            discussions = []
+            for post in posts:
+                # Filter for discussion-type posts
+                if (post.is_self and 
+                    post.num_comments > 10 and  # Has meaningful discussion
+                    not post.over_18):  # SFW content only
+                    
+                    discussion_data = {
+                        'title': post.title,
+                        'url': f"https://reddit.com{post.permalink}",
+                        'author': post.author.name if post.author else '[deleted]',
+                        'subreddit': post.subreddit.display_name,
+                        'score': post.score,
+                        'num_comments': post.num_comments,
+                        'created_utc': post.created_utc,
+                        'is_original_content': post.is_original_content,
+                        'upvote_ratio': post.upvote_ratio
+                    }
+                    discussions.append(discussion_data)
+            
+            return {
+                'category': category,
+                'timeframe': timeframe,
+                'discussions': discussions
+            }
+            
+        except Exception as e:
+            print(f"Error fetching trending discussions: {str(e)}")
+            return {
+                'category': category,
+                'timeframe': timeframe,
+                'discussions': [],
+                'error': str(e)
+            }
+
+    def _process_trending_posts(self, posts) -> List[Dict[str, Any]]:
+        """
+        Process Reddit posts into a structured format
+        """
+        trending_posts = []
+        
+        for post in posts:
+            if not post.over_18:  # Filter out NSFW content
+                post_data = {
+                    'title': post.title,
+                    'url': f"https://reddit.com{post.permalink}",
+                    'author': post.author.name if post.author else '[deleted]',
+                    'subreddit': post.subreddit.display_name,
+                    'score': post.score,
+                    'num_comments': post.num_comments,
+                    'created_utc': post.created_utc,
+                    'is_original_content': post.is_original_content,
+                    'upvote_ratio': post.upvote_ratio,
+                    'is_video': post.is_video,
+                    'domain': post.domain
+                }
+                trending_posts.append(post_data)
+        
+        return trending_posts
+
+    def get_active_subreddits(self, category: str = None, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Get most active subreddits for a given category
+        
+        Args:
+            category: Optional category filter
+            limit: Number of subreddits to return
+            
+        Returns:
+            List of active subreddits with their metadata
+        """
+        try:
+            if category:
+                # Use the search function to find related subreddits
+                subreddits = self.reddit.subreddits.search(category, limit=limit)
+            else:
+                # Get popular subreddits
+                subreddits = self.reddit.subreddits.popular(limit=limit)
+            
+            active_subs = []
+            for sub in subreddits:
+                if not sub.over18:  # Filter out NSFW subreddits
+                    sub_data = {
+                        'name': sub.display_name,
+                        'title': sub.title,
+                        'description': sub.public_description,
+                        'subscribers': sub.subscribers,
+                        'active_users': sub.active_user_count,
+                        'url': f"https://reddit.com{sub.url}",
+                        'created_utc': sub.created_utc
+                    }
+                    active_subs.append(sub_data)
+            
+            return active_subs
+            
+        except Exception as e:
+            print(f"Error fetching active subreddits: {str(e)}")
+            return []

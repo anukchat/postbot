@@ -119,7 +119,7 @@ WRITING GUIDELINES:
 - Do not introduce the section, just start with the content directly (e.g. DO NOT start like This section examines... or This section discusses... etc.)
 
 3. **Formatting Instructions:**  
-- Use markdown formatting:  
+- Use markdown formatting 
 - Use ** for highlighting and emphasizing important points.
 
 4. **Grounding Instructions:**  
@@ -138,10 +138,11 @@ QUALITY CHECKLIST:
 [ ] Uses concise, clear and direct language, without using too many words to explain a simple concept.
 [ ] Contains all the key points in detail from the input content.
 [ ] If needed ,contains one clear code example if specified in the Section Description.  
-[ ] Uses correct markdown formatting.
+[ ] Uses proper markdown formatting.
 [ ] Uses image or video source urls in the content in form of markdown.  
 [ ] No repeated or duplicate information.
 [ ] No introduction or explanation of the section, directly start with the content.
+[ ] Uses proper text formatting without duplication.
 
 """
 

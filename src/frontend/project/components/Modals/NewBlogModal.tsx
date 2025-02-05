@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog } from '@headlessui/react';
-import { Twitter, Globe, X, Loader, Search, ChevronLeft, Grid2X2, LayoutList, MessageCircle } from 'lucide-react';
+import { Twitter, Globe, X, Loader, Search, ChevronLeft, Grid2X2, LayoutList, MessageCircle, Loader2 } from 'lucide-react';
 import { Tweet } from 'react-tweet';
 import { useEditorStore } from '../../store/editorStore';
 import Masonry from 'react-masonry-css';
@@ -12,6 +12,7 @@ import { GenerateLoader } from '../Editor/GenerateLoader';
 import Tippy from '@tippyjs/react';
 import MicrolinkCard from '@microlink/react';
 import { toast } from 'react-hot-toast';
+import Select from 'react-select';
 
 const LOADING_MESSAGES = {
   blog: [
@@ -63,7 +64,7 @@ interface TopicForm {
 interface RedditForm {
   query: string;
   isValid: boolean;
-  subreddit?: string;  // Optional subreddit parameter
+  subreddit: string | null;
 }
 
 interface NewBlogModalProps {
@@ -96,7 +97,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const itemsPerPage = 10;
-  const { fetchPosts } = useEditorStore();
+  const { fetchPosts, redditTrendingTopics, fetchRedditTrending } = useEditorStore();
   const [customUrl, setCustomUrl] = useState<CustomUrlForm>({ url: '', isValid: false });
   const [isCustomUrl, setIsCustomUrl] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
@@ -115,15 +116,30 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
   const [redditSearch, setRedditSearch] = useState<RedditForm>({ 
     query: '', 
     isValid: false,
-    subreddit: undefined 
+    subreddit: null 
   });
   const [isRedditSearch, setIsRedditSearch] = useState(false);
   const [trendingRedditTopics] = useState([
     'Programming',
     'Technology',
     'WebDev',
-    'ArtificialIntelligence'
+    'ArtificialIntelligence',
+    'MachineLearning',
+    'LocalLLaMA',
+    'LocalLLM',
+    'AI_Agents',
+    'deeplearning',
+    'generativeAI',
+    'PromptEngineering',
+    'accelerate',
+    'artificial',
+    'automate',
+    `singularity`
   ]);
+  const [selectedSubreddit, setSelectedSubreddit] = useState<string | null>(null);
+  const [isLoadingTrending, setIsLoadingTrending] = useState(false);
+  const [trendingPage, setTrendingPage] = useState(1);
+  const TRENDING_PER_PAGE = 6;
 
   // Update fetchSources to handle Reddit search
   const fetchSources = async () => {
@@ -232,16 +248,29 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
     const query = e.target.value;
     setRedditSearch({
       query,
-      isValid: validateRedditSearch(query)
+      isValid: validateRedditSearch(query),
+      subreddit: selectedSubreddit
     });
   };
 
   // Add handler for subreddit selection
-  const handleSubredditSelect = (subreddit: string) => {
+  const handleSubredditSelect = async (option: any) => {
+    const subreddit = option ? option.value : null;
+    setSelectedSubreddit(subreddit);
+    
+    if (subreddit) {
+      setIsLoadingTrending(true);
+      try {
+        await fetchRedditTrending(subreddit);
+      } finally {
+        setIsLoadingTrending(false);
+      }
+    }
+
     setRedditSearch(prev => ({
       ...prev,
       subreddit,
-      query: prev.query,  // Maintain existing search query
+      query: prev.query,
       isValid: validateRedditSearch(prev.query)
     }));
   };
@@ -273,7 +302,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
         const payload = {
           post_types: ["blog"],
           reddit_query: redditSearch.query,
-          subreddit: redditSearch.subreddit  // Include optional subreddit
+          subreddit: selectedSubreddit  // Include optional subreddit
         };
         await api.post('/content/generate', payload);
         
@@ -609,6 +638,11 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
   );
 
   // Add Reddit search input section
+  const getPaginatedTrendingTopics = useCallback((topics: any[]) => {
+    const startIndex = (trendingPage - 1) * TRENDING_PER_PAGE;
+    return topics.slice(startIndex, startIndex + TRENDING_PER_PAGE);
+  }, [trendingPage]);
+
   const renderRedditSearch = () => (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -616,7 +650,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
           onClick={() => {
             setSelectedSource(null);
             setIsRedditSearch(false);
-            setRedditSearch({ query: '', isValid: false });
+            setRedditSearch({ query: '', isValid: false, subreddit: null });
           }}
           className="flex items-center gap-2 text-sm text-blue-500 hover:text-blue-600"
         >
@@ -624,88 +658,148 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
           Back to sources
         </button>
       </div>
-      <div className="p-6 border rounded-lg dark:border-gray-700">
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Selected Subreddit
-          </label>
-          <div className="flex items-center gap-2">
-            {redditSearch.subreddit ? (
-              <>
-                <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-800 text-sm">
-                  r/{redditSearch.subreddit}
-                </span>
-                <button
-                  onClick={() => setRedditSearch(prev => ({ ...prev, subreddit: undefined }))}
-                  className="text-xs text-gray-500 hover:text-gray-700"
-                >
-                  Clear
-                </button>
-              </>
-            ) : (
-              <span className="text-sm text-gray-500">Searching all subreddits</span>
-            )}
+
+      <div className="border rounded-lg dark:border-gray-700">
+        {/* Combined Search and Subreddit Selection */}
+        <div className="p-6 border-b dark:border-gray-700">
+          <div className="flex gap-4 items-start">
+            {/* Topic Input */}
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Enter Topic for Reddit Search
+              </label>
+              <input
+                type="text"
+                value={redditSearch.query}
+                onChange={handleRedditSearchChange}
+                placeholder="Enter your topic..."
+                className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Subreddit Dropdown */}
+            <div className="w-64">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Select Subreddit
+              </label>
+              <Select
+                options={trendingRedditTopics.map(topic => ({ value: topic, label: `r/${topic}` }))}
+                value={selectedSubreddit ? { value: selectedSubreddit, label: `r/${selectedSubreddit}` } : null}
+                onChange={handleSubredditSelect}
+                isClearable
+                placeholder="Optional"
+                className="react-select-container"
+                classNamePrefix="react-select"
+                menuPortalTarget={document.body}
+                styles={{
+                  menuPortal: (base) => ({
+                    ...base,
+                    zIndex: 9999
+                  })
+                }}
+              />
+            </div>
           </div>
         </div>
 
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Search Reddit Posts
-        </label>
-        <input
-          type="text"
-          value={redditSearch.query}
-          onChange={handleRedditSearchChange}
-          placeholder="Enter subreddit or search query..."
-          className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-        />
-        {redditSearch.query && !redditSearch.isValid && (
-          <p className="mt-2 text-sm text-red-600">Search query must be at least 3 characters long</p>
-        )}
-        
-        <div className="mt-6">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            Popular Subreddits
-          </h4>
-          <div className="grid grid-cols-2 gap-2">
-            {trendingRedditTopics.map((topic) => (
-              <button
-                key={topic}
-                onClick={() => handleSubredditSelect(topic)}
-                className={`text-left px-3 py-2 text-sm rounded-lg border 
-                  ${redditSearch.subreddit === topic 
-                    ? 'border-orange-500 bg-orange-50 text-orange-700' 
-                    : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
-              >
-                r/{topic}
-              </button>
-            ))}
+        {/* Trending Topics Section */}
+        {selectedSubreddit && (
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Trending on r/{selectedSubreddit}
+              </h4>
+              {isLoadingTrending ? (
+                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setTrendingPage(page => Math.max(1, page - 1))}
+                    disabled={trendingPage === 1}
+                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-50"
+                  >
+                    ←
+                  </button>
+                  <span className="text-sm text-gray-500">
+                    Page {trendingPage}
+                  </span>
+                  <button
+                    onClick={() => setTrendingPage(page => page + 1)}
+                    disabled={!redditTrendingTopics[selectedSubreddit] || 
+                      getPaginatedTrendingTopics(redditTrendingTopics[selectedSubreddit]).length < TRENDING_PER_PAGE}
+                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-50"
+                  >
+                    →
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            {redditTrendingTopics[selectedSubreddit]?.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3">
+                {getPaginatedTrendingTopics(redditTrendingTopics[selectedSubreddit]).map((topic) => (
+                  <div
+                    key={topic.url}
+                    className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                    onClick={() => setRedditSearch({
+                      query: topic.title,
+                      isValid: true,
+                      subreddit: selectedSubreddit
+                    })}
+                  >
+                    <div className="flex flex-col h-full">
+                      <h5 className="font-medium text-sm line-clamp-2 mb-2">{topic.title}</h5>
+                      <div className="mt-auto flex items-center gap-3 text-xs text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <MessageCircle className="w-3 h-3" />
+                          {topic.num_comments}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          ⬆️ {topic.score}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          📊 {Math.round(topic.upvote_ratio * 100)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : !isLoadingTrending && (
+              <div className="text-center py-8 text-gray-500">
+                No trending topics found
+              </div>
+            )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
 
-  // Update the source selection UI to include custom URL option
   const renderSourceSelection = () => (
-    <div className="grid grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 gap-4">
       <button
-        onClick={() => setSelectedSource('twitter')}
-        disabled={false} // Temporarily disabled
-        className="group relative rounded-xl border border-gray-200 dark:border-gray-700 p-6 hover:border-blue-500 dark:hover:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        onClick={() => {
+          setSelectedSource('twitter');
+          setIsCustomUrl(false);
+        }}
+        className="group relative rounded-xl border border-gray-200 dark:border-gray-700 p-6 hover:border-blue-500 dark:hover:border-blue-500 transition-colors"
       >
         <div className="flex flex-col items-center gap-4">
-          <Twitter className="h-8 w-8 text-blue-400" />
+          <Twitter className="h-8 w-8 text-blue-500" />
           <span className="text-sm font-medium">From Twitter</span>
         </div>
       </button>
       <button
-        onClick={() => setSelectedSource('web')}
+        onClick={() => {
+          setSelectedSource('web');
+          setIsCustomUrl(false);
+        }}
         className="group relative rounded-xl border border-gray-200 dark:border-gray-700 p-6 hover:border-green-500 dark:hover:border-green-500 transition-colors"
       >
         <div className="flex flex-col items-center gap-4">
           <Globe className="h-8 w-8 text-green-500" />
-          <span className="text-sm font-medium">From Web URL</span>
+          <span className="text-sm font-medium">From Web</span>
         </div>
       </button>
       <button
@@ -779,7 +873,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
           </button>
         </div>
       </div>
-      <div className="max-h-[60vh] overflow-y-auto px-4 py-2">
+      <div className="px-4 py-2">
         {isLoading && !isGenerating ? ( // Only show normal loader when not generating
           <div className="flex justify-center py-8">
             <Loader className="h-6 w-6 animate-spin text-blue-500" />
@@ -911,7 +1005,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
       {/* Update container z-index */}
       <div className="fixed inset-0 overflow-y-auto z-[50]">
         <div className="flex min-h-full items-center justify-center p-4">
-          <Dialog.Panel className="w-full max-w-4xl rounded-xl bg-white dark:bg-gray-800 shadow-xl transition-all relative">
+          <Dialog.Panel className="w-full max-w-4xl rounded-xl bg-white dark:bg-gray-800 shadow-xl transition-all">
             {/* Modal header */}
             <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
               <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -925,7 +1019,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
               </button>
             </div>
 
-            {/* Modal content */}
+            {/* Modal content - Remove fixed height constraints */}
             <div className="px-6 py-4">
               {error && (
                 <div className="mb-4 p-4 bg-red-50 text-red-600 rounded-lg">
@@ -933,12 +1027,15 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
                 </div>
               )}
 
-              {!selectedSource && renderSourceSelection()}
-              {selectedSource === 'topic' && renderTopicInput()}
-              {selectedSource === 'reddit' && renderRedditSearch()}
-              {selectedSource === 'web' && !isCustomUrl && renderSourceContentSection()}
-              {selectedSource === 'twitter' && !isCustomUrl && renderSourceContentSection()}
-              {selectedSource === 'web' && isCustomUrl && renderCustomUrlInput()}
+              {/* Remove max-height constraint */}
+              <div>
+                {!selectedSource && renderSourceSelection()}
+                {selectedSource === 'topic' && renderTopicInput()}
+                {selectedSource === 'reddit' && renderRedditSearch()}
+                {selectedSource === 'web' && !isCustomUrl && renderSourceContentSection()}
+                {selectedSource === 'twitter' && !isCustomUrl && renderSourceContentSection()}
+                {selectedSource === 'web' && isCustomUrl && renderCustomUrlInput()}
+              </div>
             </div>
 
             {/* Modal footer */}
