@@ -129,6 +129,38 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({
     }));
   };
 
+  const getMediaSuggestionMenuItems = (editor: any): DefaultReactSuggestionItem[] => {
+    const mediaReferences = ((currentPost?.media ?? []).length > 0)
+      ? (currentPost?.media.map(media => ({
+        url: media.url,
+        type: media.type || 'image'
+      })) ?? [])
+      : [{ url: "https://example.com/default-image.jpg", type: "image" }];
+
+    return mediaReferences.map((media: any) => ({
+      title: media.url,
+      onItemClick: () => {
+      const cursorPosition = editor.getTextCursorPosition();
+      const currentBlock = cursorPosition ? cursorPosition.block : null;
+
+      const mediaBlock: PartialBlock = {
+        type: media.type === 'photo' || 'image' ? 'image' : 'video',
+        props: {
+          url: media.url,
+          caption: "",
+          ...(media.type === 'video' ? { aspectRatio: "16/9" } : {})
+        },
+      };
+
+      if (currentBlock) {
+        editor.insertBlocks([mediaBlock], currentBlock, "after");
+      } else {
+        editor.appendBlocks([mediaBlock]);
+      }
+      },
+    }));
+    };
+
   return (
     <div
       className="custom-editor"
@@ -163,6 +195,16 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({
           triggerCharacter={"@"}
           getItems={async (query: any) =>
             filterSuggestionItems(getUrlSuggestionMenuItems(editor), query)
+          }
+          minQueryLength={0}
+        />
+        
+        {/* Additional Suggestion Menu for Media references.
+            This menu opens when the user types the "[" character. */}
+        <SuggestionMenuController
+          triggerCharacter={"$"}
+          getItems={async (query: any) =>
+            filterSuggestionItems(getMediaSuggestionMenuItems(editor), query)
           }
           minQueryLength={0}
         />
