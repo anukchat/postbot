@@ -1,5 +1,3 @@
-import React from 'react';
-
 export const ContentLoader = () => {
   return (
     <div className="w-full h-full flex flex-col items-center justify-center space-y-4 p-8">

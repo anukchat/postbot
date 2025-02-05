@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Save, FileDown, Send, Sun, Moon, Plus, ChevronRight, ChevronLeft, XCircle, Home, X } from 'lucide-react';
+import { Save, FileDown, Send, Sun, Moon, Plus, XCircle, Home, X } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import Tippy from '@tippyjs/react';
 import 'tippy.js/dist/tippy.css';

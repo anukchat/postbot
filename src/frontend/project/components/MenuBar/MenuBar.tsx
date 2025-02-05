@@ -1,6 +1,5 @@
 import * as React from 'react';
 import * as MenubarPrimitive from '@radix-ui/react-menubar';
-import { Check, ChevronRight, Circle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useEditorStore } from '../../store/editorStore';
 import UserMenu from '../Auth/UserMenu';
@@ -94,7 +93,7 @@ const MenuBarSeparator = React.forwardRef<HTMLDivElement, React.ComponentPropsWi
 MenuBarSeparator.displayName = MenubarPrimitive.Separator.displayName;
 
 export const MainMenuBar = () => {
-  const { savePost, currentPost, downloadMarkdown } = useEditorStore();
+  const { savePost, downloadMarkdown } = useEditorStore();
 
   return (
     <div className="flex justify-between items-center w-full bg-white dark:bg-gray-800 border-b">
@@ -116,11 +115,11 @@ export const MainMenuBar = () => {
         <MenubarPrimitive.Menu>
           <MenuBarTrigger>Edit</MenuBarTrigger>
           <MenuBarContent>
-            <MenuBarItem>
+            <MenuBarItem onSelect={() => document.execCommand('undo')}>
               Undo
               <span className="ml-auto text-xs text-gray-500">⌘Z</span>
             </MenuBarItem>
-            <MenuBarItem>
+            <MenuBarItem onSelect={() => document.execCommand('redo')}>
               Redo
               <span className="ml-auto text-xs text-gray-500">⌘Y</span>
             </MenuBarItem>
@@ -130,13 +129,27 @@ export const MainMenuBar = () => {
         <MenubarPrimitive.Menu>
           <MenuBarTrigger>View</MenuBarTrigger>
           <MenuBarContent>
-            <MenuBarItem>
-              Toggle Preview
-              <span className="ml-auto text-xs text-gray-500">⌘P</span>
-            </MenuBarItem>
-            <MenuBarSeparator />
-            <MenuBarItem>
-              Full Screen
+            <MenuBarItem onSelect={() => {
+              if (document.fullscreenElement) {
+                document.exitFullscreen();
+              } else {
+                document.documentElement.requestFullscreen();
+              }
+            }}>
+              {(() => {
+                const [isFullscreen, setIsFullscreen] = React.useState(!!document.fullscreenElement);
+
+                React.useEffect(() => {
+                  const handleFullscreenChange = () => {
+                    setIsFullscreen(!!document.fullscreenElement);
+                  };
+
+                  document.addEventListener('fullscreenchange', handleFullscreenChange);
+                  return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+                }, []);
+
+                return isFullscreen ? 'Exit Full Screen' : 'Full Screen';
+              })()}
               <span className="ml-auto text-xs text-gray-500">F11</span>
             </MenuBarItem>
           </MenuBarContent>

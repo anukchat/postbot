@@ -5,10 +5,8 @@ import {
   Loader // Add the Loader icon
 } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
-import { EditorToolbar } from './EditorToolbar';
 import debounce from 'lodash.debounce'; // Add this import
 import { Post } from '../../types';
-import { useThemeStore } from '../../store/themeStore';
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -24,7 +22,7 @@ interface FilterState {
   created_before: string;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed }) => {
   const { 
     posts, 
     currentPost, 

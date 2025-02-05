@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navbar } from '../components/Landing/Navbar';
-import { Bot, Twitter, Brain, Sparkles, Zap, Share2 } from 'lucide-react';
+import { Bot} from 'lucide-react';
 
 const Features: React.FC = () => {
   const features = [

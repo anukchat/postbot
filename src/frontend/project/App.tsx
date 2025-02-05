@@ -66,10 +66,6 @@ const MainAppLayout: React.FC = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-  const closeOverlay = () => {
-    setIsOverlayVisible(false);
-    setIsSidebarCollapsed(true); // Collapse sidebar when overlay is closed
-  };
 
   useEffect(() => {
     if (isSidebarCollapsed) {

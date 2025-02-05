@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navbar } from '../components/Landing/Navbar';
-import { Mail, MessageCircle, Phone, MapPin } from 'lucide-react';
+import { Mail, MessageCircle } from 'lucide-react';
 
 const Contact: React.FC = () => {
   return (

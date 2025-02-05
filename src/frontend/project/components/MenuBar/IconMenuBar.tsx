@@ -5,12 +5,6 @@ import {
   History, 
   HelpCircle, 
   Rocket, 
-  Share2, 
-  FileDown, 
-  Save,
-  Send,
-  Twitter,
-  Link,
   Undo,
   Redo,
   Copy  // new import for copy icon
@@ -30,7 +24,7 @@ interface IconMenuBarProps {
 export const IconMenuBar: React.FC<IconMenuBarProps> = ({ selectedTab, onCommandInsert }) => {
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedback, setFeedback] = useState('');
-  const { currentPost, savePost, downloadMarkdown, publishPost, generatePost, fetchContentByThreadId } = useEditorStore();
+  const { currentPost, generatePost, fetchContentByThreadId } = useEditorStore();
   const [isGenerating, setIsGenerating] = useState(false);
   const [showUrlPicker, setShowUrlPicker] = useState(false);
 
@@ -92,15 +86,6 @@ export const IconMenuBar: React.FC<IconMenuBarProps> = ({ selectedTab, onCommand
     (selectedTab === 'linkedin' && currentPost.linkedin_post)
   );
 
-  const getTwitterEmbed = () => {
-    if (currentPost?.source_type === 'twitter' && currentPost?.source_identifier) {
-      return `{{< twitter id="${currentPost.source_identifier}" >}}\n`;
-    }
-    return currentPost?.tweet?.tweet_id
-      ? `{{< twitter id="${currentPost.tweet.tweet_id}" >}}\n`
-      : '{{< twitter id="PASTE_TWEET_ID_HERE" >}}\n';
-  };
-
   const handleUrlSelect = (url: { url: string }) => {
     const insertText = `[${url.url}](${url.url})`;
     onCommandInsert?.(insertText, 0);
@@ -152,49 +137,15 @@ export const IconMenuBar: React.FC<IconMenuBarProps> = ({ selectedTab, onCommand
                 <Redo className="w-4 h-4" />
               </button>
             </Tippy>
-            <Tippy content="Save">
-              <button onClick={savePost}
-                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
-                <Save className="w-4 h-4" />
-              </button>
-            </Tippy>
-            <Tippy content="Download">
-              <button onClick={downloadMarkdown}
-                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
-                <FileDown className="w-4 h-4" />
-              </button>
-            </Tippy>
+          </div>
+          <div className="h-6 w-px bg-gray-200 dark:bg-gray-700" />
+          {/* Center group */}
+          <div className="flex items-center gap-3">
             {/* New Copy Content button */}
             <Tippy content="Copy Content with formatting">
               <button onClick={handleCopy}
                 className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
                 <Copy className="w-4 h-4" />
-              </button>
-            </Tippy>
-          </div>
-          <div className="h-6 w-px bg-gray-200 dark:bg-gray-700" />
-          {/* Center group */}
-          <div className="flex items-center gap-3">
-            {hasTweetReference && (
-              <Tippy content="Twitter Embed">
-                <button onClick={() => onCommandInsert?.(getTwitterEmbed(), 0)}
-                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-                  <Twitter className="w-4 h-4" />
-                </button>
-              </Tippy>
-            )}
-            {hasLinkReferences && (
-              <Tippy content="Insert Link">
-                <button onClick={() => setShowUrlPicker(true)}
-                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-                  <Link className="w-4 h-4" />
-                </button>
-              </Tippy>
-            )}
-            <Tippy content="Version History">
-              <button onClick={() => toast('History feature coming soon')}
-                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
-                <History className="w-4 h-4" />
               </button>
             </Tippy>
             {selectedTab !== 'blog' && (
@@ -220,10 +171,6 @@ export const IconMenuBar: React.FC<IconMenuBarProps> = ({ selectedTab, onCommand
                 </button>
               </Tippy>
             )}
-          </div>
-          <div className="h-6 w-px bg-gray-200 dark:bg-gray-700" />
-          {/* Right group */}
-          <div className="flex items-center gap-3">
             {shouldShowFeedback && (
               <Tippy content="Provide feedback">
                 <button onClick={() => setShowFeedbackModal(true)}
@@ -232,6 +179,16 @@ export const IconMenuBar: React.FC<IconMenuBarProps> = ({ selectedTab, onCommand
                 </button>
               </Tippy>
             )}
+            <Tippy content="Version History">
+              <button onClick={() => toast('History feature coming soon')}
+                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                <History className="w-4 h-4" />
+              </button>
+            </Tippy>
+          </div>
+          <div className="h-6 w-px bg-gray-200 dark:bg-gray-700" />
+          {/* Right group */}
+          <div className="flex items-center gap-3">
             <Tippy content="Settings">
               <button onClick={() => toast('Settings feature coming soon')}
                 className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
@@ -242,12 +199,6 @@ export const IconMenuBar: React.FC<IconMenuBarProps> = ({ selectedTab, onCommand
               <button onClick={() => toast('Help feature coming soon')}
                 className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
                 <HelpCircle className="w-4 h-4" />
-              </button>
-            </Tippy>
-            <Tippy content="Publish">
-              <button onClick={publishPost}
-                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
-                <Send className="w-4 h-4" />
               </button>
             </Tippy>
           </div>
