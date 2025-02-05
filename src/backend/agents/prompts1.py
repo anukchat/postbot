@@ -2,9 +2,8 @@
 default_blog_structure = """The blog post should follow this strict three-part structure:
 
 1. Introduction (max 1 section)
-   - Start with key Links containing user-provided links in form [Link1](URL1), [Link2](URL2)
+   - Start with key Links containing user-provided links
    - Brief main topic overview
-   - Include primary keyword in first paragraph
    - 150-200 words (flexible)
 
 2. Main Body (2-5 sections)
@@ -13,7 +12,6 @@ default_blog_structure = """The blog post should follow this strict three-part s
      * Include all key input points with examples
      * Add code snippets where relevant
      * Embed images/videos from source URLs
-     * Target 1-2 long-tail keywords in headers
      * 300-600 words per section (variable)
    - No content overlap between sections
    - Include all input details
@@ -24,7 +22,6 @@ default_blog_structure = """The blog post should follow this strict three-part s
    - Concise key point summary
    - Repeat Key Links
    - Natural call-to-action
-   - Reinforce primary keyword
    - 100-150 words"""
 
 
@@ -53,23 +50,12 @@ Generate blog sections following this exact structure:
   ]
 }}
 
-For each section, be sure to provide:
-- Name - Clear and descriptive section name
-- Description - An overview of specific topics to be covered each section, whether to include code examples, and the word count
-- Content - Leave blank for now
-- Main Body - Whether this is a main body section or an introduction / conclusion sections
+Each section MUST include all fields: name, description, content, and main_body (main_body is a boolean field which denotes if the section is main body or not).
 
 Final check:
 1. Confirm that the Sections follow the structure EXACTLY as shown above
 2. Confirm that each Section Description has a clearly stated scope that does not conflict with other sections and is not duplicated.
-3. Confirm that each Section Description includes:
-   - Primary/secondary keyword targets
-   - Semantic relationship to parent topic
-4. Confirm sections include:
-   - Header keyword optimization
-   - Unique value propositions for search engines
-5. Confirm that the Sections are grounded in the user notes
-"""
+3. Confirm that the Sections are grounded in the user notes"""
 
 
 ##----------------- Section Writer Instructions -----------------##
@@ -120,17 +106,18 @@ WRITING GUIDELINES:
 
 3. **Formatting Instructions:**  
 - Use markdown formatting:  
-- Use ** for highlighting and emphasizing important points.
+  * ## for section heading  
+  * ``` for code blocks  
+  * ** for emphasis when needed  
+  * - for bullet points if necessary  
+  * ![](...) for images  
+  * <video src=... controls /> for videos  
+  * ** for highlighting  
 
 4. **Grounding Instructions:**  
 - ONLY use information from the input provided, without duplication.
 - Do not include information that is not in the inputs.  
 - Ensure that the section is grounded in the user-provided input.
-
-5. **SEO Requirements:**
-- Naturally integrate primary keywords (1-2% density)
-- Use LSI keywords in explanations
-- Include 1-2 internal links using anchor text
 
 QUALITY CHECKLIST:  
 [ ] Section reads like a human-written article in a reader-friendly tone. 
@@ -138,7 +125,7 @@ QUALITY CHECKLIST:
 [ ] Uses concise, clear and direct language, without using too many words to explain a simple concept.
 [ ] Contains all the key points in detail from the input content.
 [ ] If needed ,contains one clear code example if specified in the Section Description.  
-[ ] Uses correct markdown formatting.
+[ ] Uses proper markdown formatting.  
 [ ] Uses image or video source urls in the content in form of markdown.  
 [ ] No repeated or duplicate information.
 [ ] No introduction or explanation of the section, directly start with the content.
@@ -175,22 +162,17 @@ Guidelines for writing:
 - Do not explain what this post is about, directly start with the content.
 - Focus more on the content rather than explaining what you are doing. 
 (e.g. rather than saying 'This discussion has highlighted the growing tensions within the AI community', say 'The AI community is experiencing growing tensions.' etc.)
-- If writing Introduction section, do not add Conclusion section and vice versa.
+- Make sure to use correct markdown formatting for title (#) and conclusion (##).
  
-2. **SEO Requirements:**
-- Introduction must contain:
-  * Primary keyword in first 100 words
-- Conclusion should:
-  * Include keyword variations
-  * Use nofollow for external links
+2. Section-Specific Requirements:
 
-3. Section-Specific Requirements:
+FOR INTRODUCTION:
+- Use markdown formatting:
+  * # Title (must be attention-grabbing but technical)
 
-FOR INTRODUCTION (If writing introduction):
-- Use # Title (must be attention-grabbing but technical)
-
-FOR CONCLUSION (if writing Conclusion):
-- Use ## Conclusion (crisp concluding statement)
+FOR CONCLUSION:
+- Use markdown formatting:
+  * ## Conclusion (crisp concluding statement)
       
 """
 
@@ -207,9 +189,7 @@ Please turn the following article into a Twitter thread:
 Your task is to create **Twitter content** with the following specifications:  
 - Craft a tweet that conveys the essence of the text in **280 characters or less**, ensuring clarity, conciseness, and a conversational tone. Include any relevant links or mentions. 
 - Include up to 3 hashtags that enhance visibility and are platform-specific.  
-- If the content cannot fit in a single tweet, create a **thread** with concise, numbered tweets that maintain flow and engagement.
-- Include 1-2 branded hashtags with keywords
-- Add UTM parameters to links
+- If the content cannot fit in a single tweet, create a **thread** with concise, numbered tweets that maintain flow and engagement.  
 
 **Special Guidelines:**  
 1. Start with a **strong hook** in the first tweet to grab attention.  
@@ -245,10 +225,7 @@ Please turn the following article into a LinkedIn post:
 Your task is to create a **LinkedIn post** with the following details:  
 - Write a professional, thoughtful post elaborating on the text, tailored to LinkedIn’s audience. Highlight the key takeaways or updates and use a **formal yet engaging tone**.  
 - Suggest up to 5 hashtags relevant to LinkedIn’s professional audience.  
-- Include a CTA encouraging engagement (e.g., “Share your thoughts,” “Let us know how you tackle this,” or “Visit our page for more”).
-- Include 3-5 industry-specific hashtags
-- Add rich media preview optimization
-- Use LinkedIn Pulse keyword formatting
+- Include a CTA encouraging engagement (e.g., “Share your thoughts,” “Let us know how you tackle this,” or “Visit our page for more”).  
 
 **Special Guidelines:**  
 1. Aim for **250–350 words**, focusing on storytelling and professional insights.  

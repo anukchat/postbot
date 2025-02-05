@@ -211,13 +211,15 @@ class AgentWorkflow:
     def compile_final_blog(self, state: BlogState):
         """Compile the final blog"""
         sections = state.sections
-        completed_sections = {s.name: s.content for s in state.completed_sections}
+        completed_sections = {s.name: s.content for s in sections}
 
         for section in sections:
             section.content = completed_sections[section.name]
 
         all_sections = "\n\n".join([s.content for s in sections])
-        blog_title = re.findall(r"^#\s+(.*)$", all_sections, re.MULTILINE)[0]
+        #ToDO: Add title to the final blog
+        blog_title_matches = re.findall(r"^#\s+(.*)$", all_sections, re.MULTILINE)
+        blog_title = blog_title_matches[0] if blog_title_matches else ""
         return {"final_blog": all_sections, "blog_title": blog_title}
 
     def write_twitter_post(self, state: BlogState):

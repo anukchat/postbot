@@ -57,6 +57,8 @@ TODO:
 44. Add docker based set up
 45. Add TextToSpeech feature
 46. Add reddit trending
+47. Chat feature
+48. SEO
 
 
 Refactoring:
