@@ -11,6 +11,7 @@ import {
 import {
   SuggestionMenuController,
   DefaultReactSuggestionItem,
+  getDefaultReactSlashMenuItems,
 } from "@blocknote/react";
 import { filterSuggestionItems } from "@blocknote/core";
 import { PartialBlock } from "@blocknote/core";
@@ -29,9 +30,8 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({
   onChange,
   readOnly = false,
 }) => {
-  const { isDarkMode } = useEditorStore();
+  const { isDarkMode, currentPost } = useEditorStore();
   const editor = useCreateBlockNote();
-  const { currentPost } = useEditorStore();
 
   useEffect(() => {
     const loadContent = async () => {
@@ -84,82 +84,96 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({
     }
   };
 
-  // Define URL suggestion items that insert a new block containing a link.
-  // In the default schema, a link inline node should have:
-  //    type: "link"
-  //    href: string
-  //    content: an array of StyledText objects (with type "text", text, and styles)
-  const getUrlSuggestionMenuItems = (editor: any): DefaultReactSuggestionItem[] => {
-    const urlReferences = (currentPost?.urls || []).length > 0
-      ? currentPost?.urls.map(urlObj => urlObj.url) ?? ["https://www.example.com"]
-      : ["https://www.example.com", "https://www.anotherexample.com"];
+  // Custom Slash Menu Items:
+  // We include the default slash menu items and add two custom ones.
+  // When selected, they will open the URL or Media suggestion menus.
+  const getCustomSlashMenuItems = (editor: any): DefaultReactSuggestionItem[] => {
+    const defaultItems = getDefaultReactSlashMenuItems(editor);
+    const customURLItem = {
+      title: "Insert URL",
+      onItemClick: () => {
+        // Close the slash menu (if needed) and open the URL suggestion menu.
+        editor.openSuggestionMenu("@");
+      },
+      aliases: ["url", "link"],
+      group: "Media/Links",
+      subtext: "Select a URL from your references",
+    };
+    const customMediaItem = {
+      title: "Insert Media",
+      onItemClick: () => {
+        // Close the slash menu and open the Media suggestion menu.
+        editor.openSuggestionMenu("$");
+      },
+      aliases: ["media", "image", "video"],
+      group: "Media/Links",
+      subtext: "Select media from your references",
+    };
+    return [...defaultItems, customURLItem, customMediaItem];
+  };
 
-    return urlReferences.map((url: any) => ({
+  // URL suggestion items for when "@" is triggered.
+  const getUrlSuggestionMenuItems = (editor: any): DefaultReactSuggestionItem[] => {
+    const urlReferences =
+      ((currentPost?.urls ?? []).length > 0
+        ? currentPost?.urls?.map((urlObj: any) => urlObj.url)
+        : ["https://www.example.com", "https://www.anotherexample.com"]) ?? [];
+
+    return urlReferences.map((url: string) => ({
       title: url,
       onItemClick: () => {
-        // Safely get the current cursor position.
         const cursorPosition = editor.getTextCursorPosition();
         const currentBlock = cursorPosition ? cursorPosition.block : null;
-
-        // Define a new block (paragraph) containing a link.
-        // The link inline node follows the default schema:
-        //  - "link" has a required href and a content array of styled text.
         const linkBlock: PartialBlock = {
           type: "paragraph",
           content: [
             {
               type: "link",
               href: url,
-              content: [
-                { type: "text", text: url, styles: {} },
-              ],
-            },
-            { type: "text", text: " ", styles: {} },
+              content: [{ type: "text", text: url, styles: {} }],
+            }
           ],
         };
-
-        // Insert the new block after the current block if available.
         if (currentBlock) {
           editor.insertBlocks([linkBlock], currentBlock, "after");
         } else {
-          // Fallback: append the block if no current block is found.
           editor.appendBlocks([linkBlock]);
         }
       },
     }));
   };
 
+  // Media suggestion items for when "$" is triggered.
   const getMediaSuggestionMenuItems = (editor: any): DefaultReactSuggestionItem[] => {
-    const mediaReferences = ((currentPost?.media ?? []).length > 0)
-      ? (currentPost?.media.map(media => ({
-        url: media.url,
-        type: media.type || 'image'
-      })) ?? [])
-      : [{ url: "https://example.com/default-image.jpg", type: "image" }];
+    const mediaReferences =
+      ((currentPost?.media ?? []).length > 0
+        ? currentPost?.media.map((media: any) => ({
+            url: media.url,
+            type: media.type || "image",
+          }))
+        : [{ url: "https://example.com/default-image.jpg", type: "image" }]) ?? [];
 
     return mediaReferences.map((media: any) => ({
       title: media.url,
       onItemClick: () => {
-      const cursorPosition = editor.getTextCursorPosition();
-      const currentBlock = cursorPosition ? cursorPosition.block : null;
-
-      const mediaBlock: PartialBlock = {
-        type: media.type === 'photo' || 'image' ? 'image' : 'video',
-        props: {
-          url: media.url,
-          caption: "",
-          ...(media.type === 'video' ? { aspectRatio: "16/9" } : {})
-        },
-      };
-
-      if (currentBlock) {
-        editor.insertBlocks([mediaBlock], currentBlock, "after");
-      } else {
-        editor.appendBlocks([mediaBlock]);
-      }
+        const cursorPosition = editor.getTextCursorPosition();
+        const currentBlock = cursorPosition ? cursorPosition.block : null;
+        const mediaBlock: PartialBlock = {
+          type: media.type === "video" ? "video" : "image",
+          props: {
+            url: media.url,
+            caption: "",
+            ...(media.type === "video" ? { aspectRatio: "16/9" } : {}),
+          },
+        };
+        if (currentBlock) {
+          editor.insertBlocks([mediaBlock], currentBlock, "after");
+        } else {
+          editor.appendBlocks([mediaBlock]);
+        }
       },
     }));
-    };
+  };
 
   return (
     <div
@@ -179,7 +193,8 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({
         onChange={handleChange}
         formattingToolbar={true}
         emojiPicker={true}
-        slashMenu={true}
+        // Disable the default slash menu so we can use our custom one.
+        slashMenu={false}
         sideMenu={true}
         style={{
           flex: 1,
@@ -189,8 +204,16 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({
           width: "100%",
         }}
       >
-        {/* Additional Suggestion Menu for URL references.
-            This menu opens when the user types the "[" character. */}
+        {/* Custom Slash Menu Controller with "/" trigger */}
+        <SuggestionMenuController
+          triggerCharacter={"/"}
+          getItems={async (query: any) =>
+            filterSuggestionItems(getCustomSlashMenuItems(editor), query)
+          }
+          minQueryLength={0}
+        />
+
+        {/* URL Suggestion Menu triggered by "@" */}
         <SuggestionMenuController
           triggerCharacter={"@"}
           getItems={async (query: any) =>
@@ -198,9 +221,8 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({
           }
           minQueryLength={0}
         />
-        
-        {/* Additional Suggestion Menu for Media references.
-            This menu opens when the user types the "[" character. */}
+
+        {/* Media Suggestion Menu triggered by "$" */}
         <SuggestionMenuController
           triggerCharacter={"$"}
           getItems={async (query: any) =>
