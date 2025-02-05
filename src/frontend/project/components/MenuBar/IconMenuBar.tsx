@@ -121,7 +121,7 @@ export const IconMenuBar: React.FC<IconMenuBarProps> = ({ selectedTab, onCommand
 
   return (
     <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b dark:border-gray-700">
-      <div className="max-w-xl mx-auto px-4">
+      <div className="max-w-sm mx-auto px-4">
         <div className="flex items-center py-2 justify-evenly">
           {/* Left group */}
           <div className="flex items-center gap-3">
