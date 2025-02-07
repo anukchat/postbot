@@ -28,13 +28,16 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       <WysiwygEditor 
-        content={content} 
-        onChange={onChange}
-        readOnly={currentPost?.status === 'Published'}
+      content={content} 
+      onChange={onChange}
+      readOnly={currentPost?.status === 'Published'}
       />
-      <EditorStatusBar post={currentPost} />
+      {/* Status bar with full width at bottom */}
+      <div className="absolute bottom-0 left-0 right-0 bg-white border-t">
+        <EditorStatusBar post={currentPost} />
+      </div>
     </div>
   );
 };

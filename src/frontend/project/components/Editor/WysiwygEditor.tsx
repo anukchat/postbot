@@ -179,57 +179,63 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({
     <div
       className="custom-editor"
       style={{
-        width: "100%",
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
+      width: "100%",
+      height: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden",
       }}
     >
       <BlockNoteView
-        editor={editor}
-        theme={isDarkMode ? darkDefaultTheme : lightDefaultTheme}
-        editable={!readOnly}
-        onChange={handleChange}
-        formattingToolbar={true}
-        emojiPicker={true}
-        // Disable the default slash menu so we can use our custom one.
-        slashMenu={false}
-        sideMenu={true}
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          maxWidth: "900px",
-          margin: "0 auto",
-          width: "100%",
-        }}
+      editor={editor}
+      theme={isDarkMode ? darkDefaultTheme : lightDefaultTheme}
+      editable={!readOnly}
+      onChange={handleChange}
+      formattingToolbar={true}
+      emojiPicker={true}
+      slashMenu={false}
+      sideMenu={true}
+      style={{
+        flex: 1,
+        overflowY: "auto",
+        maxWidth: "900px",
+        margin: "0 auto",
+        width: "100%",
+        paddingTop: "6rem",
+        paddingBottom: "6rem",
+        msOverflowStyle: "none", /* for Internet Explorer, Edge */
+        scrollbarWidth: "none", /* for Firefox */
+        "&::-webkit-scrollbar": {
+        display: "none" /* for Chrome, Safari, and Opera */
+        }
+      }}
       >
-        {/* Custom Slash Menu Controller with "/" trigger */}
-        <SuggestionMenuController
-          triggerCharacter={"/"}
-          getItems={async (query: any) =>
-            filterSuggestionItems(getCustomSlashMenuItems(editor), query)
-          }
-          minQueryLength={0}
-        />
+      {/* Custom Slash Menu Controller with "/" trigger */}
+      <SuggestionMenuController
+        triggerCharacter={"/"}
+        getItems={async (query: any) =>
+        filterSuggestionItems(getCustomSlashMenuItems(editor), query)
+        }
+        minQueryLength={0}
+      />
 
-        {/* URL Suggestion Menu triggered by "@" */}
-        <SuggestionMenuController
-          triggerCharacter={"@"}
-          getItems={async (query: any) =>
-            filterSuggestionItems(getUrlSuggestionMenuItems(editor), query)
-          }
-          minQueryLength={0}
-        />
+      {/* URL Suggestion Menu triggered by "@" */}
+      <SuggestionMenuController
+        triggerCharacter={"@"}
+        getItems={async (query: any) =>
+        filterSuggestionItems(getUrlSuggestionMenuItems(editor), query)
+        }
+        minQueryLength={0}
+      />
 
-        {/* Media Suggestion Menu triggered by "$" */}
-        <SuggestionMenuController
-          triggerCharacter={"$"}
-          getItems={async (query: any) =>
-            filterSuggestionItems(getMediaSuggestionMenuItems(editor), query)
-          }
-          minQueryLength={0}
-        />
+      {/* Media Suggestion Menu triggered by "$" */}
+      <SuggestionMenuController
+        triggerCharacter={"$"}
+        getItems={async (query: any) =>
+        filterSuggestionItems(getMediaSuggestionMenuItems(editor), query)
+        }
+        minQueryLength={0}
+      />
       </BlockNoteView>
     </div>
   );

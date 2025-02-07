@@ -23,6 +23,7 @@ import { SidebarToggle } from './components/Sidebar/SidebarToggle';
 import { EditorToolbar } from './components/Sidebar/EditorToolbar';
 import { MainMenuBar } from './components/MenuBar/MenuBar';
 import { IconMenuBar } from './components/MenuBar/IconMenuBar';
+import { FloatingTabs } from './components/Navigation/FloatingTabs';
 
 // Set the root element for accessibility
 Modal.setAppElement('#root');
@@ -131,22 +132,19 @@ const MainAppLayout: React.FC = () => {
     setIsPostDetailsView(false);
   };
 
-  const handleTabClick = (tab: 'blog' | 'twitter' | 'linkedin') => {
+  const handleTabChange = (tab: 'blog' | 'twitter' | 'linkedin') => {
     resetViews();
     setCurrentTab(tab);
-
-    if (currentPost?.thread_id) {
-      const postTypeMap = {
-        twitter: 'twitter',
-        linkedin: 'linkedin',
-        blog: 'blog'
-      };
-
-      if (tab !== 'blog') {
-        fetchContentByThreadId(currentPost.thread_id, postTypeMap[tab]);
-      }
-    }
     setSelectedTab(tab);
+    
+    if (currentPost?.thread_id && tab !== 'blog') {
+      fetchContentByThreadId(currentPost.thread_id, tab);
+    }
+  };
+
+  const handleViewChange = (view: 'canvas' | 'details') => {
+    setIsCanvasView(view === 'canvas');
+    setIsPostDetailsView(view === 'details');
   };
 
   useEffect(() => {
@@ -215,76 +213,20 @@ const MainAppLayout: React.FC = () => {
         <div className="flex-1 ml-12 sm:ml-16 min-w-0 relative">
           <div className="flex flex-col h-full max-w-full overflow-x-hidden">
             {/* Add MenuBar here */}
-            <MainMenuBar />
+            {/* <MainMenuBar /> */}
             {/* Header with contained width */}
-            <div className="border-b p-2 sm:p-3 md:p-4 flex justify-between items-center bg-white dark:bg-gray-800 w-full">
-              <div className="flex-1 flex justify-center min-w-0">
-                <div className="flex gap-1 sm:gap-2 items-center flex-nowrap overflow-x-auto px-2 sm:px-4 scrollbar-hide">
-                  {/* Responsive tab buttons */}
-                  <div className="flex gap-1 sm:gap-2 items-center">
-                    <button
-                      onClick={() => handleTabClick('blog')}
-                      className={`px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base ${
-                        selectedTab === 'blog'
-                          ? 'bg-blue-500 text-white'
-                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      Blog
-                    </button>
-                    <button
-                      onClick={() => handleTabClick('twitter')}
-                      className={`px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base ${
-                        selectedTab === 'twitter'
-                          ? 'bg-blue-500 text-white'
-                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      Twitter
-                    </button>
-                    <button
-                      onClick={() => handleTabClick('linkedin')}
-                      className={`px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base ${
-                        selectedTab === 'linkedin'
-                          ? 'bg-blue-500 text-white'
-                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      LinkedIn
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsCanvasView(true);
-                        setIsPostDetailsView(false);
-                      }}
-                      className={`px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base ${
-                        isCanvasView
-                          ? 'bg-blue-500 text-white'
-                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      Canvas
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsPostDetailsView(true);
-                        setIsCanvasView(false);
-                      }}
-                      className={`px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base ${
-                        isPostDetailsView
-                          ? 'bg-blue-500 text-white'
-                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      View Details
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+
             
             {/* Add IconMenuBar here */}
             <IconMenuBar selectedTab={selectedTab} onCommandInsert={handleCommandInsert} />
+            
+            {/* Add FloatingTabs */}
+            <FloatingTabs 
+              selectedTab={selectedTab}
+              onTabChange={handleTabChange}
+              onViewChange={handleViewChange}
+              currentView={isCanvasView ? 'canvas' : isPostDetailsView ? 'details' : 'editor'}
+            />
             
             {/* Content area with contained width */}
             <div className="flex-1 overflow-hidden">
