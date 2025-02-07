@@ -89,6 +89,15 @@
     top: 0;
     padding-bottom: 0;
 }
+
+.editor-view {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.editor-view::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
   /* .bn-block-content[data-content-type="blockType"] .bn-inline-content {
     line-height: 1.8 !important;
   } */

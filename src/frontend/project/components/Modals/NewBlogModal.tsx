@@ -8,7 +8,7 @@ import api from '../../services/api';
 import { Source } from '../../types';
 import { useNavigate } from 'react-router-dom'; // Replace useRouter
 import { SourceCard } from '../Sources/SourceCard';
-import { GenerateLoader } from '../Editor/GenerateLoader';
+import { GenerateLoader } from '../common/GenerateLoader';
 import Tippy from '@tippyjs/react';
 import MicrolinkCard from '@microlink/react';
 import { toast } from 'react-hot-toast';

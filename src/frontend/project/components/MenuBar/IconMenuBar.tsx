@@ -20,7 +20,6 @@ import Tippy from '@tippyjs/react';
 import 'tippy.js/dist/tippy.css';
 import { useEditorStore } from '../../store/editorStore';
 import { FeedbackModal } from '../Modals/FeedbackModal';
-import { UrlPicker } from '../Editor/UrlPicker';
 import { toast } from 'react-hot-toast';
 
 interface IconMenuBarProps {
@@ -33,7 +32,6 @@ export const IconMenuBar: React.FC<IconMenuBarProps> = ({ selectedTab, onCommand
   const [feedback, setFeedback] = useState('');
   const { currentPost, generatePost, fetchContentByThreadId, savePost, downloadMarkdown, publishPost, rejectPost } = useEditorStore();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [showUrlPicker, setShowUrlPicker] = useState(false);
 
   // New function to handle copying the rich editor content (HTML)
   const handleCopy = async () => {
@@ -93,11 +91,6 @@ export const IconMenuBar: React.FC<IconMenuBarProps> = ({ selectedTab, onCommand
     (selectedTab === 'linkedin' && currentPost.linkedin_post)
   );
 
-  const handleUrlSelect = (url: { url: string }) => {
-    const insertText = `[${url.url}](${url.url})`;
-    onCommandInsert?.(insertText, 0);
-    setShowUrlPicker(false);
-  };
 
   const handleUndo = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -230,7 +223,7 @@ export const IconMenuBar: React.FC<IconMenuBarProps> = ({ selectedTab, onCommand
         </div>
       </div>
 
-      {/* Add floating tabs on the right side */}
+      {/* Add floating tabs on the right side
       <div className="fixed right-4 top-1/2 -translate-y-1/2 z-50">
         <div className="flex flex-col gap-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-2">
           <Tippy content="Blog" placement="left">
@@ -258,7 +251,7 @@ export const IconMenuBar: React.FC<IconMenuBarProps> = ({ selectedTab, onCommand
             </button>
           </Tippy>
         </div>
-      </div>
+      </div> */}
 
       {/* Existing modals */}
       {showFeedbackModal && (
@@ -269,13 +262,6 @@ export const IconMenuBar: React.FC<IconMenuBarProps> = ({ selectedTab, onCommand
           setShowFeedbackModal={setShowFeedbackModal}
         />
       )}
-      
-      <UrlPicker
-        isOpen={showUrlPicker}
-        onClose={() => setShowUrlPicker(false)}
-        urls={currentPost?.urls || []}
-        onSelect={handleUrlSelect}
-      />
     </>
   );
 };

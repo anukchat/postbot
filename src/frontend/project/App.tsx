@@ -21,9 +21,9 @@ import Modal from 'react-modal';
 import { ErrorBoundary } from 'react-error-boundary';
 import { SidebarToggle } from './components/Sidebar/SidebarToggle';
 import { EditorToolbar } from './components/Sidebar/EditorToolbar';
-import { MainMenuBar } from './components/MenuBar/MenuBar';
 import { IconMenuBar } from './components/MenuBar/IconMenuBar';
-import { FloatingTabs } from './components/Navigation/FloatingTabs';
+import { FloatingTabs } from './components/MenuBar/FloatingTabs';
+import UserMenu from './components/Auth/UserMenu';
 
 // Set the root element for accessibility
 Modal.setAppElement('#root');
@@ -45,66 +45,30 @@ function ErrorFallback({ error, resetErrorBoundary }: any) {
 }
 
 const MainAppLayout: React.FC = () => {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // Ensure this is false initially
-  const [sidebarSize, setSidebarSize] = useState(20);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isCanvasView, setIsCanvasView] = useState(false);
   const [isPostDetailsView, setIsPostDetailsView] = useState(false);
   const [selectedTab, setSelectedTab] = useState<'blog' | 'twitter' | 'linkedin'>('blog');
   const [isManuallyExpanded, setIsManuallyExpanded] = useState(false);
-  const [isOverlayVisible, setIsOverlayVisible] = useState(false);
   const { currentPost, isDarkMode, updateContent, updateLinkedinPost, updateTwitterPost, fetchContentByThreadId, setCurrentTab } = useEditorStore();
-  const [screenWidth, setScreenWidth] = useState(window.innerWidth);
-
 
   const handleSidebarToggle = () => {
-    if (isSidebarCollapsed) {
-      setIsManuallyExpanded(true);
-      setIsOverlayVisible(true); // Show overlay when expanding
-    } else {
-      setIsManuallyExpanded(false);
-      setIsOverlayVisible(false); // Hide overlay when collapsing
-    }
     setIsSidebarCollapsed(!isSidebarCollapsed);
+    setIsManuallyExpanded(isSidebarCollapsed);
   };
 
-
-  useEffect(() => {
-    if (isSidebarCollapsed) {
-      setSidebarSize(5); // Minimum width when collapsed
-    } else {
-      setSidebarSize(isManuallyExpanded ? 90 : 22); // Use 90% width if manually expanded, otherwise default width
-    }
-  }, [isSidebarCollapsed, isManuallyExpanded]);
-
   useEffect(() => {
     const handleResize = () => {
-      const screenWidth = window.innerWidth;
-      if (screenWidth < 768 && !isManuallyExpanded) {
-        setIsSidebarCollapsed(true); // Collapse sidebar on small screens unless manually expanded
+      if (window.innerWidth < 768 && !isManuallyExpanded) {
+        setIsSidebarCollapsed(true);
       }
-
-      // Adjust sidebar size based on screen width
-      const newSidebarSize = screenWidth < 1024
-        ? (isSidebarCollapsed ? 5 : (isManuallyExpanded ? 90 : 30)) // More space on smaller screens if manually expanded
-        : (isSidebarCollapsed ? 5 : 22); // Default sizes on larger screens
-
-      setSidebarSize(newSidebarSize);
     };
 
     window.addEventListener('resize', handleResize);
-    handleResize(); // Initial call
+    handleResize();
 
     return () => window.removeEventListener('resize', handleResize);
   }, [isSidebarCollapsed, isManuallyExpanded]);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setScreenWidth(window.innerWidth);
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   const handleContentChange = (newContent: string) => {
     if (!currentPost) return;
@@ -212,25 +176,33 @@ const MainAppLayout: React.FC = () => {
         {/* Main Content Area with fixed width */}
         <div className="flex-1 ml-12 sm:ml-16 min-w-0 relative">
           <div className="flex flex-col h-full max-w-full overflow-x-hidden">
-            {/* Add MenuBar here */}
-            {/* <MainMenuBar /> */}
-            {/* Header with contained width */}
+            {/* User Menu - Floating */}
+            <div className="fixed top-0 right-0 z-30">
+              <div className="flex-shrink-0 px-4 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
+                <UserMenu />
+              </div>
+            </div>
 
+            {/* IconMenuBar - Floating */}
+            <div className="fixed top-0 left-12 sm:left-16 right-16 z-20">
+              <div className="flex items-center w-full bg-white dark:bg-gray-800 border-b">
+                <IconMenuBar selectedTab={selectedTab} onCommandInsert={handleCommandInsert} />
+              </div>
+            </div>
             
-            {/* Add IconMenuBar here */}
-            <IconMenuBar selectedTab={selectedTab} onCommandInsert={handleCommandInsert} />
+            {/* FloatingTabs - Floating */}
+            <div className="fixed top-12 left-12 sm:left-16 right-0 z-20">
+              <FloatingTabs 
+                selectedTab={selectedTab}
+                onTabChange={handleTabChange}
+                onViewChange={handleViewChange}
+                currentView={isCanvasView ? 'canvas' : isPostDetailsView ? 'details' : 'editor'}
+              />
+            </div>
             
-            {/* Add FloatingTabs */}
-            <FloatingTabs 
-              selectedTab={selectedTab}
-              onTabChange={handleTabChange}
-              onViewChange={handleViewChange}
-              currentView={isCanvasView ? 'canvas' : isPostDetailsView ? 'details' : 'editor'}
-            />
-            
-            {/* Content area with contained width */}
+            {/* Content area with contained width and proper padding for floating elements */}
             <div className="flex-1 overflow-hidden">
-              <div className="h-full max-w-full pt-4">
+              <div className="h-full max-w-full">
                 {isCanvasView ? (
                   <CanvasView />
                 ) : isPostDetailsView ? (
