@@ -39,6 +39,9 @@ interface EditorState {
   currentTab: 'blog' | 'twitter' | 'linkedin';
   setCurrentTab: (tab: 'blog' | 'twitter' | 'linkedin') => void;
   lastRefreshTimestamp: number;
+  redditTrendingTopics: Record<string, any[]>;
+  lastTrendingFetch: Record<string, number>;
+  fetchRedditTrending: (subreddit: string) => Promise<void>;
 }
 
 interface GeneratePayload {
@@ -562,4 +565,40 @@ ${content}`;
       set({ isLoading: false, error: 'Error generating post' });
     }
   },
+
+  redditTrendingTopics: {},
+  lastTrendingFetch: {},
+
+  fetchRedditTrending: async (subreddit: string) => {
+    try {
+      const { lastTrendingFetch, redditTrendingTopics } = get();
+      const now = Date.now();
+      const lastFetch = lastTrendingFetch[subreddit];
+      
+      // Check if we have cached data from the last hour
+      if (lastFetch && redditTrendingTopics[subreddit] && 
+          now - lastFetch < 60 * 60 * 1000) { // Cache for 1 hour instead of 24 hours
+        return;
+      }
+
+      const response = await api.get('/reddit/trending', {
+        params: { subreddits: subreddit }
+      });
+
+      if (response.data?.data) {
+        set(state => ({
+          redditTrendingTopics: {
+            ...state.redditTrendingTopics,
+            [subreddit]: response.data.data[subreddit] || []
+          },
+          lastTrendingFetch: {
+            ...state.lastTrendingFetch,
+            [subreddit]: now
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching Reddit trending topics:', error);
+    }
+  }
 }));

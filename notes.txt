@@ -57,6 +57,16 @@ TODO:
 44. Add docker based set up
 45. Add TextToSpeech feature
 46. Add reddit trending
+47. Chat feature
+48. SEO
+49. Add different category based content
+    - Ex: Explainer content/ Tutorials, Use Feynman technique
+    - Research report
+    - Implementation deep dive
+    - Product reviewe
+    etc.
+50. native tool use using llm
+51. Use LLM to generate the suggested topics based on trends
 
 
 Refactoring:

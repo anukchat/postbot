@@ -16,12 +16,14 @@ import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import Settings from './pages/Settings';
 import { Toaster } from 'react-hot-toast';
-import UserMenu from './components/Auth/UserMenu';
 import AuthCallback from './components/Auth/AuthCallback';
 import Modal from 'react-modal';
 import { ErrorBoundary } from 'react-error-boundary';
 import { SidebarToggle } from './components/Sidebar/SidebarToggle';
 import { EditorToolbar } from './components/Sidebar/EditorToolbar';
+import { IconMenuBar } from './components/MenuBar/IconMenuBar';
+import { FloatingTabs } from './components/MenuBar/FloatingTabs';
+import UserMenu from './components/Auth/UserMenu';
 
 // Set the root element for accessibility
 Modal.setAppElement('#root');
@@ -43,70 +45,30 @@ function ErrorFallback({ error, resetErrorBoundary }: any) {
 }
 
 const MainAppLayout: React.FC = () => {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // Ensure this is false initially
-  const [sidebarSize, setSidebarSize] = useState(20);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isCanvasView, setIsCanvasView] = useState(false);
   const [isPostDetailsView, setIsPostDetailsView] = useState(false);
   const [selectedTab, setSelectedTab] = useState<'blog' | 'twitter' | 'linkedin'>('blog');
   const [isManuallyExpanded, setIsManuallyExpanded] = useState(false);
-  const [isOverlayVisible, setIsOverlayVisible] = useState(false);
   const { currentPost, isDarkMode, updateContent, updateLinkedinPost, updateTwitterPost, fetchContentByThreadId, setCurrentTab } = useEditorStore();
-  const [screenWidth, setScreenWidth] = useState(window.innerWidth);
-
 
   const handleSidebarToggle = () => {
-    if (isSidebarCollapsed) {
-      setIsManuallyExpanded(true);
-      setIsOverlayVisible(true); // Show overlay when expanding
-    } else {
-      setIsManuallyExpanded(false);
-      setIsOverlayVisible(false); // Hide overlay when collapsing
-    }
     setIsSidebarCollapsed(!isSidebarCollapsed);
+    setIsManuallyExpanded(isSidebarCollapsed);
   };
-
-  const closeOverlay = () => {
-    setIsOverlayVisible(false);
-    setIsSidebarCollapsed(true); // Collapse sidebar when overlay is closed
-  };
-
-  useEffect(() => {
-    if (isSidebarCollapsed) {
-      setSidebarSize(5); // Minimum width when collapsed
-    } else {
-      setSidebarSize(isManuallyExpanded ? 90 : 22); // Use 90% width if manually expanded, otherwise default width
-    }
-  }, [isSidebarCollapsed, isManuallyExpanded]);
 
   useEffect(() => {
     const handleResize = () => {
-      const screenWidth = window.innerWidth;
-      if (screenWidth < 768 && !isManuallyExpanded) {
-        setIsSidebarCollapsed(true); // Collapse sidebar on small screens unless manually expanded
+      if (window.innerWidth < 768 && !isManuallyExpanded) {
+        setIsSidebarCollapsed(true);
       }
-
-      // Adjust sidebar size based on screen width
-      const newSidebarSize = screenWidth < 1024
-        ? (isSidebarCollapsed ? 5 : (isManuallyExpanded ? 90 : 30)) // More space on smaller screens if manually expanded
-        : (isSidebarCollapsed ? 5 : 22); // Default sizes on larger screens
-
-      setSidebarSize(newSidebarSize);
     };
 
     window.addEventListener('resize', handleResize);
-    handleResize(); // Initial call
+    handleResize();
 
     return () => window.removeEventListener('resize', handleResize);
   }, [isSidebarCollapsed, isManuallyExpanded]);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setScreenWidth(window.innerWidth);
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   const handleContentChange = (newContent: string) => {
     if (!currentPost) return;
@@ -134,22 +96,19 @@ const MainAppLayout: React.FC = () => {
     setIsPostDetailsView(false);
   };
 
-  const handleTabClick = (tab: 'blog' | 'twitter' | 'linkedin') => {
+  const handleTabChange = (tab: 'blog' | 'twitter' | 'linkedin') => {
     resetViews();
     setCurrentTab(tab);
-
-    if (currentPost?.thread_id) {
-      const postTypeMap = {
-        twitter: 'twitter',
-        linkedin: 'linkedin',
-        blog: 'blog'
-      };
-
-      if (tab !== 'blog') {
-        fetchContentByThreadId(currentPost.thread_id, postTypeMap[tab]);
-      }
-    }
     setSelectedTab(tab);
+    
+    if (currentPost?.thread_id && tab !== 'blog') {
+      fetchContentByThreadId(currentPost.thread_id, tab);
+    }
+  };
+
+  const handleViewChange = (view: 'canvas' | 'details') => {
+    setIsCanvasView(view === 'canvas');
+    setIsPostDetailsView(view === 'details');
   };
 
   useEffect(() => {
@@ -171,6 +130,11 @@ const MainAppLayout: React.FC = () => {
     }
   };
 
+  const handleCommandInsert = (commandText: string, replaceLength: number) => {
+    // Handle command insert logic here
+    console.log('Command insert:', commandText, replaceLength);
+  };
+
   return (
     <div className={`h-screen ${isDarkMode ? 'dark' : ''}`}>
       <div className="h-full flex dark:bg-gray-900 dark:text-white">
@@ -189,7 +153,7 @@ const MainAppLayout: React.FC = () => {
         {/* Sidebar Drawer */}
         <div
           className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 
-            transition-transform duration-300 ease-in-out border-r dark:border-gray-700
+            transition-transform duration-300 ease-in-out border-r dark:border-gray-700 
             ${isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'}
             w-[280px] sm:w-[320px] md:w-[350px] lg:w-[400px]
             overflow-hidden`}
@@ -212,79 +176,33 @@ const MainAppLayout: React.FC = () => {
         {/* Main Content Area with fixed width */}
         <div className="flex-1 ml-12 sm:ml-16 min-w-0 relative">
           <div className="flex flex-col h-full max-w-full overflow-x-hidden">
-            {/* Header with contained width */}
-            <div className="border-b p-2 sm:p-3 md:p-4 flex justify-between items-center bg-white dark:bg-gray-800 w-full">
-              <div className="flex-1 flex justify-center min-w-0">
-                <div className="flex gap-1 sm:gap-2 items-center flex-nowrap overflow-x-auto px-2 sm:px-4 scrollbar-hide">
-                  {/* Responsive tab buttons */}
-                  <div className="flex gap-1 sm:gap-2 items-center">
-                    <button
-                      onClick={() => handleTabClick('blog')}
-                      className={`px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base ${
-                        selectedTab === 'blog'
-                          ? 'bg-blue-500 text-white'
-                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      Blog
-                    </button>
-                    <button
-                      onClick={() => handleTabClick('twitter')}
-                      className={`px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base ${
-                        selectedTab === 'twitter'
-                          ? 'bg-blue-500 text-white'
-                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      Twitter
-                    </button>
-                    <button
-                      onClick={() => handleTabClick('linkedin')}
-                      className={`px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base ${
-                        selectedTab === 'linkedin'
-                          ? 'bg-blue-500 text-white'
-                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      LinkedIn
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsCanvasView(true);
-                        setIsPostDetailsView(false);
-                      }}
-                      className={`px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base ${
-                        isCanvasView
-                          ? 'bg-blue-500 text-white'
-                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      Canvas
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsPostDetailsView(true);
-                        setIsCanvasView(false);
-                      }}
-                      className={`px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base ${
-                        isPostDetailsView
-                          ? 'bg-blue-500 text-white'
-                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      View Details
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="flex-shrink-0 ml-2">
+            {/* User Menu - Floating */}
+            <div className="fixed top-0 right-0 z-30">
+              <div className="flex-shrink-0 px-4 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
                 <UserMenu />
               </div>
             </div>
+
+            {/* IconMenuBar - Floating */}
+            <div className="fixed top-0 left-12 sm:left-16 right-16 z-20">
+              <div className="flex items-center w-full bg-white dark:bg-gray-800 border-b">
+                <IconMenuBar selectedTab={selectedTab} onCommandInsert={handleCommandInsert} />
+              </div>
+            </div>
             
-            {/* Content area with contained width */}
+            {/* FloatingTabs - Floating */}
+            <div className="fixed top-12 left-12 sm:left-16 right-0 z-20">
+              <FloatingTabs 
+                selectedTab={selectedTab}
+                onTabChange={handleTabChange}
+                onViewChange={handleViewChange}
+                currentView={isCanvasView ? 'canvas' : isPostDetailsView ? 'details' : 'editor'}
+              />
+            </div>
+            
+            {/* Content area with contained width and proper padding for floating elements */}
             <div className="flex-1 overflow-hidden">
-              <div className="h-full max-w-full px-2 sm:px-4 md:px-6 pt-4">
+              <div className="h-full max-w-full">
                 {isCanvasView ? (
                   <CanvasView />
                 ) : isPostDetailsView ? (

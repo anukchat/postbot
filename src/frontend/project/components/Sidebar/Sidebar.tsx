@@ -5,7 +5,6 @@ import {
   Loader // Add the Loader icon
 } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
-import { EditorToolbar } from './EditorToolbar';
 import debounce from 'lodash.debounce'; // Add this import
 import { Post } from '../../types';
 
@@ -23,13 +22,12 @@ interface FilterState {
   created_before: string;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed }) => {
   const { 
     posts, 
     currentPost, 
     setCurrentPost, 
     fetchPosts, 
-    fetchMorePosts, 
     limit, 
     totalPosts, 
     isLoading,
@@ -163,11 +161,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse 
   };
 
   return (
-    <div className="transition-all duration-300 bg-white dark:bg-gray-800 border-r flex flex-col h-full relative">
+    <div className="transition-all duration-300 bg-white dark:bg-gray-800 flex flex-col h-full relative">
       {/* <EditorToolbar isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse} /> */}
       {!isCollapsed && (
         <>
-          <div className="p-4 border-b">
+          <div className="p-4 border-b dark:border-gray-700">
             <div className="relative border dark:border-gray-700 rounded-lg">
               <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input

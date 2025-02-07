@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, Bot, Sparkles, Twitter, Brain, Zap, Share2, Image, FileCode, Share, UserCheck } from 'lucide-react';
+import { ArrowRight, Bot, Share2, Image, FileCode, Share, UserCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Navbar } from './Navbar';
 import { useAuth } from '../../contexts/AuthContext';

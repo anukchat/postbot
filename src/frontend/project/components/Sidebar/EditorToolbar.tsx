@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Save, FileDown, Send, Sun, Moon, Plus, ChevronRight, ChevronLeft, XCircle, Home, X } from 'lucide-react';
+import { Save, FileDown, Send, Sun, Moon, Plus, XCircle, Home, X } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import Tippy from '@tippyjs/react';
 import 'tippy.js/dist/tippy.css';
@@ -66,20 +66,20 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isCollapsed, onTog
     <>
       <div className={`bg-white dark:bg-gray-800 ${
         isCollapsed 
-          ? 'fixed left-0 top-0 h-full w-16 flex flex-col items-center py-16 gap-4 border-r dark:border-gray-700'
-          : 'w-full border-b'
+          ? 'fixed left-0 top-0 h-full w-16 flex flex-col items-center py-16 gap-4 dark:border-gray-700 border-r'
+          : 'w-full border-b dark:border-gray-700 '
       }`}>
         {!isCollapsed && (
-          <div className="flex justify-between items-center p-6">
-            <div className="flex items-center gap-2">
+          <div className="p-2 sm:p-3 md:p-4 flex justify-between items-center w-full">
+            <div className="flex items-center gap-2 p-2">
               {renderToolbarItems()}
-            </div>
-            <button
+              <button
               onClick={onToggleCollapse}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
             >
               <X className="w-6 h-6" />
             </button>
+            </div>
           </div>
         )}
         {isCollapsed && (

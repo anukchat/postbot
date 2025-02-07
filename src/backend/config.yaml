@@ -63,6 +63,18 @@ llm:
       temperature: 0.5
     method_params: {}
   
+  gemini-lite:
+    class_params:
+      model: gemini/gemini-2.0-flash-lite-preview-02-05
+      temperature: 0.5
+    method_params: {}
+  
+  gemini-thinking:
+    class_params:
+      model: gemini/gemini-2.0-flash-thinking-exp-01-21
+      temperature: 0.5
+    method_params: {}
+  
   ollama:
     class_params:
       model: ollama/deepseek-r1:1.5b

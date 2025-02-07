@@ -24,6 +24,7 @@ const AuthCallback = () => {
 
 
         // Check if profile exists
+        //TODO: call python api endpoint to check if user exists in the database
         const { data: existingProfile, error: profileCheckError } = await supabaseClient
           .from('profiles')
           .select('id')
