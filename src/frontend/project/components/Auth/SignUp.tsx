@@ -2,14 +2,24 @@ import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Navbar } from '../Landing/Navbar';
 import { useNavigate } from 'react-router-dom';
-import { supabaseClient } from '../../services/auth';
 
 const SignUp: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { signUp, signIn } = useAuth();
+  const [confirmationSent, setConfirmationSent] = useState(false);
+  const auth = useAuth();
+  
+  if (!auth) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+  
+  const { signUp, signIn } = auth;
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -18,54 +28,78 @@ const SignUp: React.FC = () => {
     setError(null);
     
     try {
-      // First sign up the user
-      const { data: { user }, error: signUpError } = await supabaseClient.auth.signUp({
-        email,
-        password,
-      });
-
-      if (signUpError) throw signUpError;
-
-      // If we have a user, create their profile
-      if (user) {
-        const { error: profileError } = await supabaseClient
-          .from('profiles')
-          .insert({
-            id: 
-            crypto.randomUUID(),
-            user_id: user.id,
-            full_name: user.user_metadata.full_name,
-            avatar_url: user.user_metadata.avatar_url,
-            role: 'free',
-            subscription_status: 'none',
-            created_at: new Date().toISOString()
-          });
-
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-          throw profileError;
+      const { error: signUpError } = await signUp(email, password);
+      
+      if (signUpError) {
+        if (signUpError.message === 'User already exists') {
+          setError('An account with this email already exists. Please sign in instead.');
+          return;
         }
-
-        navigate('/login');
-        setError('Please check your email to confirm your account');
+        throw signUpError;
       }
-    } catch (err) {
+
+      // Show email confirmation message
+      setConfirmationSent(true);
+    } catch (err: any) {
       console.error('Signup error:', err);
-      setError('Failed to create account');
+      setError(err.message || 'Failed to create account');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleGoogleSignUp = async () => {
+    setIsLoading(true);
+    setError(null);
+    
     try {
-      const { data: { user }, error } = await signIn('google');
-      if (error) throw error;
+      const { error, data } = await signIn('google');
+      if (error) {
+        if (error.message?.includes('exists')) {
+          setError('An account with this Google email already exists. Please sign in instead.');
+          return;
+        }
+        throw error;
+      }
+      
+      if (data?.user) {
+        // Profile is automatically created during Google sign in
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       console.error('Google signup error:', err);
       setError(err.message || 'Failed to sign up with Google');
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  if (confirmationSent) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <Navbar />
+        <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8">
+          <div className="sm:mx-auto sm:w-full sm:max-w-sm">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                Check your email
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                We've sent a confirmation link to <strong>{email}</strong>.<br />
+                Click the link to complete your registration.
+              </p>
+              <button
+                onClick={() => navigate('/login')}
+                className="mt-6 text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+              >
+                Return to login
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">

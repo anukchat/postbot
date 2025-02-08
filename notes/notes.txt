@@ -6,18 +6,18 @@ If web_url, search
 
 
 TODO:
-1. use ai suite for llm management
+1. use ai suite for llm management: Done litellm
 2. Extractor: Try more extractors, microsoft markdownit, make it pluggable 
     - Crawl4AI
-    - FireCrawl
+    - FireCrawl - Done
 3. Try firecrawl
-4. Add Topic based generation
-5. Add Top Trends
+4. Add Topic based generation -Done
+5. Add Top Trends -Done
 6. Add configurable style and blog type [Technical, fun etc] or Agentic based style
  determination
 7. Dockerize Done
 8. Host using coolify - Done -Hosted using render.io
-9. Add first person asking like style [e.g, do not say our work, say this work]
+9. Add first person asking like style [e.g, do not say our work, say this work] -Done
 10. Learn more about react, authentication
 11. Add Scheduling features
     - Configurable integration with twitter, linkedin, medium, substack, etc
@@ -27,23 +27,23 @@ TODO:
 14 replace native supabase queries with postgres/sqlalchemy or sql queries
 15. Add labels on source on side bar posts
 16. Add quota on post generation : Done
-17. Add responsiveness 
+17. Add responsiveness :Done
 18. Refine UI, make UX improvements : Done
 19. Add tests
 20. Implement billing, subscribption
 21. Implement admin page
 22. Implement permissions
-23. Add Diff highlighter (What user has updated vs what model has generated)
+23. Add Diff highlighter (What user has updated vs what model has generated), to be added using history icon
 24. Agent Improvements, add a reviewer Node
-25. Single Editor and previewer component like Notion
+25. Single Editor and previewer component like Notion: DOne
 26. blog generation using rough notes on any subject, add audio based dictation
 27. Blog generation from pdf
 28. blog generation from book highlights
 29. Payment model - single payment tier with 5$ per 100000 words...
-30. Landing page design updates
+30. Landing page design updates : Done
 31. Create chrome extension
-32. Add batch news generation
-33. Change menu items layout, add more colored layout
+32. Add batch news generation 
+33. Change menu items layout, add more colored layout 
 34. Queue based generation, async
 35. Generate multilingual content
 36. Generate audio voice overs
@@ -67,6 +67,8 @@ TODO:
     etc.
 50. native tool use using llm
 51. Use LLM to generate the suggested topics based on trends
+52. generate marketing videos
+53. generate marketing images
 
 
 Refactoring:
@@ -116,5 +118,23 @@ When given a tweet
 2. Search web and create research content.
 3. Also extract from linked content if any
 4. 
+
+
+
+Vision
+Platform for digital marketers to create marketing content with highest conversion rates
+- Text content
+- Images
+- Videos
+- Audios
+
+- Multi platform integration and content formats
+- Content scheduling
+- Targeted marketing
+
+
+
+
+
 
 

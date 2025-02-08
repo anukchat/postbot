@@ -44,7 +44,7 @@ const LandingPage: React.FC = () => {
           <motion.a
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        href="/dashboard"
+        href="/signup"
         className="inline-flex items-center px-8 py-3 text-lg font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700"
           >
         Get Started Free

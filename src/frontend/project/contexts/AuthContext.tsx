@@ -1,19 +1,19 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { supabaseClient } from '../utils/supaclient';
 import { authService } from '../services/auth';
+import { profileService } from '../services/profiles';
+import { supabaseClient } from '../utils/supaclient';
 
-interface AuthContextType {
+export interface AuthContextType {
   session: Session | null;
   user: User | null;
   signIn: (provider: 'google' | 'email', options?: { 
     email?: string;
     password?: string;
-  }) => Promise<any>;  // Removed 'magic-link' from provider type
-  signUp: (email: string, password: string) => Promise<User | null>;
+  }) => Promise<any>;
+  signUp: (email: string, password: string) => Promise<any>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  isRegistered: boolean;
   checkRegistration: (email: string) => Promise<boolean>;
   checkGoogleRegistration: (user: User) => Promise<boolean>;
   loading: boolean;
@@ -25,87 +25,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isRegistered, setIsRegistered] = useState<boolean>(false);
 
   useEffect(() => {
-    // Check for existing session in local storage first
-    const checkSession = async () => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
       try {
-        setLoading(true);
-        // Get session from Supabase
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        
-        if (session) {
-          setSession(session);
-          setUser(session.user);
-          // Store session in localStorage
-          localStorage.setItem('session', JSON.stringify(session));
-        } else {
-          // Try to get session from localStorage
-          const storedSession = localStorage.getItem('session');
-          if (storedSession) {
-            const parsedSession = JSON.parse(storedSession);
-            setSession(parsedSession);
-            setUser(parsedSession.user);
-          }
+        // Get initial session
+        const initialSession = await authService.getSession();
+        if (mounted) {
+          setSession(initialSession);
+          setUser(initialSession?.user ?? null);
         }
       } catch (error) {
-        console.error('Session check error:', error);
+        console.error('Error initializing auth:', error);
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
-    checkSession();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(async (event, session) => {
-      if (session) {
+    const { data: { subscription } } = authService.onAuthStateChange((session) => {
+      if (mounted) {
         setSession(session);
-        setUser(session.user);
-        localStorage.setItem('session', JSON.stringify(session));
-      } else {
-        setSession(null);
-        setUser(null);
-        localStorage.removeItem('session');
+        setUser(session?.user ?? null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
+    initializeAuth();
+
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
-  const checkRegistration = async (email: string) => {
+  const signUp = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabaseClient
-        .from('profiles')
-        .select('id')
-        .eq('email', email)
-        .single();
-      
-      const registered = Boolean(data);
-      setIsRegistered(registered);
-      return registered;
-    } catch (error) {
-      console.error('Error checking registration:', error);
-      return false;
-    }
-  };
+      const { data, error } = await authService.signUpWithEmail(email, password);
+      if (error) throw error;
 
-  const checkGoogleRegistration = async (user: User) => {
-    try {
-      const { data, error } = await supabaseClient
-        .from('profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-      
-      return Boolean(data);
+      // For email sign up, profile will be created after email verification
+      // when they first sign in
+      return { data, error: null };
     } catch (error) {
-      console.error('Error checking registration:', error);
-      return false;
+      console.error('Error signing up:', error);
+      throw error;
     }
   };
 
@@ -114,74 +81,106 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     password?: string;
   }) => {
     try {
-      if (provider === 'google') {
-        return await authService.signInWithGoogle();
+      console.log(`Attempting sign in with ${provider}`);
+      const { data, error } = await authService.signIn(provider, options);
+      if (error) throw error;
+      if (!data) throw new Error('No data returned from sign in');
+
+      // For Google sign in, data will have provider and url
+      if ('provider' in data) {
+        // For Google auth, we'll handle profile creation in the callback
+        // since we need to wait for the OAuth redirect
+        return { data, error: null };
       }
-      
-      if (provider === 'email' && options?.email && options?.password) {
-        return await authService.signInWithEmail(options.email, options.password);
+
+      // For email sign in, data will have user and session
+      if ('user' in data && data.user) {
+        console.log('User signed in:', data.user.id);
+        
+        if (provider === 'email') {
+          const exists = await profileService.checkProfileExists(data.user.id);
+          console.log('Profile exists check:', exists);
+
+          if (!exists) {
+            console.log('Creating new profile for email user');
+            await profileService.createProfile(data.user.id, {
+              email: data.user.email || '',
+              full_name: data.user.user_metadata?.name || null,
+              avatar_url: data.user.user_metadata?.avatar_url || null,
+              role: 'free',
+              subscription_status: 'none',
+              generations_used_per_thread: 0,
+              preferences: {},
+              is_deleted: false
+            });
+          }
+        }
       }
+
+      return { data, error: null };
     } catch (error) {
-      console.error('SignIn error:', error);
+      console.error('Error during sign in flow:', error);
       throw error;
     }
   };
 
-  const signUp = async (email: string, password: string) => {
-    try {
-      // Check if user already exists
-      const exists = await authService.checkUserExists(email);
-      if (exists) {
-        throw new Error('USER_EXISTS');
-      }
+  const signOut = async () => {
+    await authService.signOut();
+    setUser(null);
+    setSession(null);
+  };
 
-      return await authService.signUpWithEmail(email, password);
+  const checkRegistration = async (user: any) => {
+    try {
+      const { data } = await supabaseClient
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      return !!data;
     } catch (error) {
-      console.error('Error signing up:', error);
-      throw error;
+      console.error('Error checking registration:', error);
+      return false;
+    }
+  };
+
+  const checkGoogleRegistration = async (user: User) => {
+    try {
+      console.log('Checking Google registration for user:', user.id);
+      const exists = await profileService.checkProfileExists(user.id);
+      console.log('Profile exists:', exists);
+      return exists;
+    } catch (error) {
+      console.error('Error checking Google registration:', error);
+      return false;
     }
   };
 
   const resetPassword = async (email: string) => {
     try {
-      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-        redirectTo: import.meta.env.VITE_REDIRECT_URL,
-      });
-      if (error) throw error;
+      await authService.resetPassword(email);
     } catch (error) {
       console.error('Error resetting password:', error);
       throw error;
     }
   };
 
-  const signOut = async () => {
-    try {
-      const { error } = await supabaseClient.auth.signOut();
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error signing out:', error);
-      throw error;
-    }
+  const value = {
+    session,
+    user,
+    signIn,
+    signUp,
+    signOut,
+    resetPassword,
+    checkRegistration,
+    checkGoogleRegistration,
+    loading
   };
 
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-
   return (
-    <AuthContext.Provider value={{ 
-      session, 
-      user, 
-      signIn, 
-      signUp, 
-      signOut,
-      resetPassword,
-      isRegistered,
-      checkRegistration,
-      checkGoogleRegistration,
-      loading
-    }}>
-      {!loading && children}
+    <AuthContext.Provider value={value}>
+      {children}
     </AuthContext.Provider>
   );
 };
