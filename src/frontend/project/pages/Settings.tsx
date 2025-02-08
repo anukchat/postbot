@@ -15,9 +15,9 @@ interface UserProfile {
 }
 
 interface Preferences {
-  emailNotifications: boolean;
-  darkMode: boolean;
+  theme: string;
   language: string;
+  emailNotifications: boolean;
 }
 
 const Settings: React.FC = () => {
@@ -31,14 +31,14 @@ const Settings: React.FC = () => {
     company: '',
   });
   const [preferences, setPreferences] = useState<Preferences>({
+    language: "en",
+    theme: "light",
     emailNotifications: true,
-    darkMode: false,
-    language: 'en',
   });
 
   useEffect(() => {
     loadUserProfile();
-    loadPreferences();
+    // loadPreferences();
   }, [user]);
 
   const loadUserProfile = async () => {
@@ -48,7 +48,7 @@ const Settings: React.FC = () => {
       const { data, error } = await supabaseClient
         .from('profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('user_id', user.id)
         .single();
 
       if (error) throw error;
@@ -60,25 +60,6 @@ const Settings: React.FC = () => {
     }
   };
 
-  const loadPreferences = async () => {
-    try {
-      if (!user?.id) return;
-      
-      const { data, error } = await supabaseClient
-        .from('user_preferences')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error) throw error;
-      if (data) {
-        setPreferences(data);
-      }
-    } catch (error) {
-      console.error('Error loading preferences:', error);
-    }
-  };
-
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -87,7 +68,7 @@ const Settings: React.FC = () => {
       const { error } = await supabaseClient
         .from('profiles')
         .upsert({
-          id: user?.id,
+          user_id: user?.id,
           ...profile,
           updated_at: new Date(),
         });
@@ -107,11 +88,18 @@ const Settings: React.FC = () => {
     setLoading(true);
 
     try {
+      const { data: existingProfile } = await supabaseClient
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user?.id)
+        .single();
+
       const { error } = await supabaseClient
-        .from('user_preferences')
+        .from('profiles')
         .upsert({
+          id: existingProfile?.id,
           user_id: user?.id,
-          ...preferences,
+          preferences: preferences, // Store preferences as JSON string
           updated_at: new Date(),
         });
 
@@ -241,8 +229,8 @@ const Settings: React.FC = () => {
                 </div>
                 <input
                   type="checkbox"
-                  checked={preferences.darkMode}
-                  onChange={(e) => setPreferences({ ...preferences, darkMode: e.target.checked })}
+                  checked={preferences.theme === 'dark'}
+                  onChange={(e) => setPreferences({ ...preferences, theme: e.target.checked ? 'dark' : 'light' })}
                   className="h-4 w-4 text-blue-600"
                 />
               </div>

@@ -3,97 +3,159 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabaseClient = createClient(supabaseUrl, supabaseKey);
+export const supabaseClient = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true
+  }
+});
 
 export const authService = {
-  // Check if user exists
   async checkUserExists(email: string) {
-    const { data } = await supabaseClient
-      .from('profiles')
-      .select('id')
-      .eq('email', email)
-      .single();
-    return Boolean(data);
+    try {
+      const { data, error } = await supabaseClient
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .single();
+  
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
+        console.error('Error checking profile existence:', error);
+        return false;
+      }
+  
+      return Boolean(data);
+    } catch (error) {
+      console.error('Error checking user existence:', error);
+      return false;
+    }
   },
 
-  // Consolidated sign in method
   async signIn(provider: 'google' | 'email', options?: { 
     email?: string;
     password?: string;
   }) {
-    if (provider === 'google') {
-      return this.signInWithGoogle();
-    }
-
-    if (provider === 'email' && options?.email && options?.password) {
-      return this.signInWithEmail(options.email, options.password);
-    }
-
-    throw new Error('Invalid sign in method');
-  },
-
-  // Sign in with email
-  async signInWithEmail(email: string, password: string) {
-    const { data, error } = await supabaseClient.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) throw error;
-    return data;
-  },
-
-  // Sign in with Google
-  async signInWithGoogle() {
-    const { data, error } = await supabaseClient.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        scopes: 'email profile',
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        }
+    try {
+      if (provider === 'google') {
+        return await this.signInWithGoogle();
       }
-    });
-    if (error) throw error;
-    return data;
+
+      if (provider === 'email' && options?.email && options?.password) {
+        return await this.signInWithEmail(options.email, options.password);
+      }
+
+      throw new Error('Invalid sign in method');
+    } catch (error) {
+      console.error('Sign in error:', error);
+      throw error;
+    }
   },
 
-  // Sign up with email
-  async signUpWithEmail(email: string, password: string) {
-    // First create auth user
-    const { data: { user }, error: authError } = await supabaseClient.auth.signUp({
-      email,
-      password,
-    });
-    if (authError) throw authError;
-
-    if (user) {
-      // Create profile
-      const { error: profileError } = await supabaseClient
-        .from('profiles')
-        .insert({
-          user_id: user.id,
-          email: user.email,
-          role: 'free',
-          subscription_status: 'none'
-        });
-      
-      if (profileError) throw profileError;
+  async signInWithEmail(email: string, password: string) {
+    try {
+      const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      console.error('Email sign in error:', error);
+      return { data: null, error };
     }
+  },
 
-    return user;
+  async signInWithGoogle() {
+    try {
+      const { data, error } = await supabaseClient.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          scopes: 'email profile',
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
+        }
+      });
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      console.error('Google sign in error:', error);
+      return { data: null, error };
+    }
+  },
+
+  async signUpWithEmail(email: string, password: string) {
+    try {
+      // Check if user exists first
+      const userExists = await this.checkUserExists(email);
+      if (userExists) {
+        return { data: null, error: new Error('User already exists') };
+      }
+
+      // Create new user with email verification
+      const { data, error: authError } = await supabaseClient.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?noAutoSignIn=true`, // Add flag to prevent auto sign in
+          data: {
+            email,
+            role: 'free',
+            subscription_status: 'none'
+          }
+        }
+      });
+
+      if (authError) throw authError;
+      
+      if (!data?.user) {
+        throw new Error('User creation failed');
+      }
+
+      // Sign out immediately to prevent auto-login state
+      await supabaseClient.auth.signOut();
+
+      return { data, error: null };
+    } catch (error) {
+      console.error('Email sign up error:', error);
+      return { data: null, error };
+    }
+  },
+
+  async resetPassword(email: string) {
+    try {
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      });
+      if (error) throw error;
+    } catch (error) {
+      console.error('Reset password error:', error);
+      throw error;
+    }
   },
 
   async signOut() {
-    const { error } = await supabaseClient.auth.signOut();
-    if (error) throw error;
+    try {
+      const { error } = await supabaseClient.auth.signOut();
+      if (error) throw error;
+    } catch (error) {
+      console.error('Sign out error:', error);
+      throw error;
+    }
   },
 
   async getSession() {
-    const { data: { session }, error } = await supabaseClient.auth.getSession();
-    if (error) throw error;
-    return session;
+    try {
+      const { data: { session }, error } = await supabaseClient.auth.getSession();
+      if (error) throw error;
+      return session;
+    } catch (error) {
+      console.error('Get session error:', error);
+      throw error;
+    }
   },
 
   onAuthStateChange(callback: (session: any) => void) {
@@ -102,24 +164,23 @@ export const authService = {
     });
   },
 
-  async createProfile(userId: string, profileData: any) {
-    const { data, error } = await supabaseClient
-      .from('profiles')
-      .upsert([{
-        user_id: userId,
-        ...profileData
-      }]);
-    if (error) throw error;
-    return data;
-  },
+  async createUserProfile(userId: string, profileData: any) {
+    try {
+      const { error } = await supabaseClient
+        .from('profiles')
+        .insert({
+          user_id: userId,
+          ...profileData,
+          role: 'free',
+          subscription_status: 'none'
+        })
+        .single();
 
-  async getProfile(userId: string) {
-    const { data, error } = await supabaseClient
-      .from('profiles')
-      .select('*')
-      .eq('profile_id', userId)
-      .single();
-    if (error) throw error;
-    return data;
+      if (error) throw error;
+      return { error: null };
+    } catch (error) {
+      console.error('Profile creation error:', error);
+      return { error };
+    }
   }
 };

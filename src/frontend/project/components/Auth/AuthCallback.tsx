@@ -1,96 +1,98 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabaseClient } from '../../utils/supaclient';
+import { profileService } from '../../services/profiles';
+import { authDebugService } from '../../services/authDebug';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    let mounted = true;
-
     const handleCallback = async () => {
+      authDebugService.authFlow('Starting Auth Callback', { params: Object.fromEntries(searchParams) });
+      
       try {
+        if (searchParams.get('noAutoSignIn')) {
+          authDebugService.authFlow('NoAutoSignIn detected, redirecting to login');
+          await supabaseClient.auth.signOut(); // Ensure clean state
+          navigate('/login');
+          return;
+        }
+
         const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
         
-        if (sessionError || !session) {
-          console.error('Session error:', sessionError);
-          throw new Error('No session found');
+        if (sessionError) {
+          authDebugService.error('Session Error', sessionError);
+          navigate('/login');
+          return;
         }
 
-        const { user } = session;
-        if (!user) throw new Error('No user found');
+        if (!session?.user) {
+          authDebugService.error('No User in Session', { session });
+          navigate('/login');
+          return;
+        }
 
+        const provider = session.user.app_metadata?.provider;
+        authDebugService.authFlow('Auth Provider Check', { 
+          provider,
+          userId: session.user.id,
+          metadata: session.user.user_metadata 
+        });
 
-        // Check if profile exists
-        //TODO: call python api endpoint to check if user exists in the database
-        const { data: existingProfile, error: profileCheckError } = await supabaseClient
-          .from('profiles')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
-
-        if (profileCheckError || !existingProfile) {
-          
-          // Create new profile
-          const { error: profileError } = await supabaseClient
-            .from('profiles')
-            .insert({
-                id: crypto.randomUUID(),
-                user_id: user.id,
-                full_name: user.user_metadata.full_name,
-                avatar_url: user.user_metadata.avatar_url,
+        if (provider === 'google') {
+          try {
+            const exists = await profileService.checkProfileExists(session.user.id);
+            authDebugService.authFlow('Profile Check', { exists });
+            
+            if (!exists) {
+              authDebugService.authFlow('Creating Google User Profile', {
+                userId: session.user.id,
+                metadata: session.user.user_metadata
+              });
+              
+              await profileService.createProfile(session.user.id, {
+                email: session.user.email || '',
+                full_name: session.user.user_metadata?.full_name || null,
+                avatar_url: session.user.user_metadata?.avatar_url || null,
                 role: 'free',
                 subscription_status: 'none',
-                created_at: new Date().toISOString()
-            });
-
-          if (profileError) {
-            throw profileError;
+                generations_used_per_thread: 0,
+                preferences: {},
+                is_deleted: false
+              });
+            }
+            
+            authDebugService.authFlow('Google Auth Complete - Navigating to Dashboard');
+            navigate('/dashboard');
+          } catch (profileError) {
+            authDebugService.error('Profile Creation Error', profileError);
+            await supabaseClient.auth.signOut();
+            navigate('/login');
           }
-        }
-
-        if (mounted) {
-          navigate('/dashboard');
+        } else {
+          authDebugService.authFlow('Non-Google Auth - Redirecting to Login');
+          navigate('/login');
         }
       } catch (err) {
-        if (mounted) {
-          setError('Authentication failed');
-          setTimeout(() => navigate('/login'), 2000);
-        }
+        authDebugService.error('Auth Callback Error', err);
+        await supabaseClient.auth.signOut(); // Clean up if anything goes wrong
+        navigate('/login');
       }
     };
 
     handleCallback();
+  }, [navigate, searchParams]);
 
-    return () => {
-      mounted = false;
-    };
-  }, [navigate]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p>Authenticating...</p>
-        </div>
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+        <p className="text-gray-600">Completing authentication...</p>
       </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          {error}
-        </div>
-      </div>
-    );
-  }
-
-  return null;
+    </div>
+  );
 };
 
 export default AuthCallback;

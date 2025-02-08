@@ -7,6 +7,7 @@ const SignIn: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { signIn } = useAuth();
   const navigate = useNavigate();
@@ -16,12 +17,31 @@ const SignIn: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      await signIn('email', { email, password });
-      navigate('/dashboard');
-    } catch (err) {
-      setError('Failed to sign in. Please check your credentials.');
+      const { data } = await signIn('email', { email, password });
+      
+      // If user has logged in successfully
+      if (data?.user) {
+        // Navigate to dashboard
+        navigate('/dashboard');
+      }
+    } catch (err: any) {
+      console.error('Sign in error:', err);
+      setError(err.message || 'Failed to sign in. Please check your credentials.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsGoogleLoading(true);
+      setError(null);
+      await signIn('google');
+      // Don't navigate here - OAuth redirect will handle it
+    } catch (err: any) {
+      console.error('Google sign in error:', err);
+      setError(err.message || 'Failed to sign in with Google');
+      setIsGoogleLoading(false);
     }
   };
 
@@ -72,7 +92,7 @@ const SignIn: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600"
+              className="w-full bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600 disabled:opacity-50"
             >
               {isLoading ? 'Signing in...' : 'Sign in'}
             </button>
@@ -80,15 +100,25 @@ const SignIn: React.FC = () => {
 
           <div className="mt-4">
             <button
-              onClick={() => signIn('google')}
-              className="mt-4 w-full flex justify-center items-center gap-3 border border-gray-300 p-2 rounded-md hover:bg-gray-50"
+              onClick={handleGoogleSignIn}
+              disabled={isGoogleLoading}
+              className="mt-4 w-full flex justify-center items-center gap-3 border border-gray-300 p-2 rounded-md hover:bg-gray-50 disabled:opacity-50"
             >
-              <img
-                className="w-5 h-5"
-                src="https://www.google.com/favicon.ico"
-                alt="Google logo"
-              />
-              Sign in with Google
+              {isGoogleLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-blue-500"></div>
+                  <span>Redirecting to Google...</span>
+                </div>
+              ) : (
+                <>
+                  <img
+                    className="w-5 h-5"
+                    src="https://www.google.com/favicon.ico"
+                    alt="Google logo"
+                  />
+                  Sign in with Google
+                </>
+              )}
             </button>
           </div>
         </div>
