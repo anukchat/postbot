@@ -1,8 +1,11 @@
+import re
 from src.backend.extraction.base import BaseExtractor
 from typing import Dict, Any, List
 import praw
 import os
 from src.backend.clients.llm import LLMClient, HumanMessage
+from src.backend.utils.general import safe_json_loads
+import json
 
 class RedditExtractor(BaseExtractor):
     def __init__(self, config_name: str = "default"):
@@ -178,11 +181,124 @@ class RedditExtractor(BaseExtractor):
                     hot_posts = subreddit.hot(limit=limit)
                     trending_data[subreddit_name] = self._process_trending_posts(hot_posts)
                 except Exception as e:
-                    print(f"Error fetching from r/{subreddit_name}: {str(e)}")
-                    continue
+                    print(f"Error fetching trending from r/{subreddit_name}: {str(e)}")
+                    trending_data[subreddit_name] = []
         
         return trending_data
 
+    def _extract_reddit_posts(self,data):
+        subreddit_key = list(data.keys())[0]  # Get the dynamic subreddit key
+        posts = data[subreddit_key]
+        
+        output = [
+            {
+                "title": post["title"],
+                "url": post["url"],
+                "score": post["score"],
+                "num_comments": post["num_comments"],
+                "subreddit": post["subreddit"]
+            }
+            for post in posts
+        ]
+        
+        return output
+    
+    def suggest_trending_titles(self, reddit_object, limit: int = 10) -> Dict[str, Any]:
+        """
+        Suggest trending blog po
+        
+        Args:
+            limit: Number of blog posts to suggest
+            
+        Returns:
+            Dictionary containing trending blog posts and their metadata
+        """
+        try:
+            reddit_object=self._extract_reddit_posts(reddit_object)
+
+            blog_titles_prompt = f"""Given a list of top Reddit discussions, generate engaging and insightful blog topic ideas based on the most upvoted and discussed posts. Each suggestion should expand upon the original topic, offering new perspectives and value.
+            **Input Format:**
+            The input will be a JSON object containing multiple Reddit posts with the following attributes:
+            
+            - title: The title of the Reddit post
+            - url: Link to the discussion
+            - score: Number of upvotes
+            - num_comments: Total comments
+            - subreddit: Name of the subreddit
+
+            Example Input:
+            [
+                {{
+                    "title": "OpenAI is hiding the actual thinking tokens in o3-mini",
+                    "url": "https://reddit.com/r/LocalLLaMA/comments/1ikh3vz/",
+                    "score": 464,
+                    "num_comments": 123,
+                    "subreddit": "LocalLLaMA"
+                }}
+            ]
+
+            **Task:**
+
+            For each Reddit post, generate 2-3 engaging blog topics that expand on the discussion. Ensure that:
+            - The topics are informative & engaging 
+            - Appeal to a technical audience. They go beyond the Reddit discussion 
+            - Extract key insights and create unique blog angles.
+            - They include diverse perspectives
+            - Cover technical deep dives, ethical concerns, industry impact, and real-world applications.
+
+            **Expected Output Format:**
+
+            Return a JSON object with a "blog_topics" list, where each entry corresponds to a suggested blog topic that can be researched upon.
+
+            **Example Output:**
+
+            ```json
+            {{
+                "blog_topics": [
+                    "The Mystery of Thinking Tokens: How OpenAI’s o3-mini Processes Information",
+                    "Are AI Models Becoming Black Boxes? Understanding OpenAI’s o3-mini",
+                    "Transparency in AI: Should Model Internals Be Fully Visible?",
+                    "Optimizing Prompt Strategies for Models with Hidden Computation",
+                    "The Ethics of AI Transparency: What We Deserve to Know About AI Models"
+                ]
+            }}
+            ```
+
+            **Additional Considerations:**
+
+            - Prioritize posts with high upvotes and engagement (comments/upvotes ratio).
+            - Focus on AI, ML, and technology topics.
+            - Ensure the blog topics are diverse yet relevant to the original discussion.
+            - Make sure to follow the provided schema from example output.
+            🚀 Now, generate the blog topic suggestions based on the given data.
+            
+            {reddit_object}
+            """
+
+            posts = self.llm.invoke([HumanMessage(content=blog_titles_prompt)])
+
+            pattern = r"```json\n([\s\S]*?)\n```"
+            match = re.search(pattern, posts)
+
+            if match:
+                parsed = safe_json_loads(match.group(1))
+            else:
+                parsed = {"blog_topics": []}
+            # return summary
+
+            # subreddit = self.reddit.subreddit('blogs')
+            # hot_posts = subreddit.hot(limit=limit)
+            # trending_blogs = self._process_trending_posts(hot_posts)
+            
+            return parsed
+            
+        except Exception as e:
+            print(f"Error fetching trending blogs: {str(e)}")
+            return {
+                'category': 'blogs',
+                'trending_blogs': [obj['title'] for obj in reddit_object],
+                'error': str(e)}
+        
     def get_trending_discussions(self, category: str = 'all', timeframe: str = 'day', limit: int = 10) -> Dict[str, Any]:
         """
         Fetch trending discussion posts based on category and timeframe
@@ -246,21 +362,16 @@ class RedditExtractor(BaseExtractor):
         trending_posts = []
         
         for post in posts:
-            if not post.over_18:  # Filter out NSFW content
-                post_data = {
-                    'title': post.title,
-                    'url': f"https://reddit.com{post.permalink}",
-                    'author': post.author.name if post.author else '[deleted]',
-                    'subreddit': post.subreddit.display_name,
-                    'score': post.score,
-                    'num_comments': post.num_comments,
-                    'created_utc': post.created_utc,
-                    'is_original_content': post.is_original_content,
-                    'upvote_ratio': post.upvote_ratio,
-                    'is_video': post.is_video,
-                    'domain': post.domain
-                }
-                trending_posts.append(post_data)
+            if not post.over_18:  # Skip NSFW content
+                trending_posts.append({
+                    "title": post.title,
+                    "url": f"https://reddit.com{post.permalink}",
+                    "score": post.score,
+                    "num_comments": post.num_comments,
+                    "subreddit": post.subreddit.display_name,
+                    "created_utc": post.created_utc,
+                    "selftext": post.selftext[:500] if post.selftext else ""  # Truncate long text
+                })
         
         return trending_posts
 

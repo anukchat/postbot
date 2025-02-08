@@ -71,6 +71,7 @@ TODO:
 53. generate marketing images
 54. Tool calling experiments
 55. Generate blog topic suggestions based on trending topics on reddit
+56. Review the markdown output mistakes , duplication, repeatednes, joined links
 
 LLm improvements
 1. Simple explainations, without repetations

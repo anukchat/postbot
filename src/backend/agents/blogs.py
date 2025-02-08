@@ -37,6 +37,7 @@ from src.backend.db.supabaseclient import supabase_client
 from src.backend.extraction.factory import ConverterRegistry, ExtracterRegistry
 import atexit
 from src.backend.utils.logger import setup_logger
+from src.backend.utils.general import safe_json_loads
 
 # Setup logger
 logger = setup_logger(__name__)

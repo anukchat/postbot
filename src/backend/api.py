@@ -123,6 +123,9 @@ class RedditResponse(BaseModel):
     status: str
     error: Optional[str] = None
 
+class RedditSuggetsionsResponse(BaseModel):
+    blog_topics: List[str]
+
 # Agent Workflow Endpoint
 def get_workflow() -> AgentWorkflow:
     """Dependency to get a AgentWorkflow instance."""
@@ -997,7 +1000,8 @@ async def get_trending_reddit_topics(
             subreddits=subreddit_list
         )
 
-        
+        # Use llm to identify the topics for blog posts
+
         
         return RedditResponse(
             data=trending_data,
@@ -1036,6 +1040,27 @@ async def get_trending_discussions(
             status="error",
             error=str(e)
         )
+
+@app.get("/reddit/topic-suggestions", response_model=RedditSuggetsionsResponse, tags=["reddit"])
+async def get_topic_suggetsions(
+    limit: int = Query(15, description="Number of posts to fetch per subreddit"),
+    subreddits: Optional[str] = Query(None, description="Comma-separated list of subreddits"),
+    user: dict = Depends(get_current_user_profile)
+):
+    """Get information about a specific subreddit"""
+    try:
+        reddit_extractor = RedditExtractor()
+        subreddit_list = subreddits.split(',') if subreddits else None
+        trending_data = reddit_extractor.get_trending_topics(
+            limit=limit,
+            subreddits=subreddit_list
+        )
+        
+        topic_list=reddit_extractor.suggest_trending_titles(trending_data)
+
+        return topic_list
+    except Exception as e:
+        return []
 
 @app.get("/reddit/active-subreddits", response_model=RedditResponse, tags=["reddit"])
 async def get_active_subreddits(

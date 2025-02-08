@@ -39,9 +39,10 @@ interface EditorState {
   currentTab: 'blog' | 'twitter' | 'linkedin';
   setCurrentTab: (tab: 'blog' | 'twitter' | 'linkedin') => void;
   lastRefreshTimestamp: number;
-  redditTrendingTopics: Record<string, any[]>;
-  lastTrendingFetch: Record<string, number>;
-  fetchRedditTrending: (subreddit: string) => Promise<void>;
+  trendingBlogTopics: string[];
+  lastBlogTopicsFetch: Record<string, number>; // Changed to store per-subreddit timestamps
+  trendingTopicsCache: Record<string, string[]>; // Added for subreddit caching
+  fetchTrendingBlogTopics: (subreddits?: string[], limit?: number) => Promise<void>;
 }
 
 interface GeneratePayload {
@@ -51,6 +52,8 @@ interface GeneratePayload {
   tweet_id?: string;
   url?: string;
 }
+
+const MAX_CACHE_SIZE = 50; // Maximum number of subreddits to cache
 
 export const useEditorStore = create<EditorState>((set, get) => ({
   posts: [],
@@ -566,39 +569,64 @@ ${content}`;
     }
   },
 
-  redditTrendingTopics: {},
-  lastTrendingFetch: {},
+  trendingBlogTopics: [],
+  lastBlogTopicsFetch: {},
+  trendingTopicsCache: {},
 
-  fetchRedditTrending: async (subreddit: string) => {
+  fetchTrendingBlogTopics: async (subreddits?: string[], limit: number = 15) => {
     try {
-      const { lastTrendingFetch, redditTrendingTopics } = get();
       const now = Date.now();
-      const lastFetch = lastTrendingFetch[subreddit];
+      const cacheKey = subreddits ? subreddits.join(',') : 'all';
+      const lastFetch = get().lastBlogTopicsFetch[cacheKey];
+      const cachedTopics = get().trendingTopicsCache[cacheKey];
       
-      // Check if we have cached data from the last hour
-      if (lastFetch && redditTrendingTopics[subreddit] && 
-          now - lastFetch < 60 * 60 * 1000) { // Cache for 1 hour instead of 24 hours
+      // Clean up cache if it gets too large
+      const cacheSize = Object.keys(get().trendingTopicsCache).length;
+      if (cacheSize > MAX_CACHE_SIZE) {
+        // Remove oldest entries based on lastFetch timestamps
+        const lastFetchEntries = Object.entries(get().lastBlogTopicsFetch);
+        const oldestEntries = lastFetchEntries
+          .sort(([, a], [, b]) => a - b)
+          .slice(0, cacheSize - MAX_CACHE_SIZE + 1)
+          .map(([key]) => key);
+
+        set(state => ({
+          trendingTopicsCache: Object.fromEntries(
+            Object.entries(state.trendingTopicsCache).filter(([key]) => !oldestEntries.includes(key))
+          ),
+          lastBlogTopicsFetch: Object.fromEntries(
+            Object.entries(state.lastBlogTopicsFetch).filter(([key]) => !oldestEntries.includes(key))
+          )
+        }));
+      }
+
+      // Use cached data if less than 24 hours old
+      if (lastFetch && cachedTopics && now - lastFetch < 24 * 60 * 60 * 1000) {
+        set({ trendingBlogTopics: cachedTopics });
         return;
       }
 
-      const response = await api.get('/reddit/trending', {
-        params: { subreddits: subreddit }
-      });
+      const params: Record<string, any> = { limit };
+      if (subreddits && subreddits.length > 0) {
+        params.subreddits = subreddits.join(',');
+      }
 
-      if (response.data?.data) {
-        set(state => ({
-          redditTrendingTopics: {
-            ...state.redditTrendingTopics,
-            [subreddit]: response.data.data[subreddit] || []
+      const response = await api.get('/reddit/topic-suggestions', { params });
+      if (response.data?.blog_topics) {
+        set((state) => ({
+          trendingBlogTopics: response.data.blog_topics,
+          trendingTopicsCache: {
+            ...state.trendingTopicsCache,
+            [cacheKey]: response.data.blog_topics
           },
-          lastTrendingFetch: {
-            ...state.lastTrendingFetch,
-            [subreddit]: now
+          lastBlogTopicsFetch: {
+            ...state.lastBlogTopicsFetch,
+            [cacheKey]: now
           }
         }));
       }
     } catch (error) {
-      console.error('Error fetching Reddit trending topics:', error);
+      console.error('Error fetching trending blog topics:', error);
     }
-  }
+  },
 }));
