@@ -996,6 +996,8 @@ async def get_trending_reddit_topics(
             limit=limit,
             subreddits=subreddit_list
         )
+
+        
         
         return RedditResponse(
             data=trending_data,

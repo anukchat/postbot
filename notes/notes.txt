@@ -70,6 +70,12 @@ TODO:
 52. generate marketing videos
 53. generate marketing images
 54. Tool calling experiments
+55. Generate blog topic suggestions based on trending topics on reddit
+
+LLm improvements
+1. Simple explainations, without repetations
+2. Consistent results [with correct markdown format always]
+3. Simple and easy to follow blog posts
 
 
 Refactoring:
