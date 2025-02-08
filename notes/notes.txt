@@ -69,6 +69,7 @@ TODO:
 51. Use LLM to generate the suggested topics based on trends
 52. generate marketing videos
 53. generate marketing images
+54. Tool calling experiments
 
 
 Refactoring:
