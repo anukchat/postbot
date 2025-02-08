@@ -53,7 +53,7 @@ interface GeneratePayload {
   url?: string;
 }
 
-const MAX_CACHE_SIZE = 50; // Maximum number of subreddits to cache
+const MAX_CACHE_SIZE = 250; // Maximum number of subreddits to cache
 
 export const useEditorStore = create<EditorState>((set, get) => ({
   posts: [],

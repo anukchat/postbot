@@ -357,7 +357,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
       try {
         const payload = {
           post_types: ["blog"],
-          reddit_query: redditSearch.query,
+          topic: redditSearch.query,
           // subreddit: selectedSubreddit  // Include optional subreddit
         };
         await api.post('/content/generate', payload);

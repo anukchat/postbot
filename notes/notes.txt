@@ -72,6 +72,7 @@ TODO:
 54. Tool calling experiments
 55. Generate blog topic suggestions based on trending topics on reddit
 56. Review the markdown output mistakes , duplication, repeatednes, joined links
+57. Reduce the blog length and improve the prompts
 
 LLm improvements
 1. Simple explainations, without repetations
