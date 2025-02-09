@@ -1,5 +1,6 @@
 import json
 import re
+import pyshorteners
 
 
 def clean_json_string(json_string):
@@ -14,3 +15,13 @@ def safe_json_loads(json_string):
     except json.JSONDecodeError as e:
         print("JSON Decode Error:", e)
         return None
+
+
+def shorten_link(url):
+    try:
+        s = pyshorteners.Shortener()
+        shortened_url = s.tinyurl.short(url)
+        return shortened_url
+    except Exception as e:
+        print("Error shortening URL:", e)
+        return url

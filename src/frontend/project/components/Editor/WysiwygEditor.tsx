@@ -1,7 +1,6 @@
 import React, { useEffect } from "react";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
-import "katex/dist/katex.min.css";
 import { useCreateBlockNote } from "@blocknote/react";
 import {
   BlockNoteView,
@@ -15,7 +14,6 @@ import {
 } from "@blocknote/react";
 import { filterSuggestionItems } from "@blocknote/core";
 import { PartialBlock } from "@blocknote/core";
-import katex from "katex";
 import "../../styles/wysiwygStyles.css";
 import { useEditorStore } from "../../store/editorStore";
 
@@ -38,37 +36,7 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({
       const currentMarkdown = await editor.blocksToMarkdownLossy(editor.document);
       if (currentMarkdown !== content) {
         if (content) {
-          const processKaTeX = (text: string, isBlock: boolean = false) => {
-            const delimiter = isBlock ? "$$" : "$";
-            const parts = text.split(delimiter);
-            return parts
-              .map((part, index) => {
-                if (index % 2 === 1) {
-                  try {
-                    return katex.renderToString(part, {
-                      throwOnError: false,
-                      displayMode: isBlock,
-                    });
-                  } catch (error) {
-                    console.error("KaTeX rendering error:", error);
-                    return part;
-                  }
-                }
-                return part;
-              })
-              .join("");
-          };
-
-          const processedContent = content
-            .split("\n")
-            .map((line) => {
-              let processed = processKaTeX(line, true);
-              processed = processKaTeX(processed, false);
-              return processed;
-            })
-            .join("\n");
-
-          const blocks = await editor.tryParseMarkdownToBlocks(processedContent);
+          const blocks = await editor.tryParseMarkdownToBlocks(content);
           editor.replaceBlocks(editor.document, blocks);
         } else {
           editor.replaceBlocks(editor.document, []);

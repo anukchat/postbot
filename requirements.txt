@@ -8,3 +8,4 @@ uvicorn
 psycopg2
 supabase
 backoff
+pyshorteners

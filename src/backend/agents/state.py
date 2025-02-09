@@ -20,6 +20,7 @@ class BlogState:
     completed_sections: Annotated[List[Section], add] = field(default_factory=list)
     blog_main_body_sections: Optional[str] = field(default=None)
     final_blog: Optional[str] = field(default=None)
+    reviewed_blog: Optional[str] = field(default=None)
     twitter_post: Optional[str] = field(default=None)
     linkedin_post: Optional[str] = field(default=None)
     tags: Optional[List[str]] = field(default=None)
@@ -51,6 +52,7 @@ class BlogStateInput:
 @dataclass
 class BlogStateOutput:
     final_blog: Optional[str] = field(default=None)
+    reviewed_blog: Optional[str] = field(default=None)
     blog_title: Optional[str] = field(default=None)
     twitter_post: Optional[str] = field(default=None)
     linkedin_post: Optional[str] = field(default=None)

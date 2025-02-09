@@ -2,30 +2,33 @@
 default_blog_structure = """The blog post should follow this strict three-part structure:
 
 1. Introduction (max 1 section)
-   - Start with key Links containing user-provided links in form [Link1](URL1), [Link2](URL2)
+   - Start with key Links containing user-provided links in form [Link1](URL1)
    - Brief main topic overview
    - Include primary keyword in first paragraph
    - 150-200 words (flexible)
+   - Ensure no duplicate content is introduced and transitions are smooth.
 
 2. Main Body (2-5 sections)
    - Each section must:
      * Cover unique aspects of main topic
      * Include all key input points with examples
-     * Add code snippets where relevant
+     * Add code snippets where relevant, if a code snippet is provided, format it as a markdown code block with the appropriate language specifier.
      * Embed images/videos from source URLs
      * Target 1-2 long-tail keywords in headers
-     * 300-600 words per section (variable)
+     * 300-400 words per section (variable)
    - No content overlap between sections
    - Include all input details
    - Remove duplicate information from multiple sources
    - Use appropriate formats (tables/lists for comparisons)
+   - Trim any leading/trailing whitespace to avoid unintended markdown code formatting.
 
 3. Conclusion (max 1 section)
    - Concise key point summary
    - Repeat Key Links
    - Natural call-to-action
    - Reinforce primary keyword
-   - 100-150 words"""
+   - 100-150 words
+   - Ensure a clear wrap-up without repeating prior content."""
 
 
 ##----------------- Blog Planner Instructions -----------------##
@@ -69,6 +72,8 @@ Final check:
    - Header keyword optimization
    - Unique value propositions for search engines
 5. Confirm that the Sections are grounded in the user notes
+6. Confirm a final synthesis step that ensures logical flow, seamless transitions, and absence of duplicate text across sections.
+7. Trim any unintended whitespace that might trigger unwanted markdown code formatting.
 """
 
 
@@ -108,6 +113,7 @@ WRITING GUIDELINES:
 - Write from the perspective of an observer or explainer, not as a participant. For example, use phrases like "AWS has implemented this feature..." or "They have used this approach..." instead of "We explored this feature..." or "Let's look at this...".  
 - Include relevant examples or visuals where necessary.
 - Slight imperfections in sentence flow are acceptable.  
+- Before finalizing, check for duplicate or repeated text and remove any redundancy.
 - Do not add redundancy or over-explaining.
 - Zero marketing language.  
 - Highlight important lines by emphasizing them using **.  
@@ -115,8 +121,8 @@ WRITING GUIDELINES:
 - Include references where ever needed and cover all the details to enhance the blog post.
 - As Input can be from various sources, they may have repeated information, so make sure to avoid any repetition in the generated content.
 - Do not promote any product or service in the content.
-- Do not include any introductory phrases like 'Here is a draft...' or 'Here is a section...', 'this section discusses ...' etc. Directly start with the content.
-- Do not introduce the section, just start with the content directly (e.g. DO NOT start like This section examines... or This section discusses... etc.)
+- Trim any leading whitespace to avoid unintentional markdown code block formatting.
+- If including a code snippet, ensure it is formatted with a markdown code block and the proper language specifier.
 
 3. **Formatting Instructions:**  
 - Use markdown formatting 
@@ -130,7 +136,7 @@ WRITING GUIDELINES:
 5. **SEO Requirements:**
 - Naturally integrate primary keywords (1-2% density)
 - Use LSI keywords in explanations
-- Include 1-2 internal links using anchor text
+- Include 1-2 internal links using anchor text, (When choosing internal links, consider linking to high-traffic or cornerstone content if available.)
 
 QUALITY CHECKLIST:  
 [ ] Section reads like a human-written article in a reader-friendly tone. 
@@ -177,6 +183,7 @@ Guidelines for writing:
 - Focus more on the content rather than explaining what you are doing. 
 (e.g. rather than saying 'This discussion has highlighted the growing tensions within the AI community', say 'The AI community is experiencing growing tensions.' etc.)
 - If writing Introduction section, do not add Conclusion section and vice versa.
+- Trim any leading whitespace to prevent unintended markdown code block formatting.
  
 2. **SEO Requirements:**
 - Introduction must contain:
@@ -219,7 +226,9 @@ Your task is to create **Twitter content** with the following specifications:
 4. Do not self reference. 
 5. Do not explain what you are doing. 
 6. Do not include any introductory phrases like 'here is a Twitter thread','Ok, here is your twitter thread' or similar sentences. 
-7. Add emojis to the thread wherever appropriate.
+7. Prior to composing, extract the key takeaways from the blog to inform the thread's content.
+8. Trim any leading whitespace to avoid unintended code formatting.
+9. Add emojis to the thread wherever appropriate.
 
 **Response Format:**  
 
@@ -250,6 +259,7 @@ Your task is to create a **LinkedIn post** with the following details:
 - Include 3-5 industry-specific hashtags
 - Add rich media preview optimization
 - Use LinkedIn Pulse keyword formatting
+- Prior to writing, extract and summarize the key insights from the blog to shape the post’s narrative.
 
 **Special Guidelines:**  
 1. Aim for **250–350 words**, focusing on storytelling and professional insights.  
@@ -263,7 +273,8 @@ Your task is to create a **LinkedIn post** with the following details:
 6. Do not explain what you are doing.
 7. Do not include any introductory phrases like 'here is your linkedin post' or similar sentences. 
 8. Do not add or refer input instructions in your answer. 
-9. Add emojis to the post wherever appropriate. 
+9. Trim any leading whitespace to prevent unintentional code block formatting.
+10. Add emojis to the post wherever appropriate. 
 
 **Response Format:**  
 
@@ -397,4 +408,49 @@ You MUST respond using EXACTLY this format and nothing else:
 
 <relevant_urls>[url1, url2]</relevant_urls>
 <reasoning>Your reasoning for the selections</reasoning>
+"""
+
+## blog reviewer
+blog_reviewer_instructions = """
+You are the final reviewer and editor responsible for validating and enhancing the overall quality of the generated blog post content before final submission.
+
+**Input**
+{blog_input}
+
+Your tasks:
+
+1. **Structural Verification:**
+   - Confirm the content strictly adheres to the blog post structure (Introduction, Main Body, Conclusion).
+   - Ensure each section meets its specific guidelines (e.g., word count, keyword placement, internal linking, media inclusion).
+
+2. **Content Integrity:**
+   - Identify and remove any duplicate or repeated text across sections.
+   - Ensure smooth transitions and logical flow between sections.
+   - Verify that no unintended markdown code formatting occurs due to leading/trailing whitespace.
+
+3. **Formatting & SEO Checks:**
+   - Validate that all code snippets are properly formatted with markdown code blocks and appropriate language specifiers.
+   - Check that internal links and other markdown elements (tables, lists, images, videos) are correctly formatted.
+   - Ensure primary and secondary keywords are naturally integrated per the dynamic SEO guidelines.
+   - Confirm that headings and subheadings follow the required format (e.g., # Title for Introduction, ## Conclusion for Conclusion).
+
+4. **Editorial Quality:**
+   - Ensure the language is clear, concise, and technical without unnecessary jargon.
+   - Remove any redundant or over-explained content.
+   - Confirm that the content is reader-friendly, coherent, and free of marketing language.
+
+5. **Final Output Requirements:**
+   - After reviewing, output the revised content, highlighting any adjustments made.
+   - If no changes are required, simply confirm that the content meets all guidelines.
+
+Your output must follow this exact format:
+
+<final_review>
+[Your final reviewed content with any adjustments made]
+</final_review>
+<review_summary>
+[Summary of adjustments and reasoning, if any]
+</review_summary>
+
+Do not add any additional commentary or explanations outside of the specified output format.
 """
