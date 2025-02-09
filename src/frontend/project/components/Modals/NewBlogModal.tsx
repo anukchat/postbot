@@ -14,33 +14,14 @@ import MicrolinkCard from '@microlink/react';
 import { toast } from 'react-hot-toast';
 import Select from 'react-select';
 
-const LOADING_MESSAGES = {
-  blog: [
-    "Analyzing the conten</div>t...",
-    "Crafting an engaging narrative...",
-    "Adding some personality...",
-    "Making it readable and engaging...",
-    "Almost there..."
-  ],
-  twitter: [
-    "Distilling into tweet-sized wisdom...",
-    "Finding the perfect hook...",
-    "Making it tweet-worthy...",
-  ],
-  linkedin: [
-    "Adding professional insights...",
-    "Crafting for your network...",
-    "Making it LinkedIn ready...",
-  ]
-};
-
+// Remove unused LOADING_MESSAGES constant
 const MASONRY_BREAKPOINTS = {
   default: 2,
   1100: 2,
   700: 1
 };
 
-const TRENDING_PER_PAGE = 6;
+const TOPICS_PER_PAGE = 6;
 
 interface SourceData {
   id: string;
@@ -99,10 +80,8 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const itemsPerPage = 10;
-  const { fetchPosts } = useEditorStore();
   const [customUrl, setCustomUrl] = useState<CustomUrlForm>({ url: '', isValid: false });
   const [isCustomUrl, setIsCustomUrl] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState('');
   const navigate = useNavigate(); // Replace router
   const [isGenerating, setIsGenerating] = useState(false); // Add new state for generation
   // Add new state for topic
@@ -140,40 +119,31 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
   ]);
   const [selectedSubreddit, setSelectedSubreddit] = useState<string | null>(null);
   const [isLoadingTrending, setIsLoadingTrending] = useState(false);
-  const [trendingPage, setTrendingPage] = useState(1);
-  const [trendingTopicsCache, setTrendingTopicsCache] = useState<Record<string, string[]>>({});
+  const [currentTopicsPage, setCurrentTopicsPage] = useState(1);
 
-  const { trendingBlogTopics, fetchTrendingBlogTopics } = useEditorStore();
+  // Move useEditorStore hooks to component top level
+  const { fetchPosts, trendingBlogTopics, fetchTrendingBlogTopics } = useEditorStore(state => ({
+    fetchPosts: state.fetchPosts,
+    trendingBlogTopics: state.trendingBlogTopics,
+    fetchTrendingBlogTopics: state.fetchTrendingBlogTopics
+  }));
 
   // Use this effect at component level
   useEffect(() => {
     if (selectedSource === 'reddit' && selectedSubreddit) {
-      fetchTrendingBlogTopics([selectedSubreddit], 15);
+      setIsLoadingTrending(true);
+      fetchTrendingBlogTopics([selectedSubreddit], 15)
+        .then(() => {
+          setCurrentTopicsPage(1);
+        })
+        .finally(() => {
+          setIsLoadingTrending(false);
+        });
     } else if (selectedSource === 'reddit') {
-      fetchTrendingBlogTopics(undefined, 15);
+      // Clear trending topics when no subreddit is selected
+      useEditorStore.getState().trendingBlogTopics = [];
     }
   }, [selectedSource, selectedSubreddit, fetchTrendingBlogTopics]);
-
-  // Add useEffect to reset trending page when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      setTrendingPage(1);
-    }
-  }, [isOpen]);
-
-  // Also reset trending page when subreddit changes
-  useEffect(() => {
-    setTrendingPage(1);
-  }, [selectedSubreddit]);
-
-  // Add cleanup effect for cache when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      setTrendingTopicsCache({});  // Clear cache when modal closes
-      setSelectedSubreddit(null);
-      setTrendingPage(1);
-    }
-  }, [isOpen]);
 
   // Update fetchSources to handle Reddit search
   const fetchSources = async () => {
@@ -287,34 +257,23 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
     });
   };
 
-  // Cache-aware trending topics fetch
-  const fetchTrendingTopicsWithCache = async (subreddit: string) => {
-    if (trendingTopicsCache[subreddit]) {
-      // Use cached data
-      return;
-    }
-
-    setIsLoadingTrending(true);
-    try {
-      await fetchTrendingBlogTopics([subreddit], 15);
-      // Cache the results for this subreddit
-      setTrendingTopicsCache(prev => ({
-        ...prev,
-        [subreddit]: trendingBlogTopics
-      }));
-    } finally {
-      setIsLoadingTrending(false);
-    }
-  };
-
-  // Add handler for subreddit selection with caching
+  // Update handler for subreddit selection
   const handleSubredditSelect = async (option: any) => {
     const subreddit = option ? option.value : null;
     setSelectedSubreddit(subreddit);
+    setIsLoadingTrending(true);
     
-    // Only fetch trending topics if a subreddit is selected and not cached
-    if (subreddit && !trendingTopicsCache[subreddit]) {
-      await fetchTrendingTopicsWithCache(subreddit);
+    // Clear existing topics before fetching new ones
+    useEditorStore.getState().trendingBlogTopics = [];
+    
+    try {
+      if (subreddit) {
+        await fetchTrendingBlogTopics([subreddit]);
+      } else {
+        await fetchTrendingBlogTopics();
+      }
+    } finally {
+      setIsLoadingTrending(false);
     }
 
     setRedditSearch(prev => ({
@@ -324,27 +283,6 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
       isValid: validateRedditSearch(prev.query)
     }));
   };
-
-  // Get trending topics with cache awareness
-  const getCurrentTrendingTopics = useCallback(() => {
-    if (!selectedSubreddit) return [];
-    return trendingTopicsCache[selectedSubreddit] || [];
-  }, [selectedSubreddit, trendingTopicsCache]);
-
-  // Add loading message rotation
-  useEffect(() => {
-    if (!isLoading) return;
-
-    const messages = LOADING_MESSAGES.blog;
-    let currentIndex = 0;
-
-    const interval = setInterval(() => {
-      setLoadingMessage(messages[currentIndex]);
-      currentIndex = (currentIndex + 1) % messages.length;
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [isLoading]);
 
   // Update handleGenerate to include Reddit search
   const handleGenerate = async () => {
@@ -357,7 +295,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
       try {
         const payload = {
           post_types: ["blog"],
-          topic: redditSearch.query,
+          reddit_query: redditSearch.query,
           // subreddit: selectedSubreddit  // Include optional subreddit
         };
         await api.post('/content/generate', payload);
@@ -607,6 +545,11 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
     setCurrentPage(1);
   }, [selectedSource, searchText]);
 
+  // Add this effect after other useEffects
+  useEffect(() => {
+    setCurrentTopicsPage(1);
+  }, [selectedSubreddit, isOpen]);
+
   // Update getUniqueId to be more robust
   const getUniqueId = (source: SourceData) => {
     return `${source.source_id || source.id}-${source.source_identifier}`;
@@ -694,16 +637,12 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
   );
 
   // Add Reddit search input section
-  const getPaginatedTrendingTopics = useCallback((topics: any[]) => {
-    const startIndex = (trendingPage - 1) * TRENDING_PER_PAGE;
-    return topics.slice(startIndex, startIndex + TRENDING_PER_PAGE);
-  }, [trendingPage]);
+  const getPaginatedTopics = useCallback((topics: string[]) => {
+    const startIndex = (currentTopicsPage - 1) * TOPICS_PER_PAGE;
+    return topics.slice(startIndex, startIndex + TOPICS_PER_PAGE);
+  }, [currentTopicsPage]);
 
   const renderRedditSearch = () => {
-    const currentTrendingTopics = getCurrentTrendingTopics();
-    const totalTrendingPages = Math.ceil(currentTrendingTopics.length / TRENDING_PER_PAGE);
-    const paginatedTopics = getPaginatedTrendingTopics(currentTrendingTopics);
-  
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -719,7 +658,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
             Back to sources
           </button>
         </div>
-    
+  
         <div className="border rounded-lg dark:border-gray-700">
           <div className="p-6 border-b dark:border-gray-700">
             <div className="flex gap-4 items-start">
@@ -735,7 +674,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
                   className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-    
+  
               <div className="w-64">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Select Subreddit
@@ -745,7 +684,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
                   value={selectedSubreddit ? { value: selectedSubreddit, label: `r/${selectedSubreddit}` } : null}
                   onChange={handleSubredditSelect}
                   isClearable
-                  placeholder="Optional"
+                  placeholder="Select subreddit"
                   className="react-select-container"
                   classNamePrefix="react-select"
                   menuPortalTarget={document.body}
@@ -759,24 +698,33 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
               </div>
             </div>
           </div>
-    
+  
           {/* Trending Topics Section */}
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {selectedSubreddit ? `Trending on r/${selectedSubreddit}` : 'Trending Topics'}
+                {selectedSubreddit ? `Trending on r/${selectedSubreddit}` : 'Select a subreddit to see trending topics'}
               </h4>
-              {isLoadingTrending && (
+              {isLoadingTrending && selectedSubreddit && (
                 <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
               )}
             </div>
             
-            {currentTrendingTopics.length > 0 ? (
+            {isLoadingTrending && selectedSubreddit ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+              </div>
+            ) : !selectedSubreddit ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                <Search className="w-12 h-12 mb-4 text-gray-400" />
+                <p className="text-center">Choose a subreddit to discover trending topics</p>
+              </div>
+            ) : trendingBlogTopics.length > 0 ? (
               <>
                 <div className="grid grid-cols-2 gap-3">
-                  {paginatedTopics.map((topic, index) => (
+                  {getPaginatedTopics(trendingBlogTopics).map((topic, index) => (
                     <div
-                      key={index}
+                      key={`${topic}-${index}`}
                       className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
                       onClick={() => setRedditSearch({
                         query: topic,
@@ -790,39 +738,32 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
                     </div>
                   ))}
                 </div>
-  
-                {/* Pagination controls */}
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <button
-                    onClick={() => setTrendingPage(prev => Math.max(1, prev - 1))}
-                    disabled={trendingPage === 1}
-                    className={`px-3 py-1 text-sm rounded ${
-                      trendingPage === 1
-                        ? 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    Previous
-                  </button>
-                  <span className="text-sm text-gray-500">
-                    Page {trendingPage} of {totalTrendingPages}
-                  </span>
-                  <button
-                    onClick={() => setTrendingPage(prev => Math.min(totalTrendingPages, prev + 1))}
-                    disabled={trendingPage >= totalTrendingPages}
-                    className={`px-3 py-1 text-sm rounded ${
-                      trendingPage >= totalTrendingPages
-                        ? 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    Next
-                  </button>
-                </div>
+                
+                {trendingBlogTopics.length > TOPICS_PER_PAGE && (
+                  <div className="flex justify-center items-center gap-4 mt-4">
+                    <button
+                      onClick={() => setCurrentTopicsPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentTopicsPage === 1}
+                      className="px-3 py-1 text-sm rounded border border-gray-200 dark:border-gray-700 disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm text-gray-500">
+                      Page {currentTopicsPage} of {Math.ceil(trendingBlogTopics.length / TOPICS_PER_PAGE)}
+                    </span>
+                    <button
+                      onClick={() => setCurrentTopicsPage(prev => Math.min(Math.ceil(trendingBlogTopics.length / TOPICS_PER_PAGE), prev + 1))}
+                      disabled={currentTopicsPage >= Math.ceil(trendingBlogTopics.length / TOPICS_PER_PAGE)}
+                      className="px-3 py-1 text-sm rounded border border-gray-200 dark:border-gray-700 disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
               </>
-            ) : !isLoadingTrending && (
+            ) : (
               <div className="text-center py-8 text-gray-500">
-                {selectedSubreddit ? 'No trending topics found' : 'Select a subreddit to see trending topics'}
+                No trending topics found in r/{selectedSubreddit}
               </div>
             )}
           </div>
@@ -992,7 +933,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
   };
 
   // Update the isGenerateDisabled function with null checks
-  const isGenerateDisabled = useCallback((source?: SourceData) => {
+  const isGenerateDisabled = useCallback(() => {
     // For Reddit search case
     if (isRedditSearch) {
       return !redditSearch.isValid || isGenerating;
@@ -1012,7 +953,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
     return isGenerating || !selectedIdentifier;
   }, [isGenerating, selectedIdentifier, isCustomUrl, customUrl.isValid, isCustomTopic, customTopic.isValid, isRedditSearch, redditSearch.isValid]);
 
-  const getGenerateButtonTooltip = useCallback((source?: SourceData) => {
+  const getGenerateButtonTooltip = useCallback(() => {
     // For Reddit search case
     if (isRedditSearch) {
       if (!redditSearch.isValid) return 'Please enter a valid search query';
@@ -1102,9 +1043,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
                 >
                   Cancel
                 </button>
-                <Tippy content={getGenerateButtonTooltip(
-                  isCustomUrl ? undefined : sources.find(s => getUniqueId(s) === selectedIdentifier)
-                )}>
+                <Tippy content={getGenerateButtonTooltip()}>
                   <button
                     onClick={handleGenerate}
                     disabled={isRedditSearch
@@ -1113,7 +1052,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
                         ? !customTopic.isValid || isGenerating
                         : isCustomUrl 
                           ? !customUrl.isValid || isGenerating
-                          : isGenerateDisabled(sources.find(s => getUniqueId(s) === selectedIdentifier))
+                          : isGenerateDisabled()
                     }
                     className={`px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2`}
                   >
