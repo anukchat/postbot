@@ -43,18 +43,18 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isCollapsed, onTog
       { icon: <Home className="w-5 h-5" />, tooltip: "Home", action: () => window.location.href = "/" },
       { icon: isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />, tooltip: "Toggle Theme", action: toggleTheme },
       { icon: <Plus className="w-5 h-5" />, tooltip: "New Post", action: () => setIsNewBlogModalOpen(true) },
-      { icon: <Save className="w-5 h-5" />, tooltip: "Save", action: savePost, className: saveIconColor },
-      { icon: <FileDown className="w-5 h-5" />, tooltip: "Download", action: downloadMarkdown },
-      { icon: <Send className="w-5 h-5" />, tooltip: "Publish", action: publishPost, className: publishIconColor, disabled: isDisabled },
-      { icon: <XCircle className="w-5 h-5" />, tooltip: "Reject", action: rejectPost, className: rejectIconColor, disabled: currentPost?.status === 'Rejected' }
+      // { icon: <Save className="w-5 h-5" />, tooltip: "Save", action: savePost, className: saveIconColor },
+      // { icon: <FileDown className="w-5 h-5" />, tooltip: "Download", action: downloadMarkdown },
+      // { icon: <Send className="w-5 h-5" />, tooltip: "Publish", action: publishPost, className: publishIconColor, disabled: isDisabled },
+      // { icon: <XCircle className="w-5 h-5" />, tooltip: "Reject", action: rejectPost, className: rejectIconColor, disabled: currentPost?.status === 'Rejected' }
     ];
 
     return items.map((item, index) => (
       <Tippy key={index} content={item.tooltip} placement={isCollapsed ? "right" : "bottom"}>
         <button
           onClick={item.action}
-          disabled={item.disabled}
-          className={`p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded ${item.className || ''}`}
+          // disabled={item.disabled}
+          className={`p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded }`}
         >
           {item.icon}
         </button>
@@ -77,11 +77,12 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isCollapsed, onTog
               onClick={onToggleCollapse}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
             >
-              <X className="w-6 h-6" />
+              {/* <X className="w-6 h-6" /> */}
             </button>
             </div>
           </div>
-        )}
+        )
+        }
         {isCollapsed && (
           <div className="flex flex-col items-center gap-4">
             {renderToolbarItems()}
