@@ -1,73 +1,83 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { Menu, MenuButton } from '@headlessui/react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, LogOut } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { theme } from '../../styles/themes';
 import Avatar from 'react-avatar';
 
-
 const UserMenu: React.FC = () => {
-  const { user, signOut } = useAuth();
-  const navigate = useNavigate();
-  
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      navigate('/');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
+  const [isOpen, setIsOpen] = useState(false);
+  const { signOut, user } = useAuth();
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   return (
-    <Menu as="div" className="relative">
-
-    <MenuButton className="flex items-center space-x-2 rounded-full p-2 hover:bg-gray-100 dark:hover:bg-gray-800">
-      <Avatar
+    <div className="relative" ref={menuRef}>
+      <motion.button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex items-center space-x-2 ${theme.colors.primary.solid} hover:${theme.colors.primary.hover} p-2 rounded-lg transition-colors duration-200`}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+      >
+        <span className="hidden md:inline">{user?.new_email}</span>
+        <Avatar
       name={user?.email}
       size="36"
       round={true}
       src={user?.user_metadata?.avatar_url || `https://api.dicebear.com/6.x/avataaars/svg?seed=${user?.email}`}
       />
-    </MenuButton>
-      <Menu.Items className="absolute right-0 mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
-        <div className="px-4 py-3">
+      </motion.button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className={`absolute right-0 mt-2 w-48 py-2 bg-white rounded-lg shadow-xl border ${theme.colors.card.border}`}
+          >
+          <div className="px-4 py-3">
           <p className="text-sm text-gray-700 dark:text-gray-200">Signed in as</p>
           <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
             {user?.email}
           </p>
-        </div>
-
-        <div className="border-t border-gray-200 dark:border-gray-700">
-          <Menu.Item>
-            {({ active }) => (
-              <button
-                onClick={() => navigate('/settings')}
-                className={`${
-                  active ? 'bg-gray-100 dark:bg-gray-700' : ''
-                } group flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200`}
-              >
-                <Settings className="mr-3 h-5 w-5" />
-                Settings
-              </button>
-            )}
-          </Menu.Item>
-          <Menu.Item>
-            {({ active }) => (
-              <button
-                onClick={handleSignOut}
-                className={`${
-                  active ? 'bg-gray-100 dark:bg-gray-700' : ''
-                } group flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200`}
-              >
-                <LogOut className="mr-3 h-5 w-5" />
-                Sign out
-              </button>
-            )}
-          </Menu.Item>
-        </div>
-      </Menu.Items>
-    </Menu>
+          </div>
+            <Link
+              to="/settings"
+              className={`flex items-center px-4 py-2 text-sm ${theme.colors.primary.solid} hover:${theme.colors.primary.hover} hover:bg-gray-50`}
+              onClick={() => setIsOpen(false)}
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+            </Link>
+            <button
+              onClick={() => {
+                signOut();
+                setIsOpen(false);
+              }}
+              className={`flex items-center w-full px-4 py-2 text-sm ${theme.colors.primary.solid} hover:${theme.colors.primary.hover} hover:bg-gray-50`}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign out
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 
