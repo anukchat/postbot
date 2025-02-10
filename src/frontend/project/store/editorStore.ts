@@ -91,6 +91,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   lastRefreshTimestamp: Date.now(),
   
   fetchPosts: async (filters, skip = 0, limit = 20) => {
+    console.log('fetchPosts called', { filters, skip, limit });
     const { isLoading, posts, hasReachedEnd } = get();
     
     if (filters.reset) {
@@ -102,7 +103,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       });
     }
     
-    if (isLoading || (hasReachedEnd && !filters.reset)) {
+    if (isLoading || (!filters.reset && hasReachedEnd)) {
+      console.log('Skip fetch - loading or reached end:', { isLoading, hasReachedEnd });
       return;
     }
 
@@ -158,12 +160,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         );
 
         set((state) => {
-          const postsMap = new Map<string, Post>(
-            skip === 0 
-              ? formattedBlogs.map((post: Post) => [post.id, post as Post])
-              : [...state.posts, ...formattedBlogs].map(post => [post.id, post as Post])
-          );
-
+          const mergedPosts = skip === 0 ? formattedBlogs : [...state.posts, ...formattedBlogs];
+          const postsMap = new Map<string, Post>(mergedPosts.map((post: { id: any; }) => [post.id, post]));
           const sortedPosts = Array.from(postsMap.values())
             .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 

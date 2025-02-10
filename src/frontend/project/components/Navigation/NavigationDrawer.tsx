@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useEditorStore } from '../../store/editorStore';
 import { Post } from '../../types';
 import { Loader, Search, Filter, X, RefreshCw } from 'lucide-react';
@@ -87,39 +87,48 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
   const initialFetchDoneRef = useRef(false);
   const isFetchingRef = useRef(false);
 
-  // Modify handleLoadMore to preserve scroll position
-  const handleLoadMore = useMemo(() => 
-    debounce(async () => {
-      if (isFetchingRef.current || hasReachedEnd || isLoading) {
-        return;
+  // Replace the debounced handleLoadMore with a useCallback version:
+  const handleLoadMore = useCallback(async () => {
+    // Return if already fetching/loading or reached end
+    if (isFetchingRef.current || hasReachedEnd || isLoading) return;
+    
+    isFetchingRef.current = true;
+    const previousScrollTop = loadMoreRef.current?.scrollTop || 0;
+    
+    try {
+      const newPosts = await fetchPosts({ timestamp: Date.now() }, posts.length, limit);
+      useEditorStore.setState(state => ({
+        ...state,
+        posts: [...state.posts, ...(Array.isArray(newPosts) ? newPosts : [])]
+      }));
+      if (loadMoreRef.current) {
+        loadMoreRef.current.scrollTop = previousScrollTop;
       }
+    } catch (error) {
+      console.error('Error loading more posts:', error);
+    } finally {
+      isFetchingRef.current = false;
+    }
+  }, [fetchPosts, posts.length, hasReachedEnd, limit, isLoading]);
 
-      isFetchingRef.current = true;
-      const previousScrollTop = loadMoreRef.current?.scrollTop || 0;
-      
-      try {
-        const newPosts = await fetchPosts({
-          timestamp: Date.now(),
-        }, posts.length, limit);
-        
-        // Append new posts to the existing list if they exist
-        useEditorStore.setState(state => ({
-          ...state,
-          posts: [...state.posts, ...(Array.isArray(newPosts) ? newPosts : [])]
-        }));
-
-        // Restore scroll position
-        if (loadMoreRef.current) {
-          loadMoreRef.current.scrollTop = previousScrollTop;
-        }
-      } catch (error) {
-        console.error('Error loading more posts:', error);
-      } finally {
-        isFetchingRef.current = false;
+  // Replace the existing scroll listener effect with a debounced version similar to the sample:
+  useEffect(() => {
+    const scrollContainer = loadMoreRef.current;
+    if (!scrollContainer) return;
+    
+    const handleScroll = debounce(() => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+      if (scrollHeight - (scrollTop + clientHeight) < 100 && !isLoading && !hasReachedEnd) {
+        handleLoadMore();
       }
-    }, 500), // Increased debounce timeout
-    [fetchPosts, posts.length, hasReachedEnd, limit, isLoading]
-  );
+    }, 200, { leading: true, trailing: true });
+    
+    scrollContainer.addEventListener('scroll', handleScroll);
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll);
+      handleScroll.cancel();
+    };
+  }, [handleLoadMore, isLoading, hasReachedEnd, posts.length, limit]);
 
   useEffect(() => {
     if (!initialFetchDoneRef.current && !isLoading) {
@@ -130,28 +139,6 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
       }, 0, limit);
     }
   }, [fetchPosts, isLoading, limit]);
-
-  // Scroll handler with better debouncing and load prevention
-  useEffect(() => {
-    const scrollContainer = loadMoreRef.current;
-    if (!scrollContainer) return;
-
-    const handleScroll = () => {
-      if (isFetchingRef.current || hasReachedEnd || isLoading) return;
-
-      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
-      const scrolledToBottom = Math.ceil(scrollTop + clientHeight) >= scrollHeight - 50;
-      
-      if (scrolledToBottom) {
-        handleLoadMore();
-      }
-    };
-
-    scrollContainer.addEventListener('scroll', handleScroll);
-    return () => {
-      scrollContainer.removeEventListener('scroll', handleScroll);
-    };
-  }, [handleLoadMore, isLoading, hasReachedEnd]);
 
   // Client-side search handler
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
