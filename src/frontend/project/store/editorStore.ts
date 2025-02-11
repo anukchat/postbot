@@ -43,6 +43,7 @@ interface EditorState {
   lastBlogTopicsFetch: Record<string, number>;
   trendingTopicsCache: Record<string, { topics: string[], timestamp: number }>;
   fetchTrendingBlogTopics: (subreddits?: string[], limit?: number) => Promise<void>;
+  isListLoading: boolean;  // Add this new state
 }
 
 interface GeneratePayload {
@@ -89,27 +90,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   lastLoadedSkip: -1,
   hasReachedEnd: false,
   lastRefreshTimestamp: Date.now(),
+  isListLoading: false,  // Add initial state
   
   fetchPosts: async (filters, skip = 0, limit = 20) => {
     console.log('fetchPosts called', { filters, skip, limit });
-    const { isLoading, posts, hasReachedEnd } = get();
-    
-    // Reset state if requested
-    if (filters.reset) {
-      set({ 
-        posts: [],
-        skip: 0,
-        hasReachedEnd: false,
-        lastLoadedSkip: -1
-      });
-    }
+    const { isLoading, posts, hasReachedEnd, currentPost } = get();
     
     if (isLoading || (!filters.reset && hasReachedEnd)) {
       console.log('Skip fetch - loading or reached end:', { isLoading, hasReachedEnd });
       return;
     }
 
-    set({ isLoading: true });
+    // Set list loading instead of general loading
+    set({ isListLoading: true });
+
     try {
       const cleanedFilters = Object.entries(filters).reduce((acc, [key, value]) => {
         if ((['created_after', 'created_before', 'updated_after', 'updated_before'].includes(key)) && !value) {
@@ -161,20 +155,28 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         );
 
         set((state) => {
-          // If it's a fresh fetch (skip === 0), replace all posts
-          // Otherwise, merge new posts while preserving existing ones
           const existingPosts = skip === 0 ? [] : state.posts;
           const mergedPosts = [...existingPosts, ...formattedBlogs];
           
-          // Use a Map to deduplicate posts by ID while preserving order
-          const postsMap = new Map<string, Post>();
-          mergedPosts.forEach(post => {
-            if (!postsMap.has(post.id)) {
-              postsMap.set(post.id, post);
+          // Create a map for quick lookups
+          const postsMap = new Map(mergedPosts.map(post => [post.id, post]));
+          
+          // Preserve current post data if it exists
+          if (currentPost) {
+            // Only update non-content related fields from new data
+            const newPostData = postsMap.get(currentPost.id);
+            if (newPostData) {
+              postsMap.set(currentPost.id, {
+                ...newPostData,
+                content: currentPost.content,
+                twitter_post: currentPost.twitter_post,
+                linkedin_post: currentPost.linkedin_post
+              });
+            } else {
+              postsMap.set(currentPost.id, currentPost);
             }
-          });
+          }
 
-          // Convert back to array and sort
           const sortedPosts = Array.from(postsMap.values())
             .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
@@ -185,6 +187,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             lastLoadedSkip: skip,
             hasReachedEnd: isLastPage,
             limit,
+            isListLoading: false,  // Update list loading
             isLoading: false,
             error: null,
           };
@@ -194,7 +197,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       }
     } catch (error: any) {
       console.error('Error fetching blogs:', error);
-      set({ isLoading: false, error: 'Error fetching blogs' });
+      set({ isListLoading: false, isLoading: false, error: 'Error fetching blogs' });
     }
   },
 

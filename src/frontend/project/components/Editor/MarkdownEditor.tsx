@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useEditorStore } from '../../store/editorStore';
 import { EditorStatusBar } from './EditorStatusBar';
 import { WysiwygEditor } from './WysiwygEditor';
@@ -10,8 +10,13 @@ interface MarkdownEditorProps {
   selectedTab: 'blog' | 'twitter' | 'linkedin';
 }
 
-export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChange, selectedTab }) => {
-  const { currentPost, isLoading } = useEditorStore();
+export const MarkdownEditor: React.FC<MarkdownEditorProps> = React.memo(({ content, onChange, selectedTab }) => {
+  const currentPost = useEditorStore(state => state.currentPost);
+  const isContentLoading = useEditorStore(state => 
+    state.isLoading && state.currentPost?.id === state.posts.find(p => p.id === state.currentPost?.id)?.id
+  );
+
+  const editorContent = useMemo(() => content, [content]);
 
   if (!currentPost) {
     return (
@@ -23,21 +28,22 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ content, onChang
     );
   }
 
-  if (isLoading) {
+  if (isContentLoading) {
     return <ContentLoader />;
   }
 
   return (
     <div className="flex flex-col h-full relative">
       <WysiwygEditor 
-      content={content} 
-      onChange={onChange}
-      readOnly={currentPost?.status === 'Published'}
+        content={editorContent} 
+        onChange={onChange}
+        readOnly={currentPost?.status === 'Published'}
       />
-      {/* Status bar with full width at bottom */}
       <div className="absolute bottom-0 left-0 right-0 bg-white border-t">
         <EditorStatusBar post={currentPost} />
       </div>
     </div>
   );
-};
+});
+
+MarkdownEditor.displayName = 'MarkdownEditor';
