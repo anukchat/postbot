@@ -134,7 +134,7 @@ const MainAppLayout: React.FC = () => {
           <div className="flex flex-col h-full max-w-full overflow-x-hidden">
             {/* User Menu - Floating */}
             <div className="fixed top-0 right-0 z-30">
-              <div className="flex-shrink-0 px-4 py-2 backdrop-blur-sm">
+              <div className="flex-shrink-0 px-4 py-2>
                 <UserMenu />
               </div>
             </div>
