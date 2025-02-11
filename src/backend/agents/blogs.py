@@ -576,7 +576,7 @@ class AgentWorkflow:
         source_id = self._setup_reddit_source(payload ,thread_id, user)
 
         image_urls=self.imagesearch.search(query)
-        media_meta=[{"type":"image","original_url":shorten_link(url['imageUrl'])} for url in image_urls.results['images']]
+        media_meta=[{"type":"image","original_url":url['imageUrl']} for url in image_urls.results['images']]
         self._handle_media_storage(source_id, media_meta)
         
         return BlogStateInput(
