@@ -35,9 +35,10 @@ const UserMenu: React.FC = () => {
         <span className="hidden md:inline">{user?.new_email}</span>
         <Avatar
       name={user?.email}
-      size="36"
+      size="38"
       round={true}
       src={user?.user_metadata?.avatar_url || `https://api.dicebear.com/6.x/avataaars/svg?seed=${user?.email}`}
+className="dark:bg-gray-800"
       />
       </motion.button>
 
@@ -48,7 +49,7 @@ const UserMenu: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className={`absolute right-0 mt-2 w-48 py-2 bg-white rounded-lg shadow-xl border ${theme.colors.card.border}`}
+            className={`absolute right-0 mt-2 w-48 py-2 rounded-lg shadow-xl border ${theme.colors.card.border} bg-white/80 dark:bg-gray-800/80`}
           >
           <div className="px-4 py-3">
           <p className="text-sm text-gray-700 dark:text-gray-200">Signed in as</p>
