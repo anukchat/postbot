@@ -276,223 +276,233 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
   }, [isOpen]);
 
   return (
-    <div
-      className={`fixed inset-y-0 left-16 w-80 bg-white dark:bg-gray-800 shadow-xl transform transition-transform duration-300 ease-in-out z-40 ${
-        isOpen ? 'translate-x-0' : '-translate-x-full'
-      } border-r dark:border-gray-700`}
-    >
-      <div className="h-full flex flex-col">
-        {/* Quick Filter Chips */}
-        <div className="p-4 border-b dark:border-gray-700">
-          <div className="flex flex-wrap gap-2 mb-4">
-            {QUICK_FILTERS.map(filter => (
+    <>
+      {/* Add backdrop overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/20 dark:bg-black/40 z-30 cursor-pointer"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+      <div
+        className={`fixed inset-y-0 left-16 w-80 bg-white dark:bg-gray-800 shadow-xl transform transition-transform duration-300 ease-in-out z-40 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        } border-r dark:border-gray-700`}
+      >
+        <div className="h-full flex flex-col">
+          {/* Quick Filter Chips */}
+          <div className="p-4 border-b dark:border-gray-700">
+            <div className="flex flex-wrap gap-2 mb-4">
+              {QUICK_FILTERS.map(filter => (
+                <button
+                  key={filter.value}
+                  onClick={() => handleQuickFilterClick(filter.value)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    selectedQuickFilter === filter.value
+                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search posts..."
+                value={searchTerm}
+                onChange={handleSearchChange}
+                className="w-full pl-9 pr-12 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg border-0 focus:ring-2 focus:ring-blue-500"
+              />
               <button
-                key={filter.value}
-                onClick={() => handleQuickFilterClick(filter.value)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  selectedQuickFilter === filter.value
-                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
+                onClick={() => setShowFilters(!showFilters)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-full transition-colors"
               >
-                {filter.label}
+                <Filter className={`w-4 h-4 ${showFilters ? 'text-blue-500' : 'text-gray-400'}`} />
               </button>
-            ))}
-          </div>
-
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search posts..."
-              value={searchTerm}
-              onChange={handleSearchChange}
-              className="w-full pl-9 pr-12 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg border-0 focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-full transition-colors"
-            >
-              <Filter className={`w-4 h-4 ${showFilters ? 'text-blue-500' : 'text-gray-400'}`} />
-            </button>
-          </div>
-
-          {/* Filter Panel Overlay */}
-          {showFilters && (
-            <div className="absolute z-10 left-4 right-4 mt-2 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg border dark:border-gray-700">
-              {isResetting && (
-                <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-50 rounded-xl">
-                  <Loader className="w-6 h-6 animate-spin text-blue-500" />
-                </div>
-              )}
-              
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-medium">Filters</h3>
-                  <button
-                    onClick={() => setShowFilters(false)}
-                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">Status</label>
-                  <select
-                    name="status"
-                    value={filters.status}
-                    onChange={handleFilterChange}
-                    className="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-700 border-0"
-                  >
-                    <option value="">All Status</option>
-                    <option value="Draft">Draft</option>
-                    <option value="Published">Published</option>
-                    <option value="Scheduled">Scheduled</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">Tag</label>
-                  <input
-                    type="text"
-                    name="tag_name"
-                    value={filters.tag_name}
-                    onChange={handleFilterChange}
-                    placeholder="Filter by tag..."
-                    className="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-700 border-0"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">From</label>
-                    <input
-                      type="date"
-                      name="created_after"
-                      value={filters.created_after}
-                      onChange={handleFilterChange}
-                      className="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-700 border-0"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">To</label>
-                    <input
-                      type="date"
-                      name="created_before"
-                      value={filters.created_before}
-                      onChange={handleFilterChange}
-                      className="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-700 border-0"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-2 pt-2">
-                  <button
-                    onClick={handleReset}
-                    disabled={isResetting || isLoading}
-                    className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {isResetting ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        Resetting...
-                      </>
-                    ) : (
-                      'Reset'
-                    )}
-                  </button>
-                  <button
-                    onClick={handleApplyFilters}
-                    disabled={isResetting || isLoading}
-                    className="flex-1 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {isResetting ? (
-                      <>
-                        <Loader className="w-4 h-4 animate-spin" />
-                        Applying...
-                      </>
-                    ) : (
-                      'Apply Filters'
-                    )}
-                  </button>
-                </div>
-              </div>
             </div>
-          )}
-        </div>
 
-        <div ref={loadMoreRef} className="flex-1 overflow-auto max-h-[calc(100vh-120px)] relative">
-          {isListLoading && (
-            <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-50">
-              <Loader className="w-6 h-6 animate-spin text-blue-500" />
-            </div>
-          )}
-          
-          <div className="min-h-full">
-            {filteredPosts.length > 0 ? (
-              <div className="relative">
-                {filteredPosts.map((post) => (
-                  <div 
-                    key={post.id}
-                    className={`relative border-b dark:border-gray-700 ${
-                      currentPost?.id === post.id ? 'bg-gray-100 dark:bg-gray-700' : ''
-                    }`}
-                  >
+            {/* Filter Panel Overlay */}
+            {showFilters && (
+              <div className="absolute z-10 left-4 right-4 mt-2 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg border dark:border-gray-700">
+                {isResetting && (
+                  <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-50 rounded-xl">
+                    <Loader className="w-6 h-6 animate-spin text-blue-500" />
+                  </div>
+                )}
+                
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-medium">Filters</h3>
                     <button
-                      onClick={() => handlePostSelect(post)}
-                      className="w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700"
+                      onClick={() => setShowFilters(false)}
+                      className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
                     >
-                      <h3 className={`mb-1 truncate ${
-                        latestDate && new Date(post.updatedAt).getDate() === latestDate.getDate() 
-                          ? 'font-medium' 
-                          : 'font-normal'
-                      }`}>
-                        {post.title}
-                      </h3>
-                      <div className="flex justify-between items-center">
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {new Date(post.updatedAt).toLocaleDateString()}
-                        </p>
-                        <span className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
-                          post.status === 'Published'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                            : post.status === 'Rejected'
-                            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                        }`}>
-                          {post.status}
-                        </span>
-                      </div>
+                      <X className="w-4 h-4" />
                     </button>
-                    {latestDate && new Date(post.updatedAt).getDate() === latestDate.getDate() && (
-                      <div className="absolute top-1 right-1">
-                        <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
-                      </div>
-                    )}
                   </div>
-                ))}
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Status</label>
+                    <select
+                      name="status"
+                      value={filters.status}
+                      onChange={handleFilterChange}
+                      className="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-700 border-0"
+                    >
+                      <option value="">All Status</option>
+                      <option value="Draft">Draft</option>
+                      <option value="Published">Published</option>
+                      <option value="Scheduled">Scheduled</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Tag</label>
+                    <input
+                      type="text"
+                      name="tag_name"
+                      value={filters.tag_name}
+                      onChange={handleFilterChange}
+                      placeholder="Filter by tag..."
+                      className="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-700 border-0"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">From</label>
+                      <input
+                        type="date"
+                        name="created_after"
+                        value={filters.created_after}
+                        onChange={handleFilterChange}
+                        className="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-700 border-0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">To</label>
+                      <input
+                        type="date"
+                        name="created_before"
+                        value={filters.created_before}
+                        onChange={handleFilterChange}
+                        className="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-700 border-0"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={handleReset}
+                      disabled={isResetting || isLoading}
+                      className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {isResetting ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Resetting...
+                        </>
+                      ) : (
+                        'Reset'
+                      )}
+                    </button>
+                    <button
+                      onClick={handleApplyFilters}
+                      disabled={isResetting || isLoading}
+                      className="flex-1 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {isResetting ? (
+                        <>
+                          <Loader className="w-4 h-4 animate-spin" />
+                          Applying...
+                        </>
+                      ) : (
+                        'Apply Filters'
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
-            ) : (
-              <div className="p-4 text-center text-gray-500">
-                {isListLoading ? 'Loading...' : 'No posts found'}
+            )}
+          </div>
+
+          <div ref={loadMoreRef} className="flex-1 overflow-auto max-h-[calc(100vh-120px)] relative">
+            {isListLoading && (
+              <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-50">
+                <Loader className="w-6 h-6 animate-spin text-blue-500" />
               </div>
             )}
             
-            {/* Load more indicator */}
-            {!isListLoading && !hasReachedEnd && posts.length > 0 && (
-              <div className="h-10 flex justify-center items-center">
-                <Loader className="w-4 h-4 animate-spin text-blue-500" />
-              </div>
-            )}
-            {hasReachedEnd && posts.length > 0 && (
-              <div className="h-10 flex justify-center items-center">
-                <span className="text-sm text-gray-500">No more posts</span>
-              </div>
-            )}
+            <div className="min-h-full">
+              {filteredPosts.length > 0 ? (
+                <div className="relative">
+                  {filteredPosts.map((post) => (
+                    <div 
+                      key={post.id}
+                      className={`relative border-b dark:border-gray-700 ${
+                        currentPost?.id === post.id ? 'bg-gray-100 dark:bg-gray-700' : ''
+                      }`}
+                    >
+                      <button
+                        onClick={() => handlePostSelect(post)}
+                        className="w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        <h3 className={`mb-1 truncate ${
+                          latestDate && new Date(post.updatedAt).getDate() === latestDate.getDate() 
+                            ? 'font-medium' 
+                            : 'font-normal'
+                        }`}>
+                          {post.title}
+                        </h3>
+                        <div className="flex justify-between items-center">
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {new Date(post.updatedAt).toLocaleDateString()}
+                          </p>
+                          <span className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
+                            post.status === 'Published'
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                              : post.status === 'Rejected'
+                              ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                              : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                          }`}>
+                            {post.status}
+                          </span>
+                        </div>
+                      </button>
+                      {latestDate && new Date(post.updatedAt).getDate() === latestDate.getDate() && (
+                        <div className="absolute top-1 right-1">
+                          <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 text-center text-gray-500">
+                  {isListLoading ? 'Loading...' : 'No posts found'}
+                </div>
+              )}
+              
+              {/* Load more indicator */}
+              {!isListLoading && !hasReachedEnd && posts.length > 0 && (
+                <div className="h-10 flex justify-center items-center">
+                  <Loader className="w-4 h-4 animate-spin text-blue-500" />
+                </div>
+              )}
+              {hasReachedEnd && posts.length > 0 && (
+                <div className="h-10 flex justify-center items-center">
+                  <span className="text-sm text-gray-500">No more posts</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
