@@ -75,7 +75,8 @@ TODO:
 57. Reduce the blog length and improve the prompts
 58. Add pdf and doc export
 59. Increase the floating panel size
-60. Idea: Instead of a complete sidebar, add two icons, Home and 
+60. Idea: Instead of a complete sidebar, add two icons, Home and Done
+61. When feedback model is opened, need to be overlayed
 
 LLm improvements
 1. Simple explainations, without repetations
