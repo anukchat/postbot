@@ -40,7 +40,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = React.memo(({ conte
         readOnly={currentPost?.status === 'Published'}
       />
       <div className="absolute bottom-0 left-0 right-0 bg-white border-t">
-        <EditorStatusBar post={currentPost} />
+        <EditorStatusBar post={currentPost} content={editorContent} />
       </div>
     </div>
   );
