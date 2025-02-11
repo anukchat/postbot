@@ -121,9 +121,8 @@ export const IconMenuBar: React.FC<IconMenuBarProps> = ({ selectedTab, onCommand
 
   return (
     <>
-      {/* Update toolbar position to be higher */}
-      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[70]">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-2">
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[1000]">
+        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-2">
           {/* Group 1: Edit Actions */}
           <div className="flex items-center gap-2">
             <div className="flex gap-1 p-1 bg-gray-50 dark:bg-gray-700 rounded-md">

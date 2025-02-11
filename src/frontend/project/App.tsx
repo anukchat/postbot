@@ -157,7 +157,7 @@ const MainAppLayout: React.FC = () => {
             </div>
             
             {/* Content area */}
-            <div className="flex-1 overflow-hidden pt-24">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden">
               <div className="h-full max-w-full">
                 {isCanvasView ? (
                   <CanvasView />
