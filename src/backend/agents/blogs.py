@@ -979,7 +979,7 @@ class AgentWorkflow:
                     "profile_id": user["id"],
                     "content_type_id": content_type_result.data[0]["content_type_id"],
                     "title": blog_title,
-                    "body": blog_body,
+                    "body": blog_body.strip(),
                     "status": "Draft",
                     "thread_id": thread_id,
                 }
