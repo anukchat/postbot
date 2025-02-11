@@ -189,7 +189,7 @@ class ImageSearch(Search):
 
                 # Here we assume the provider returns a list of image results.
                 # If the format differs (for example, nested under a key), you may need to adjust.
-                self.results = search_results[:self.num_results]
+                self.results = search_results["images"][:self.num_results]
                 return self
             except Exception as e:
                 if attempt < max_retries - 1:
