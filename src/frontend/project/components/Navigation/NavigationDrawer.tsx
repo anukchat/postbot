@@ -431,7 +431,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
             )}
           </div>
 
-          <div ref={loadMoreRef} className="flex-1 overflow-auto max-h-[calc(100vh-120px)] relative">
+          <div ref={loadMoreRef} className="flex-1 overflow-auto max-h-[calc(100vh-120px)] relative scrollbar-hide">
             {isListLoading && (
               <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-50">
                 <Loader className="w-6 h-6 animate-spin text-blue-500" />
