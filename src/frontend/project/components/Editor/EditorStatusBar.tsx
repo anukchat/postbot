@@ -3,12 +3,13 @@ import { Post } from '../../types';
 
 interface EditorStatusBarProps {
   post: Post;
+  content: string;
 }
 
-export const EditorStatusBar: React.FC<EditorStatusBarProps> = ({ post }) => {
+export const EditorStatusBar: React.FC<EditorStatusBarProps> = ({ post, content }) => {
   return (
     <div className="bg-white dark:bg-gray-800 p-4 text-sm text-gray-500">
-      {post.content.split(' ').length} words • Last saved: {new Date(post.updatedAt).toLocaleString()}
+      {content.split(' ').length -1} words • Last saved: {new Date(post.updatedAt).toLocaleString()}
     </div>
   );
 };
