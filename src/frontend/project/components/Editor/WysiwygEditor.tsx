@@ -254,6 +254,7 @@ import React, { useEffect } from "react";
             width: "100%",
             paddingTop: "6rem",
             paddingBottom: "6rem",
+            zIndex: "0"  // Add this line
           }}
         >
           {/* Custom Slash Menu Controller with "/" trigger */}

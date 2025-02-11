@@ -35,6 +35,8 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
     hasReachedEnd,
   } = useEditorStore();
   
+  const isListLoading = useEditorStore(state => state.isListLoading);
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
@@ -421,13 +423,13 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
         </div>
 
         <div ref={loadMoreRef} className="flex-1 overflow-auto max-h-[calc(100vh-120px)] relative">
+          {isListLoading && (
+            <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-50">
+              <Loader className="w-6 h-6 animate-spin text-blue-500" />
+            </div>
+          )}
+          
           <div className="min-h-full">
-            {(isLoading || isResetting) && (
-              <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-50">
-                <Loader className="w-6 h-6 animate-spin text-blue-500" />
-              </div>
-            )}
-            
             {filteredPosts.length > 0 ? (
               <div className="relative">
                 {filteredPosts.map((post) => (
@@ -473,19 +475,21 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
               </div>
             ) : (
               <div className="p-4 text-center text-gray-500">
-                {isLoading || isResetting ? '' : 'No posts found'}
+                {isListLoading ? 'Loading...' : 'No posts found'}
               </div>
             )}
             
             {/* Load more indicator */}
-            <div className="h-10 flex justify-center items-center">
-              {(isLoading || isResetting) && filteredPosts.length > 0 && (
+            {!isListLoading && !hasReachedEnd && posts.length > 0 && (
+              <div className="h-10 flex justify-center items-center">
                 <Loader className="w-4 h-4 animate-spin text-blue-500" />
-              )}
-              {hasReachedEnd && posts.length > 0 && (
+              </div>
+            )}
+            {hasReachedEnd && posts.length > 0 && (
+              <div className="h-10 flex justify-center items-center">
                 <span className="text-sm text-gray-500">No more posts</span>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
