@@ -1,58 +1,50 @@
-import { ArrowRight, Sparkles } from 'lucide-react';
+import React from 'react';
 import { motion } from 'framer-motion';
+import { ArrowRight, LayoutDashboard } from 'lucide-react';
+import { theme } from '../../styles/themes';
+import { useAuth } from '../../contexts/AuthContext';
 
-const CTASection = () => {
+const CTASection: React.FC = () => {
+  const { user } = useAuth();
+
   return (
-    <section className="py-20">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="bg-[#a8e5e5] rounded-3xl p-16 relative overflow-hidden">
-          {/* Content Container */}
-          <div className="max-w-3xl">
-            <motion.h2 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-              className="text-4xl md:text-5xl font-bold text-[#1a472a] leading-tight"
+    <section className="py-20 relative overflow-hidden">
+      <div className={`absolute inset-0 bg-gradient-to-br ${theme.colors.background.main} -z-10`}></div>
+      <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8 relative">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-center"
+        >
+          <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl lg:text-5xl">
+            Experience the Power of <br />
+            <span className={`${theme.colors.primary.solid} bg-clip-text text-transparent bg-gradient-to-r ${theme.colors.primary.gradient}`}>
+              AI-Assisted Research and Writing
+            </span>
+          </h2>
+          <p className="mt-6 text-xl text-gray-600 max-w-2xl mx-auto">
+            Join thousands of content creators who trust RiteUp to deliver thoroughly researched, engaging content
+          </p>
+          {user ? (
+            <motion.a
+              href="/dashboard"
+              className={`mt-8 inline-flex items-center justify-center px-8 py-4 text-lg font-medium text-white ${theme.colors.primary.button.bg} ${theme.colors.primary.button.hover} rounded-lg transition-colors duration-300 shadow-lg hover:shadow-xl`}
+              whileHover={{ scale: theme.animation.hover.scale }}
+              whileTap={{ scale: 0.98 }}
             >
-              Ready to transform your ideas?
-            </motion.h2>
-            
-            <motion.p 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1, duration: 0.6, ease: "easeOut" }}
-              className="mt-6 text-xl text-[#1a472a]/80 leading-relaxed"
+              Go to Dashboard <LayoutDashboard className="ml-2 w-5 h-5" />
+            </motion.a>
+          ) : (
+            <motion.a
+              href="/signup"
+              className={`mt-8 inline-flex items-center justify-center px-8 py-4 text-lg font-medium text-white ${theme.colors.primary.button.bg} ${theme.colors.primary.button.hover} rounded-lg transition-colors duration-300 shadow-lg hover:shadow-xl`}
+              whileHover={{ scale: theme.animation.hover.scale }}
+              whileTap={{ scale: 0.98 }}
             >
-              Join thousands of content creators who are saving time and reaching more readers.
-            </motion.p>
-
-            {/* Buttons Container */}
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
-              className="mt-10 flex flex-col sm:flex-row gap-4"
-            >
-              <motion.a
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                href="/dashboard"
-                className="inline-flex items-center justify-center px-8 py-4 text-lg font-medium text-white bg-[#1a472a] rounded-lg hover:bg-[#1a472a]/90 transition-colors"
-              >
-                Start Creating Now
-                <ArrowRight className="ml-2 w-5 h-5" />
-              </motion.a>
-
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="inline-flex items-center justify-center px-8 py-4 text-lg font-medium text-[#1a472a] bg-transparent border-2 border-[#1a472a] rounded-lg hover:bg-[#1a472a]/10 transition-colors"
-              >
-                <Sparkles className="w-5 h-5 mr-2" />
-                See Examples
-              </motion.button>
-            </motion.div>
-          </div>
+              Start Creating Now <ArrowRight className="ml-2 w-5 h-5" />
+            </motion.a>
+          )}
 
           {/* Decorative Image */}
           <div className="absolute right-16 top-1/2 -translate-y-1/2 hidden lg:block">
@@ -62,7 +54,7 @@ const CTASection = () => {
               className="w-64 h-64"
             />
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Footer Image Section */}

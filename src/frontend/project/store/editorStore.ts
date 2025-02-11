@@ -39,9 +39,10 @@ interface EditorState {
   currentTab: 'blog' | 'twitter' | 'linkedin';
   setCurrentTab: (tab: 'blog' | 'twitter' | 'linkedin') => void;
   lastRefreshTimestamp: number;
-  redditTrendingTopics: Record<string, any[]>;
-  lastTrendingFetch: Record<string, number>;
-  fetchRedditTrending: (subreddit: string) => Promise<void>;
+  trendingBlogTopics: string[];
+  lastBlogTopicsFetch: Record<string, number>;
+  trendingTopicsCache: Record<string, { topics: string[], timestamp: number }>;
+  fetchTrendingBlogTopics: (subreddits?: string[], limit?: number) => Promise<void>;
 }
 
 interface GeneratePayload {
@@ -51,6 +52,8 @@ interface GeneratePayload {
   tweet_id?: string;
   url?: string;
 }
+
+const MAX_CACHE_SIZE = 250;
 
 export const useEditorStore = create<EditorState>((set, get) => ({
   posts: [],
@@ -70,7 +73,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const { currentTab, fetchContentByThreadId } = get();
     set({ currentPost: post, history: [], future: [], isContentUpdated: false });
     
-    // If we're on a social tab and selecting a new post, fetch its content
     if (post && currentTab !== 'blog') {
       const postTypeMap = {
         twitter: 'twitter',
@@ -89,9 +91,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   lastRefreshTimestamp: Date.now(),
   
   fetchPosts: async (filters, skip = 0, limit = 20) => {
+    console.log('fetchPosts called', { filters, skip, limit });
     const { isLoading, posts, hasReachedEnd } = get();
     
-    // If reset flag is present, clear the existing posts
+    // Reset state if requested
     if (filters.reset) {
       set({ 
         posts: [],
@@ -101,23 +104,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       });
     }
     
-    if (isLoading || (hasReachedEnd && !filters.reset)) {
+    if (isLoading || (!filters.reset && hasReachedEnd)) {
+      console.log('Skip fetch - loading or reached end:', { isLoading, hasReachedEnd });
       return;
     }
 
     set({ isLoading: true });
     try {
-      // Clean up filters before sending
       const cleanedFilters = Object.entries(filters).reduce((acc, [key, value]) => {
-        // Skip empty date fields
         if ((['created_after', 'created_before', 'updated_after', 'updated_before'].includes(key)) && !value) {
           return acc;
         }
-        // Skip empty string fields
         if (value === '') {
           return acc;
         }
-        // Format dates to ISO string if they are date fields
         if (['created_after', 'created_before', 'updated_after', 'updated_before'].includes(key) && value && (typeof value === 'string' || value instanceof Date)) {
           acc[key] = new Date(value).toISOString();
           return acc;
@@ -132,7 +132,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       }
       
       const response = await api.get('/content/filter', { params });
-      console.log('API Response:', response.data); // Add logging
+      console.log('API Response:', response.data);
       
       if (response.data && response.data.items) {
         const formattedBlogs = response.data.items.map((item: any) => ({
@@ -152,7 +152,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           source_identifier: item.source_identifier
         }));
 
-        console.log('Formatted blogs:', formattedBlogs); // Add logging
+        console.log('Formatted blogs:', formattedBlogs);
 
         const isLastPage = formattedBlogs.length < limit;
         const currentTotal = Math.max(
@@ -161,12 +161,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         );
 
         set((state) => {
-          const postsMap = new Map<string, Post>(
-            skip === 0 
-              ? formattedBlogs.map((post: Post) => [post.id, post as Post])
-              : [...state.posts, ...formattedBlogs].map(post => [post.id, post as Post])
-          );
+          // If it's a fresh fetch (skip === 0), replace all posts
+          // Otherwise, merge new posts while preserving existing ones
+          const existingPosts = skip === 0 ? [] : state.posts;
+          const mergedPosts = [...existingPosts, ...formattedBlogs];
+          
+          // Use a Map to deduplicate posts by ID while preserving order
+          const postsMap = new Map<string, Post>();
+          mergedPosts.forEach(post => {
+            if (!postsMap.has(post.id)) {
+              postsMap.set(post.id, post);
+            }
+          });
 
+          // Convert back to array and sort
           const sortedPosts = Array.from(postsMap.values())
             .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
@@ -181,6 +189,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             error: null,
           };
         });
+
+        return formattedBlogs;
       }
     } catch (error: any) {
       console.error('Error fetching blogs:', error);
@@ -435,7 +445,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
         if (response.data) {
             set({ isLoading: false, error: null, isContentUpdated: false });
-            await fetchPosts({}); // Refresh the list
+            await fetchPosts({}); 
         }
     } catch (error) {
         set({ isLoading: false, error: 'Failed to publish post' });
@@ -456,7 +466,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
         if (response.data) {
             set({ isLoading: false, error: null, isContentUpdated: false });
-            await fetchPosts({}); // Refresh the list
+            await fetchPosts({}); 
         }
     } catch (error) {
         set({ isLoading: false, error: 'Failed to reject post' });
@@ -498,7 +508,6 @@ ${content}`;
   fetchContentByThreadId: async (thread_id: string, post_type?: string) => {
     set({ isLoading: true });
     try {
-      // Map the post type to the correct API format
       const postTypeMap = {
         'linkedin': 'linkedin',
         'twitter': 'twitter',
@@ -550,7 +559,6 @@ ${content}`;
         throw new Error(`Generation failed: ${response.statusText}`);
       }
       if (response.data) {
-        // Refresh content after generation
         await fetchContentByThreadId(thread_id, post_types[0]);
         set({ isLoading: false, error: null });
       }
@@ -566,39 +574,71 @@ ${content}`;
     }
   },
 
-  redditTrendingTopics: {},
-  lastTrendingFetch: {},
+  trendingBlogTopics: [],
+  lastBlogTopicsFetch: {},
+  trendingTopicsCache: {},
 
-  fetchRedditTrending: async (subreddit: string) => {
+  fetchTrendingBlogTopics: async (subreddits?: string[], limit: number = 15) => {
     try {
-      const { lastTrendingFetch, redditTrendingTopics } = get();
+      // Clear topics immediately
+      set({ trendingBlogTopics: [] });
+
       const now = Date.now();
-      const lastFetch = lastTrendingFetch[subreddit];
+      const cacheKey = subreddits ? subreddits.join(',') : 'all';
+      const cachedData = get().trendingTopicsCache[cacheKey];
       
-      // Check if we have cached data from the last hour
-      if (lastFetch && redditTrendingTopics[subreddit] && 
-          now - lastFetch < 60 * 60 * 1000) { // Cache for 1 hour instead of 24 hours
+      if (cachedData && now - cachedData.timestamp < 24 * 60 * 60 * 1000) {
+        // Use cached data after clearing
+        set({ 
+          trendingBlogTopics: cachedData.topics,
+          lastBlogTopicsFetch: {
+            ...get().lastBlogTopicsFetch,
+            [cacheKey]: cachedData.timestamp
+          }
+        });
         return;
       }
 
-      const response = await api.get('/reddit/trending', {
-        params: { subreddits: subreddit }
-      });
+      const params: Record<string, any> = { limit };
+      if (subreddits && subreddits.length > 0) {
+        params.subreddits = subreddits.join(',');
+      }
 
-      if (response.data?.data) {
-        set(state => ({
-          redditTrendingTopics: {
-            ...state.redditTrendingTopics,
-            [subreddit]: response.data.data[subreddit] || []
-          },
-          lastTrendingFetch: {
-            ...state.lastTrendingFetch,
-            [subreddit]: now
+      const response = await api.get('/reddit/topic-suggestions', { params });
+      if (response.data?.blog_topics) {
+        set((state) => {
+          const newCache = {
+            ...state.trendingTopicsCache,
+            [cacheKey]: {
+              topics: response.data.blog_topics,
+              timestamp: now
+            }
+          };
+
+          // Clean up cache if too large
+          if (Object.keys(newCache).length > MAX_CACHE_SIZE) {
+            const oldestEntries = Object.entries(newCache)
+              .sort(([, a], [, b]) => a.timestamp - b.timestamp)
+              .slice(0, Object.keys(newCache).length - MAX_CACHE_SIZE);
+
+            oldestEntries.forEach(([key]) => {
+              delete newCache[key];
+            });
           }
-        }));
+
+          return {
+            trendingBlogTopics: response.data.blog_topics,
+            trendingTopicsCache: newCache,
+            lastBlogTopicsFetch: {
+              ...state.lastBlogTopicsFetch,
+              [cacheKey]: now
+            }
+          };
+        });
       }
     } catch (error) {
-      console.error('Error fetching Reddit trending topics:', error);
+      console.error('Error fetching trending blog topics:', error);
+      set({ trendingBlogTopics: [] });
     }
-  }
+  },
 }));

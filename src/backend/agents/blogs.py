@@ -27,9 +27,11 @@ from src.backend.agents.prompts import (
     summary_instructions,
     relevant_search_prompt,
     relevant_reddit_prompt,
-    twitter_query_creator
+    twitter_query_creator,
+    blog_reviewer_instructions
+
 )
-from src.backend.agents.tools import RedditSearch, WebSearch
+from src.backend.agents.tools import ImageSearch, RedditSearch, WebSearch
 from src.backend.clients.llm import LLMClient, HumanMessage, SystemMessage
 from src.backend.agents.state import BlogState, BlogStateInput, BlogStateOutput, SectionState
 from src.backend.agents.utils import *
@@ -37,6 +39,7 @@ from src.backend.db.supabaseclient import supabase_client
 from src.backend.extraction.factory import ConverterRegistry, ExtracterRegistry
 import atexit
 from src.backend.utils.logger import setup_logger
+from src.backend.utils.general import safe_json_loads, shorten_link
 
 # Setup logger
 logger = setup_logger(__name__)
@@ -52,6 +55,7 @@ class AgentWorkflow:
         logger.info("Initializing AgentWorkflow")
         self.llm = LLMClient()
         self.websearcher = WebSearch(provider='google', num_results=15)
+        self.imagesearch=ImageSearch()
         self.reddit_searcher=RedditSearch()
         self.builder = StateGraph(
             BlogState,
@@ -221,6 +225,25 @@ class AgentWorkflow:
         blog_title_matches = re.findall(r"^#\s+(.*)$", all_sections, re.MULTILINE)
         blog_title = blog_title_matches[0] if blog_title_matches else ""
         return {"final_blog": all_sections, "blog_title": blog_title}
+    
+    def review_blog(self, state: BlogState):
+        """Review the final blog"""
+        final_blog = state.final_blog
+        review_prompt = blog_reviewer_instructions.format(blog_input=final_blog)
+
+        review = self.llm.invoke([
+            HumanMessage(content=review_prompt)
+        ])
+
+        # filter using re inside <final_review> </final_review>
+        pattern = r"<final_review>(.*?)</final_review>"
+        match = re.search(pattern, review, re.DOTALL)
+        if match:
+            review = match.group(1).strip()
+        else:
+            review = review.strip()
+        
+        return {"reviewed_blog": review}
 
     def write_twitter_post(self, state: BlogState):
         """Write the Twitter post"""
@@ -437,7 +460,6 @@ class AgentWorkflow:
         relevant_urls = parse_url_string(relevant_match)
         return relevant_urls
                 
-    
     def _relevant_reddit_post_selection(self,reddit_obj,topic):
         """Select relevant search results"""
 
@@ -506,6 +528,10 @@ class AgentWorkflow:
         urls=self._relevant_search_selection(urls,query)
 
         source_id,url_meta = self._setup_topic_source(payload,urls ,thread_id, user)
+        image_urls=self.imagesearch.search(query)
+        media_meta=[{"type":"image","original_url":url['imageUrl']} for url in image_urls.results['images']]
+        
+        self._handle_media_storage(source_id, media_meta)
 
         # reference_content=self._summarize_websearch_results(urls, query)
         for meta in url_meta:
@@ -549,7 +575,10 @@ class AgentWorkflow:
 
         source_id = self._setup_reddit_source(payload ,thread_id, user)
 
-
+        image_urls=self.imagesearch.search(query)
+        media_meta=[{"type":"image","original_url":url['imageUrl']} for url in image_urls.results['images']]
+        self._handle_media_storage(source_id, media_meta)
+        
         return BlogStateInput(
             input_reddit=payload["reddit_query"],
             input_url='',
@@ -941,7 +970,7 @@ class AgentWorkflow:
 
                 # Clean and validate content
                 blog_title = result.get("blog_title", "").strip() if post_type == "blog" else None
-                blog_body = result.get("final_blog" if post_type == "blog" else f"{post_type}_post", "")
+                blog_body = result.get("reviewed_blog" if post_type == "blog" else f"{post_type}_post", "")
                 
                 if isinstance(blog_body, str):
                     blog_body = blog_body.strip()
@@ -1036,6 +1065,7 @@ class AgentWorkflow:
         self.builder.add_node("write_final_sections", self.write_final_sections)
         self.builder.add_node("write_twitter_post", self.write_twitter_post)
         self.builder.add_node("write_linkedin_post", self.write_linkedin_post)
+        self.builder.add_node("review_blog", self.review_blog)
         # self.builder.add_node("generate_tags", self.generate_tags)
         self.builder.add_node("handle_feedback", self.handle_feedback)
 
@@ -1051,7 +1081,7 @@ class AgentWorkflow:
             ["write_final_sections"],
         )
         self.builder.add_edge("write_final_sections", "compile_final_blog")
-        # self.builder.add_edge("compile_final_blog", "generate_tags")
+        self.builder.add_edge("compile_final_blog", "review_blog")
 
         # Post-tags routing logic
         def route_after_tags(state: BlogState):
@@ -1081,7 +1111,7 @@ class AgentWorkflow:
 
         # Add routing edges
         self.builder.add_conditional_edges(
-            "compile_final_blog",
+            "review_blog",
             route_after_tags,
             ["write_linkedin_post", "write_twitter_post", "handle_feedback", END],
         )
@@ -1119,7 +1149,7 @@ class AgentWorkflow:
             checkpointer=self.checkpointer,
             interrupt_after=[
                 # "generate_tags",
-                "compile_final_blog",
+                "review_blog",
                 "write_linkedin_post",
                 "write_twitter_post",
             ],
