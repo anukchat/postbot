@@ -94,6 +94,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     console.log('fetchPosts called', { filters, skip, limit });
     const { isLoading, posts, hasReachedEnd } = get();
     
+    // Reset state if requested
     if (filters.reset) {
       set({ 
         posts: [],
@@ -160,8 +161,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         );
 
         set((state) => {
-          const mergedPosts = skip === 0 ? formattedBlogs : [...state.posts, ...formattedBlogs];
-          const postsMap = new Map<string, Post>(mergedPosts.map((post: { id: any; }) => [post.id, post]));
+          // If it's a fresh fetch (skip === 0), replace all posts
+          // Otherwise, merge new posts while preserving existing ones
+          const existingPosts = skip === 0 ? [] : state.posts;
+          const mergedPosts = [...existingPosts, ...formattedBlogs];
+          
+          // Use a Map to deduplicate posts by ID while preserving order
+          const postsMap = new Map<string, Post>();
+          mergedPosts.forEach(post => {
+            if (!postsMap.has(post.id)) {
+              postsMap.set(post.id, post);
+            }
+          });
+
+          // Convert back to array and sort
           const sortedPosts = Array.from(postsMap.values())
             .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
@@ -176,6 +189,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             error: null,
           };
         });
+
+        return formattedBlogs;
       }
     } catch (error: any) {
       console.error('Error fetching blogs:', error);

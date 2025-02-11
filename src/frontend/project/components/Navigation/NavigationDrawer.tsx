@@ -22,7 +22,6 @@ const QUICK_FILTERS = [
   { label: 'All', value: '' },
   { label: 'Published', value: 'Published' },
   { label: 'Drafts', value: 'Draft' },
-  { label: 'Recent', value: 'recent' }
 ];
 
 export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onClose }) => {
@@ -49,9 +48,14 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
   const [selectedQuickFilter, setSelectedQuickFilter] = useState('');
   const [isResetting, setIsResetting] = useState(false);
 
-  // Move filteredPosts before its usage
+  // Move filteredPosts before its usage and optimize memoization
   const filteredPosts = useMemo(() => {
-    if (!posts || posts.length === 0 || (isLoading && !searchTerm && !selectedQuickFilter)) return [];
+    if (!posts || posts.length === 0) return [];
+    
+    // Only filter if we have search term or quick filter
+    if (!searchTerm && !selectedQuickFilter) {
+      return posts;
+    }
     
     return posts
       .filter((post) => {
@@ -73,9 +77,8 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
         }
 
         return titleMatch;
-      })
-      .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
-  }, [posts, searchTerm, selectedQuickFilter, isLoading]);
+      });
+  }, [posts, searchTerm, selectedQuickFilter]);
 
   // Add latestDate calculation for post indicators
   const latestDate = useMemo(() => {
@@ -86,49 +89,50 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const initialFetchDoneRef = useRef(false);
   const isFetchingRef = useRef(false);
+  const scrollPositionRef = useRef(0);
 
-  // Replace the debounced handleLoadMore with a useCallback version:
+  // Optimize the handleLoadMore callback
   const handleLoadMore = useCallback(async () => {
-    // Return if already fetching/loading or reached end
     if (isFetchingRef.current || hasReachedEnd || isLoading) return;
     
     isFetchingRef.current = true;
-    const previousScrollTop = loadMoreRef.current?.scrollTop || 0;
+    // Store current scroll position
+    scrollPositionRef.current = loadMoreRef.current?.scrollTop || 0;
     
     try {
-      const newPosts = await fetchPosts({ timestamp: Date.now() }, posts.length, limit);
-      useEditorStore.setState(state => ({
-        ...state,
-        posts: [...state.posts, ...(Array.isArray(newPosts) ? newPosts : [])]
-      }));
-      if (loadMoreRef.current) {
-        loadMoreRef.current.scrollTop = previousScrollTop;
-      }
+      await fetchPosts({ timestamp: Date.now() }, posts.length, limit);
     } catch (error) {
       console.error('Error loading more posts:', error);
     } finally {
       isFetchingRef.current = false;
+      // Restore scroll position after update
+      requestAnimationFrame(() => {
+        if (loadMoreRef.current) {
+          loadMoreRef.current.scrollTop = scrollPositionRef.current;
+        }
+      });
     }
   }, [fetchPosts, posts.length, hasReachedEnd, limit, isLoading]);
 
-  // Replace the existing scroll listener effect with a debounced version similar to the sample:
+  // Optimize scroll listener with proper cleanup and debounce
   useEffect(() => {
     const scrollContainer = loadMoreRef.current;
     if (!scrollContainer) return;
     
     const handleScroll = debounce(() => {
       const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
-      if (scrollHeight - (scrollTop + clientHeight) < 100 && !isLoading && !hasReachedEnd) {
+      // Trigger load more when within 200px of bottom
+      if (scrollHeight - (scrollTop + clientHeight) < 200 && !isLoading && !hasReachedEnd) {
         handleLoadMore();
       }
-    }, 200, { leading: true, trailing: true });
+    }, 100, { leading: true, trailing: true });
     
     scrollContainer.addEventListener('scroll', handleScroll);
     return () => {
       scrollContainer.removeEventListener('scroll', handleScroll);
       handleScroll.cancel();
     };
-  }, [handleLoadMore, isLoading, hasReachedEnd, posts.length, limit]);
+  }, [handleLoadMore, isLoading, hasReachedEnd]);
 
   useEffect(() => {
     if (!initialFetchDoneRef.current && !isLoading) {
