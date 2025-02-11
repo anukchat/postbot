@@ -529,7 +529,7 @@ class AgentWorkflow:
 
         source_id,url_meta = self._setup_topic_source(payload,urls ,thread_id, user)
         image_urls=self.imagesearch.search(query)
-        media_meta=[{"type":"image","original_url":url['imageUrl']} for url in image_urls.results['images']]
+        media_meta=[{"type":"image","original_url":url['imageUrl']} for url in image_urls.results]
         
         self._handle_media_storage(source_id, media_meta)
 
@@ -979,7 +979,7 @@ class AgentWorkflow:
                     "profile_id": user["id"],
                     "content_type_id": content_type_result.data[0]["content_type_id"],
                     "title": blog_title,
-                    "body": blog_body,
+                    "body": blog_body.strip(),
                     "status": "Draft",
                     "thread_id": thread_id,
                 }
