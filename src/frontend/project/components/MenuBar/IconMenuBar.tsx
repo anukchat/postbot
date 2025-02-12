@@ -148,6 +148,12 @@ export const IconMenuBar: React.FC<IconMenuBarProps> = ({ selectedTab, onCommand
                   <Save className="w-4 h-4" />
                 </button>
               </Tippy>
+              <Tippy content="Copy with formatting">
+                <button onClick={handleCopy}
+                  className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-600">
+                  <Copy className="w-4 h-4" />
+                </button>
+              </Tippy>
               <Tippy content="Download">
                 <button onClick={downloadMarkdown}
                   className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-600">
