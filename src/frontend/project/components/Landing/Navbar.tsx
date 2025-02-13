@@ -12,7 +12,7 @@ export const Navbar: React.FC = () => {
       className={`fixed w-full bg-gradient-to-r ${theme.colors.navbar.bg} bg-blend-overlay backdrop-blur-md border-b ${theme.colors.navbar.border} z-50 font-sans`}
       style={{ backgroundBlendMode: 'overlay' }}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="x-auto">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link to="/" className="flex items-center">
@@ -49,7 +49,8 @@ export const Navbar: React.FC = () => {
               </Link>
             </div>
           </div>
-          <div className="ml-auto flex items-center space-x-4">
+          
+          <div className="flex items-center gap-3 px-4">
             {session ? (
               <>
                 <Link
@@ -61,7 +62,7 @@ export const Navbar: React.FC = () => {
                 <UserMenu />
               </>
             ) : (
-              <div className="flex space-x-4">
+              <>
                 <Link
                   to="/login"
                   className={`${theme.colors.primary.solid} hover:${theme.colors.primary.hover} px-3 py-2 transition-colors duration-200`}
@@ -74,7 +75,7 @@ export const Navbar: React.FC = () => {
                 >
                   Get Started
                 </Link>
-              </div>
+              </>
             )}
           </div>
         </div>

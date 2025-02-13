@@ -3,7 +3,7 @@ import { MarkdownEditor } from './components/Editor/MarkdownEditor';
 import { CanvasView } from './components/Canvas/CanvasView';
 import { useEditorStore } from './store/editorStore';
 import { PostDetails } from './components/PostDetails';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import Features from './pages/Features';
 import Pricing from './pages/Pricing';
@@ -25,6 +25,9 @@ import { FloatingNav } from './components/Navigation/FloatingNav';
 import { NavigationDrawer } from './components/Navigation/NavigationDrawer';
 import { TemplatesView } from './components/Templates/TemplatesView';
 import { NewBlogModal } from './components/Modals/NewBlogModal';
+import { Bell, Settings as SettingsIcon } from 'lucide-react';
+import Tippy from '@tippyjs/react';
+import 'tippy.js/dist/tippy.css';
 
 // Set the root element for accessibility
 Modal.setAppElement('#root');
@@ -156,7 +159,17 @@ const MainAppLayout: React.FC = () => {
         <div className="flex-1 min-w-0 relative ml-16">
           {/* User Menu - Adjusted positioning */}
           <div className="fixed top-2 right-0 z-[60]">
-            <div className="flex-shrink-0 px-4">
+            <div className="flex items-center gap-3 px-4">
+              <Tippy content="Notifications">
+                <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                  <Bell className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                </button>
+              </Tippy>
+              <Tippy content="Settings">
+                <Link to="/settings" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                  <SettingsIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                </Link>
+              </Tippy>
               <UserMenu />
             </div>
           </div>
