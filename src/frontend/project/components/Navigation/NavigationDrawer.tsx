@@ -290,26 +290,26 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
           isOpen ? 'translate-x-0' : '-translate-x-full'
         } border-r dark:border-gray-700`}
       >
-        <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col pt-10">
           {/* Quick Filter Chips */}
-          <div className="p-4 border-b dark:border-gray-700">
-            <div className="flex flex-wrap gap-2 mb-4">
+          <div className="px-4 pb-4 border-b dark:border-gray-700">
+            <div className="flex items-center gap-2 mb-6 px-1">
               {QUICK_FILTERS.map(filter => (
                 <button
                   key={filter.value}
                   onClick={() => handleQuickFilterClick(filter.value)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  className={`flex-1 min-w-0 px-3 py-2 rounded-full text-sm font-medium transition-colors ${
                     selectedQuickFilter === filter.value
                       ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
                       : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
-                  {filter.label}
+                  <span className="block truncate">{filter.label}</span>
                 </button>
               ))}
             </div>
 
-            <div className="relative">
+            <div className="relative px-1">
               <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
@@ -452,7 +452,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
                         onClick={() => handlePostSelect(post)}
                         className="w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700"
                       >
-                        <h3 className={`mb-1 truncate ${
+                        <h3 className={`mb-1 break-words leading-snug line-clamp-2 ${
                           latestDate && new Date(post.updatedAt).getDate() === latestDate.getDate() 
                             ? 'font-medium' 
                             : 'font-normal'
