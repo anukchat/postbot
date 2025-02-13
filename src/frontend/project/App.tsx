@@ -3,7 +3,7 @@ import { MarkdownEditor } from './components/Editor/MarkdownEditor';
 import { CanvasView } from './components/Canvas/CanvasView';
 import { useEditorStore } from './store/editorStore';
 import { PostDetails } from './components/PostDetails';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import Features from './pages/Features';
 import Pricing from './pages/Pricing';
@@ -23,6 +23,8 @@ import { FloatingTabs } from './components/MenuBar/FloatingTabs';
 import UserMenu from './components/Auth/UserMenu';
 import { FloatingNav } from './components/Navigation/FloatingNav';
 import { NavigationDrawer } from './components/Navigation/NavigationDrawer';
+import { TemplatesView } from './components/Templates/TemplatesView';
+import { NewBlogModal } from './components/Modals/NewBlogModal';
 
 // Set the root element for accessibility
 Modal.setAppElement('#root');
@@ -48,7 +50,28 @@ const MainAppLayout: React.FC = () => {
   const [isCanvasView, setIsCanvasView] = useState(false);
   const [isPostDetailsView, setIsPostDetailsView] = useState(false);
   const [selectedTab, setSelectedTab] = useState<'blog' | 'twitter' | 'linkedin'>('blog');
-  const { currentPost, isDarkMode, updateContent, updateLinkedinPost, updateTwitterPost, fetchContentByThreadId, setCurrentTab } = useEditorStore();
+  const [showSourceModal, setShowSourceModal] = useState(false);
+  const location = useLocation();
+  
+  const { 
+    currentPost, 
+    isDarkMode, 
+    updateContent, 
+    updateLinkedinPost, 
+    updateTwitterPost, 
+    fetchContentByThreadId, 
+    setCurrentTab 
+  } = useEditorStore();
+
+  // Handle template selection from location state
+  useEffect(() => {
+    const state = location.state as { showSourceModal?: boolean };
+    if (state?.showSourceModal) {
+      setShowSourceModal(true);
+      // Clear the state after using it
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   const handleContentChange = (newContent: string) => {
     if (!currentPost) return;
@@ -129,52 +152,66 @@ const MainAppLayout: React.FC = () => {
           onClose={() => setIsDrawerOpen(false)} 
         />
 
-        {/* Main Content Area - adjusted left margin to account for icon lane */}
+        {/* Main Content Area */}
         <div className="flex-1 min-w-0 relative ml-16">
-          <div className="flex flex-col h-full max-w-full overflow-x-hidden">
-            {/* User Menu - Floating */}
-            <div className="fixed top-0 right-0 z-30">
-              <div className="flex-shrink-0 px-4 py-2">
-                <UserMenu />
-              </div>
+          {/* User Menu - Adjusted positioning */}
+          <div className="fixed top-2 right-0 z-[60]">
+            <div className="flex-shrink-0 px-4">
+              <UserMenu />
             </div>
+          </div>
 
-            {/* IconMenuBar - Floating - adjusted left spacing */}
-            <div className="fixed top-0 right-16 left-0 z-20">
-              <div className="flex items-center w-full bg-white dark:bg-gray-800 border-b">
-                <IconMenuBar selectedTab={selectedTab} onCommandInsert={handleCommandInsert} />
-              </div>
-            </div>
-            
-            {/* FloatingTabs - Floating - adjusted left spacing */}
-            <div className="fixed top-12 right-0 left-0 z-20">
-              <FloatingTabs 
-                selectedTab={selectedTab}
-                onTabChange={handleTabChange}
-                onViewChange={handleViewChange}
-                currentView={isCanvasView ? 'canvas' : isPostDetailsView ? 'details' : 'editor'}
-              />
-            </div>
-            
-            {/* Content area */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden">
-              <div className="h-full max-w-full">
-                {isCanvasView ? (
-                  <CanvasView />
-                ) : isPostDetailsView ? (
-                  <PostDetails />
-                ) : (
-                  <MarkdownEditor
-                    content={getContent()}
-                    onChange={handleContentChange}
+          {/* Content wrapper with adjusted padding */}
+          <div className="flex flex-col h-full max-w-full overflow-x-hidden">
+            {currentPost ? (
+              <>
+                {/* IconMenuBar - Floating */}
+                <div className="fixed top-0 right-16 left-0 z-20">
+                  <div className="flex items-center w-full bg-white dark:bg-gray-800 border-b">
+                    <IconMenuBar selectedTab={selectedTab} onCommandInsert={handleCommandInsert} />
+                  </div>
+                </div>
+                
+                {/* FloatingTabs - Floating */}
+                <div className="fixed top-12 right-0 left-0 z-20">
+                  <FloatingTabs 
                     selectedTab={selectedTab}
+                    onTabChange={handleTabChange}
+                    onViewChange={handleViewChange}
+                    currentView={isCanvasView ? 'canvas' : isPostDetailsView ? 'details' : 'editor'}
                   />
-                )}
-              </div>
-            </div>
+                </div>
+                
+                {/* Content area */}
+                <div className="flex-1 overflow-y-auto overflow-x-hidden">
+                  <div className="h-full max-w-full">
+                    {isCanvasView ? (
+                      <CanvasView />
+                    ) : isPostDetailsView ? (
+                      <PostDetails />
+                    ) : (
+                      <MarkdownEditor
+                        content={getContent()}
+                        onChange={handleContentChange}
+                        selectedTab={selectedTab}
+                      />
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <TemplatesView />
+            )}
           </div>
         </div>
       </div>
+
+      {/* Source Selection Modal */}
+      <NewBlogModal
+        isOpen={showSourceModal}
+        onClose={() => setShowSourceModal(false)}
+        onGenerate={async () => {}} // Implement generation logic
+      />
     </div>
   );
 };

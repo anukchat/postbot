@@ -49,17 +49,17 @@ className="dark:bg-gray-800"
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className={`absolute right-0 mt-2 w-48 py-2 rounded-lg shadow-xl border ${theme.colors.card.border} bg-white/80 dark:bg-gray-800/80`}
+            className={`absolute right-0 mt-2 w-48 py-2 rounded-lg shadow-xl border ${theme.colors.card.border} bg-white dark:bg-gray-800`}
           >
-          <div className="px-4 py-3">
-          <p className="text-sm text-gray-700 dark:text-gray-200">Signed in as</p>
-          <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
-            {user?.email}
-          </p>
+          <div className="px-4 py-3 border-b dark:border-gray-700">
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Signed in as</p>
+            <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
+              {user?.email}
+            </p>
           </div>
             <Link
               to="/settings"
-              className={`flex items-center px-4 py-2 text-sm ${theme.colors.primary.solid} hover:${theme.colors.primary.hover} hover:bg-gray-50`}
+              className={`flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors`}
               onClick={() => setIsOpen(false)}
             >
               <Settings className="w-4 h-4 mr-2" />
@@ -70,7 +70,7 @@ className="dark:bg-gray-800"
                 signOut();
                 setIsOpen(false);
               }}
-              className={`flex items-center w-full px-4 py-2 text-sm ${theme.colors.primary.solid} hover:${theme.colors.primary.hover} hover:bg-gray-50`}
+              className={`flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors`}
             >
               <LogOut className="w-4 h-4 mr-2" />
               Sign out

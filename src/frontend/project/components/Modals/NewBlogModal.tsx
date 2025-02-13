@@ -54,6 +54,12 @@ interface NewBlogModalProps {
   isOpen: boolean;
   onClose: () => void;
   onGenerate: (tweetId: string) => Promise<void>;
+  selectedTemplate?: {
+    id: string;
+    title: string;
+    description: string;
+    category: string;
+  };
 }
 
 interface SourceListResponse {
@@ -69,7 +75,12 @@ interface CustomUrlForm {
 }
 
 
-export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) => {
+export const NewBlogModal: React.FC<NewBlogModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onGenerate,
+  selectedTemplate 
+}) => {
   const [selectedSource, setSelectedSource] = useState<SourceType | null>(null);
   const [selectedIdentifier, setSelectedIdentifier] = useState(''); // Change this to store the unique ID
   const [isLoading, setIsLoading] = useState(false);
@@ -365,7 +376,8 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
       try {
         const payload = {
           post_types: ["blog"],
-          url: customUrl.url
+          url: customUrl.url,
+          template_id: activeTemplate?.id
         };
         await api.post('/content/generate', payload);
         
@@ -426,7 +438,8 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
           ? 'tweet_id' 
           : selectedSource === 'reddit'
             ? 'reddit_id'
-            : 'url']: sourceData.source_identifier
+            : 'url']: sourceData.source_identifier,
+        template_id: activeTemplate?.id
       };
       
       await api.post('/content/generate', payload);
@@ -993,6 +1006,10 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
     }
   };
 
+  // Add template state
+  const [activeTemplate] = useState(selectedTemplate);
+
+  // Add template info to modal header if template is selected
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">
       {/* Dark overlay */}
@@ -1003,16 +1020,25 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({ isOpen, onClose }) =
         <div className="flex min-h-full items-center justify-center p-4">
           <Dialog.Panel className="w-full max-w-4xl rounded-xl bg-white dark:bg-gray-800 shadow-xl transition-all">
             {/* Modal header */}
-            <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-              <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-white">
-                Create New Blog Post
-              </Dialog.Title>
-              <button 
-                onClick={onClose}
-                className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
-              >
-                <X className="h-5 w-5" />
-              </button>
+            <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {activeTemplate ? `New ${activeTemplate.category}` : 'Create New Blog Post'}
+                  </Dialog.Title>
+                  {activeTemplate && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      Using template: {activeTemplate.title}
+                    </p>
+                  )}
+                </div>
+                <button 
+                  onClick={onClose}
+                  className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
             {/* Modal content - Remove fixed height constraints */}

@@ -3,6 +3,7 @@ import { Home, Sun, Moon, Plus, Inbox } from 'lucide-react';
 import Tippy from '@tippyjs/react';
 import { useEditorStore } from '../../store/editorStore';
 import { NewBlogModal } from '../Modals/NewBlogModal';
+import { Link } from 'react-router-dom';
 
 interface FloatingNavProps {
   onToggleDrawer: () => void;
@@ -17,9 +18,17 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({ onToggleDrawer, isDraw
     <>
       <div className="fixed left-0 top-0 bottom-0 w-16 bg-white dark:bg-gray-800 border-r dark:border-gray-700 z-50">
         <div className="flex flex-col items-center gap-6 pt-6">
+          {/* Logo */}
+          <Link to="/" className="flex items-center mb-4">
+            <img
+              src="/assets/riteup logo svg.svg"
+              alt="RiteUp Logo"
+              className="h-10 w-auto transition-transform duration-300 hover:scale-105"
+            />
+          </Link>
           <Tippy content="Home" placement="right">
             <button 
-              onClick={() => window.location.href = "/"}
+              onClick={() => window.location.href = "/dashboard"}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
             >
               <Home className="w-5 h-5" />
