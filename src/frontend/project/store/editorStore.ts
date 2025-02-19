@@ -52,8 +52,6 @@ export interface CreateTemplatePayload {
 export interface TemplateFilter {
   persona?: string;
   age_group?: string;
-  platform?: string;
-  sentiment?: string;
   content_type?: string;
   template_type?: string;
   is_deleted?: boolean;
@@ -66,10 +64,10 @@ export interface Parameter {
   description?: string;
   is_required: boolean;
   created_at: string;
+  values: ParameterValue[];
 }
 
 export interface ParameterValue {
-  parameter_id: string;
   value_id: string;
   value: string;
   display_order: number;
@@ -795,66 +793,51 @@ ${content}`;
   },
 
   fetchTemplates: async (skip = 0, limit = 10, filter?: TemplateFilter, forceRefresh = false) => {
-    const { lastRefreshTimestamp, templates } = get();
-    const CACHE_TIME = 5 * 60 * 1000;
-
-    if (!forceRefresh && Date.now() - lastRefreshTimestamp < CACHE_TIME && templates.length > 0) {
-      return;
-    }
-
-    set({ isTemplateLoading: true, templateError: null });
-
     try {
-      const response = await api.get('/templates', { 
-        params: { skip, limit, ...filter } 
-      });
-      const templates = response.data;
-      set({ templates, lastRefreshTimestamp: Date.now() });
+      set({ isTemplateLoading: true, templateError: null });
+      const response = await templateApi.getAllTemplates({ skip, limit }, limit, filter);
+      if (response.data) {
+        set({ templates: response.data });
+      }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An error occurred';
-      set({ templateError: errorMessage });
+      set({ templateError: error instanceof Error ? error.message : 'An error occurred' });
     } finally {
       set({ isTemplateLoading: false });
     }
   },
 
   createTemplate: async (template: CreateTemplatePayload) => {
-    set({ isTemplateActionLoading: true, templateError: null });
-
     try {
-      const response = await api.post('/templates', template);
-      const newTemplate: Template = response.data;
-      
-      set((state) => ({ 
-        ...state,
-        templates: [newTemplate, ...state.templates],
-        currentTemplate: newTemplate
-      }));
+      set({ isTemplateActionLoading: true, templateError: null });
+      const response = await templateApi.createTemplate(template);
+      if (response.data) {
+        const templates = get().templates;
+        set({ templates: [...templates, response.data] });
+      }
+      return response.data;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An error occurred';
-      set({ templateError: errorMessage });
+      set({ templateError: error instanceof Error ? error.message : 'An error occurred' });
+      throw error;
     } finally {
       set({ isTemplateActionLoading: false });
     }
   },
 
   updateTemplate: async (templateId: string, template: Partial<CreateTemplatePayload>) => {
-    set({ isTemplateActionLoading: true, templateError: null });
-
     try {
+      set({ isTemplateActionLoading: true, templateError: null });
       const response = await templateApi.updateTemplate(templateId, template);
-      const updatedTemplate: Template = response.data;
-      
-      set((state) => ({
-        ...state,
-        templates: state.templates.map(t => 
-          t.template_id === templateId ? updatedTemplate : t
-        ),
-        currentTemplate: updatedTemplate
-      }));
+      if (response.data) {
+        const templates = get().templates;
+        const updatedTemplates = templates.map(t => 
+          t.template_id === templateId ? response.data : t
+        );
+        set({ templates: updatedTemplates });
+      }
+      return response.data;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An error occurred';
-      set({ templateError: errorMessage });
+      set({ templateError: error instanceof Error ? error.message : 'An error occurred' });
+      throw error;
     } finally {
       set({ isTemplateActionLoading: false });
     }
@@ -877,43 +860,22 @@ ${content}`;
   },
 
   fetchParameters: async () => {
-    set({ isParametersLoading: true, parametersError: null });
     try {
-      const response = await api.get('/parameters/all');
+      set({ isParametersLoading: true, parametersError: null });
+      const response = await templateApi.getParameters();
       if (response.data) {
-        const params = response.data.map((p: { parameter_id: any; name: any; display_name: any; description: any; is_required: any; created_at: any; }) => ({
-          parameter_id: p.parameter_id,
-          name: p.name,
-          display_name: p.display_name,
-          description: p.description,
-          is_required: p.is_required,
-          created_at: p.created_at
-        }));
-        
-        const valuesMap: Record<string, ParameterValue[]> = {};
-        response.data.forEach((p: { parameter_id: string | number; values: never[]; }) => {
-          valuesMap[p.parameter_id] = p.values || [];
-        });
-        
-        set({ 
-          parameters: params, 
-          parameterValues: valuesMap,
-          isParametersLoading: false 
-        });
+        set({ parameters: response.data });
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch parameters';
-      set({ 
-        parametersError: errorMessage,
-        isParametersLoading: false 
-      });
-      throw error;
+      set({ parametersError: error instanceof Error ? error.message : 'An error occurred' });
+    } finally {
+      set({ isParametersLoading: false });
     }
   },
 
   fetchParameterValues: async (parameterId: string) => {
     try {
-      const response = await api.get(`/parameters/${parameterId}/values`);
+      const response = await templateApi.getParameterValues(parameterId);
       if (response.data) {
         set((state) => ({
           parameterValues: {
@@ -923,11 +885,10 @@ ${content}`;
         }));
       }
     } catch (error) {
-      console.error('Error fetching parameter values:', error);
-      throw error;
+      set({ parametersError: error instanceof Error ? error.message : 'An error occurred' });
     }
   },
-
+  
   createParameter: async (parameter) => {
     try {
       const response = await api.post('/parameters', parameter);

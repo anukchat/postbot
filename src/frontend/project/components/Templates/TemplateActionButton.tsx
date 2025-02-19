@@ -3,33 +3,36 @@ import { LoadingSpinner } from '../common/LoadingSpinner';
 
 interface TemplateActionButtonProps {
   onClick: () => void;
-  isLoading: boolean;
+  isLoading?: boolean;
   variant?: 'primary' | 'secondary' | 'danger';
   children: React.ReactNode;
-  disabled?: boolean;
+  className?: string;
 }
 
 export const TemplateActionButton: React.FC<TemplateActionButtonProps> = ({
   onClick,
-  isLoading,
+  isLoading = false,
   variant = 'primary',
   children,
-  disabled = false
+  className,
 }) => {
-  const baseClasses = 'px-4 py-2 rounded-md font-medium transition-colors duration-200 flex items-center gap-2';
-  const variantClasses = {
-    primary: 'bg-primary text-white hover:bg-primary-dark disabled:bg-gray-400',
-    secondary: 'bg-gray-200 text-gray-800 hover:bg-gray-300 disabled:bg-gray-100',
-    danger: 'bg-red-500 text-white hover:bg-red-600 disabled:bg-red-300'
+  const baseStyles = 'px-3 py-1.5 text-sm font-medium rounded-md flex items-center';
+  
+  const variantStyles = {
+    primary: 'bg-blue-600 text-white hover:bg-blue-700',
+    secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600',
+    danger: 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/20 dark:text-red-500 dark:hover:bg-red-900/30'
   };
 
   return (
     <button
       onClick={onClick}
-      disabled={disabled || isLoading}
-      className={`${baseClasses} ${variantClasses[variant]}`}
+      disabled={isLoading}
+      className={`${baseStyles} ${variantStyles[variant]} ${className || ''} ${
+        isLoading ? 'opacity-75 cursor-not-allowed' : ''
+      }`}
     >
-      {isLoading && <LoadingSpinner size="sm" />}
+      {isLoading && <LoadingSpinner size="sm" className="mr-2" />}
       {children}
     </button>
   );

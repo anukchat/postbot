@@ -2,41 +2,69 @@ import React, { useState, useEffect } from 'react';
 import { useEditorStore } from '../../store/editorStore';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { TemplateActionButton } from './TemplateActionButton';
+import { TemplateDialog } from './TemplateDialog';
+import { DeleteConfirmationDialog } from './DeleteConfirmationDialog';
 
 export const TemplateManagement: React.FC = () => {
   const { 
     templates, 
-    parameters, 
+    parameters,
     parameterValues, 
     isTemplateLoading, 
     isTemplateActionLoading,
     fetchTemplates, 
-    fetchParameters, 
+    fetchParameters,
     createTemplate, 
     updateTemplate, 
     deleteTemplate 
   } = useEditorStore();
 
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedTemplateData, setSelectedTemplateData] = useState<any>(null);
 
-  // Load templates on component mount
+  // Load templates and parameters on component mount
   useEffect(() => {
     fetchTemplates();
-  }, [fetchTemplates]);
+    fetchParameters();
+  }, [fetchTemplates, fetchParameters]);
 
   const handleCreateTemplate = async (templateData: any) => {
     await createTemplate(templateData);
+    setIsEditDialogOpen(false);
     setSelectedTemplate(null);
+    setSelectedTemplateData(null);
   };
 
-  const handleUpdateTemplate = async (templateId: string, templateData: any) => {
-    await updateTemplate(templateId, templateData);
-    setSelectedTemplate(null);
+  const handleUpdateTemplate = async (templateData: any) => {
+    if (selectedTemplate) {
+      await updateTemplate(selectedTemplate, templateData);
+      setIsEditDialogOpen(false);
+      setSelectedTemplate(null);
+      setSelectedTemplateData(null);
+    }
   };
 
-  const handleDeleteTemplate = async (templateId: string) => {
-    await deleteTemplate(templateId);
-    setSelectedTemplate(null);
+  const handleDeleteConfirm = async () => {
+    if (selectedTemplate) {
+      await deleteTemplate(selectedTemplate);
+      setIsDeleteDialogOpen(false);
+      setSelectedTemplate(null);
+      setSelectedTemplateData(null);
+    }
+  };
+
+  const openEditDialog = (template?: any) => {
+    setSelectedTemplateData(template || null);
+    setSelectedTemplate(template?.template_id || null);
+    setIsEditDialogOpen(true);
+  };
+
+  const openDeleteDialog = (template: any) => {
+    setSelectedTemplateData(template);
+    setSelectedTemplate(template.template_id);
+    setIsDeleteDialogOpen(true);
   };
 
   return (
@@ -52,9 +80,10 @@ export const TemplateManagement: React.FC = () => {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold">Template Management</h2>
         <TemplateActionButton
-          onClick={() => setSelectedTemplate('new')}
-          isLoading={false}
+          onClick={() => openEditDialog()}
+          isLoading={isTemplateActionLoading}
           variant="primary"
+          className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
         >
           Create Template
         </TemplateActionButton>
@@ -65,28 +94,51 @@ export const TemplateManagement: React.FC = () => {
         {templates.map(template => (
           <div 
             key={template.template_id} 
-            className="p-4 border rounded-lg hover:shadow-md transition-shadow"
+            className="flex p-4 border rounded-lg hover:shadow-md transition-shadow"
           >
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="text-lg font-semibold">{template.name}</h3>
-                <p className="text-gray-600 dark:text-gray-300">{template.description}</p>
+            <div className="flex-shrink-0 w-24 h-24 mr-4">
+              {template.template_image_url && (
+                <img 
+                  src={template.template_image_url} 
+                  alt={template.name}
+                  className="w-full h-full object-cover rounded"
+                />
+              )}
+            </div>
+            <div className="flex-grow">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-lg font-semibold">{template.name}</h3>
+                  <p className="text-gray-600 dark:text-gray-300">{template.description}</p>
+                  <p className="text-sm text-gray-500 mt-1">Type: {template.template_type}</p>
+                </div>
+                <div className="flex gap-2">
+                  <TemplateActionButton
+                    onClick={() => openEditDialog(template)}
+                    isLoading={isTemplateActionLoading && selectedTemplate === template.template_id}
+                    variant="secondary"
+                  >
+                    Edit
+                  </TemplateActionButton>
+                  <TemplateActionButton
+                    onClick={() => openDeleteDialog(template)}
+                    isLoading={isTemplateActionLoading && selectedTemplate === template.template_id}
+                    variant="danger"
+                  >
+                    Delete
+                  </TemplateActionButton>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <TemplateActionButton
-                  onClick={() => setSelectedTemplate(template.template_id)}
-                  isLoading={isTemplateActionLoading && selectedTemplate === template.template_id}
-                  variant="secondary"
-                >
-                  Edit
-                </TemplateActionButton>
-                <TemplateActionButton
-                  onClick={() => handleDeleteTemplate(template.template_id)}
-                  isLoading={isTemplateActionLoading && selectedTemplate === template.template_id}
-                  variant="danger"
-                >
-                  Delete
-                </TemplateActionButton>
+              {/* Display parameters */}
+              <div className="mt-2">
+                <p className="text-sm text-gray-500">Parameters:</p>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {template.parameters?.map((param: any) => (
+                    <span key={param.parameter_id} className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                      {param.display_name}: {param.value.value}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -98,6 +150,36 @@ export const TemplateManagement: React.FC = () => {
           No templates found. Create your first template to get started.
         </div>
       )}
+
+      {/* Edit/Create Dialog */}
+      {isEditDialogOpen && (
+        <TemplateDialog
+          isOpen={isEditDialogOpen}
+          onClose={() => {
+            setIsEditDialogOpen(false);
+            setSelectedTemplate(null);
+            setSelectedTemplateData(null);
+          }}
+          onSubmit={selectedTemplate ? handleUpdateTemplate : handleCreateTemplate}
+          template={selectedTemplateData}
+          parameters={parameters}
+          parameterValues={parameterValues}
+          isLoading={isTemplateActionLoading}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => {
+          setIsDeleteDialogOpen(false);
+          setSelectedTemplate(null);
+          setSelectedTemplateData(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        isLoading={isTemplateActionLoading}
+        templateName={selectedTemplateData?.name || ''}
+      />
     </div>
   );
 };

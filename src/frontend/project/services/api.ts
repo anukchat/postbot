@@ -21,11 +21,16 @@ api.interceptors.request.use(async (config) => {
 // Template-specific methods
 const templateApi = {
   getTemplate: (templateId: string) => api.get(`/templates/${templateId}`),
-  getAllTemplates: (params?: any, limit?: number, filter?: TemplateFilter | undefined) => api.get('/templates', { params }),
+  getAllTemplates: (params?: any, limit?: number, filter?: TemplateFilter | undefined) => 
+    api.get('/templates', { params: { ...params, ...filter } }),
   createTemplate: (template: any) => api.post('/templates', template),
   updateTemplate: (templateId: string, template: any) => api.put(`/templates/${templateId}`, template),
   deleteTemplate: (templateId: string) => api.delete(`/templates/${templateId}`),
   filterTemplates: (params: any) => api.post('/templates/filter', params),
+  
+  // Parameter endpoints
+  getParameters: () => api.get('/parameters/all'),
+  getParameterValues: (parameterId: string) => api.get(`/parameters/${parameterId}/values`),
 };
 
 export { templateApi };
