@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import debounce from 'lodash.debounce'; // Add this import
-import { Post } from '../../types';
+import { Post } from '../../types/editor';
 
 interface SidebarProps {
   isCollapsed: boolean;

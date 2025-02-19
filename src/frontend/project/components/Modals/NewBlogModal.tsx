@@ -5,7 +5,7 @@ import { Tweet } from 'react-tweet';
 import { useEditorStore } from '../../store/editorStore';
 import Masonry from 'react-masonry-css';
 import api from '../../services/api';
-import { Source } from '../../types';
+import { Source } from '../../types/editor';
 import { useNavigate } from 'react-router-dom'; // Replace useRouter
 import { SourceCard } from '../Sources/SourceCard';
 import { GenerateLoader } from '../common/GenerateLoader';
@@ -78,9 +78,13 @@ interface CustomUrlForm {
 export const NewBlogModal: React.FC<NewBlogModalProps> = ({ 
   isOpen, 
   onClose, 
-  onGenerate,
   selectedTemplate 
 }) => {
+  // Add console.log to debug template data
+  useEffect(() => {
+    console.log('Selected template in modal:', selectedTemplate);
+  }, [selectedTemplate]);
+
   const [selectedSource, setSelectedSource] = useState<SourceType | null>(null);
   const [selectedIdentifier, setSelectedIdentifier] = useState(''); // Change this to store the unique ID
   const [isLoading, setIsLoading] = useState(false);
@@ -140,21 +144,21 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
   }));
 
   // Use this effect at component level
-  useEffect(() => {
-    if (selectedSource === 'reddit' && selectedSubreddit) {
-      setIsLoadingTrending(true);
-      fetchTrendingBlogTopics([selectedSubreddit], 15)
-        .then(() => {
-          setCurrentTopicsPage(1);
-        })
-        .finally(() => {
-          setIsLoadingTrending(false);
-        });
-    } else if (selectedSource === 'reddit') {
-      // Clear trending topics when no subreddit is selected
-      useEditorStore.getState().trendingBlogTopics = [];
-    }
-  }, [selectedSource, selectedSubreddit, fetchTrendingBlogTopics]);
+  // useEffect(() => {
+  //   if (selectedSource === 'reddit' && selectedSubreddit) {
+  //     setIsLoadingTrending(true);
+  //     fetchTrendingBlogTopics([selectedSubreddit], 15)
+  //       .then(() => {
+  //         setCurrentTopicsPage(1);
+  //       })
+  //       .finally(() => {
+  //         setIsLoadingTrending(false);
+  //       });
+  //   } else if (selectedSource === 'reddit') {
+  //     // Clear trending topics when no subreddit is selected
+  //     useEditorStore.getState().trendingBlogTopics = [];
+  //   }
+  // }, [selectedSource, selectedSubreddit, fetchTrendingBlogTopics]);
 
   // Update fetchSources to handle Reddit search
   const fetchSources = async () => {
@@ -295,7 +299,10 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
     }));
   };
 
-  // Update handleGenerate to include Reddit search
+  // Template state is already declared at the bottom of the component
+  // Removed duplicate declaration
+
+  // Update payload creation in handleGenerate function
   const handleGenerate = async () => {
     if (isRedditSearch) {
       if (!redditSearch.isValid) {
@@ -304,11 +311,19 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
       }
       setIsGenerating(true);
       try {
-        const payload = {
+        const payload: {
+          post_types: string[];
+          topic: string;
+          template_id?: string;
+        } = {
           post_types: ["blog"],
           topic: redditSearch.query,
-          // subreddit: selectedSubreddit  // Include optional subreddit
+          ...(selectedTemplate?.id ? { template_id: selectedTemplate.id } : {})
         };
+        // Only add template_id if it exists
+        if (selectedTemplate?.id) {
+          payload.template_id = selectedTemplate.id;
+        }
         await api.post('/content/generate', payload);
         
         await new Promise(resolve => setTimeout(resolve, 3000));
@@ -339,9 +354,14 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
       }
       setIsGenerating(true);
       try {
-        const payload = {
+        const payload: {
+          post_types: string[];
+          topic: string;
+          template_id?: string;
+        } = {
           post_types: ["blog"],
-          topic: customTopic.topic
+          topic: customTopic.topic,
+          ...(selectedTemplate?.id ? { template_id: selectedTemplate.id } : {})
         };
         await api.post('/content/generate', payload);
         
@@ -374,31 +394,24 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
       }
       setIsGenerating(true);
       try {
-        const payload = {
+        const payload: {
+          post_types: string[];
+          url: string;
+          template_id?: string;
+        } = {
           post_types: ["blog"],
           url: customUrl.url,
-          template_id: activeTemplate?.id
+          ...(selectedTemplate?.id ? { template_id: selectedTemplate.id } : {})
         };
         await api.post('/content/generate', payload);
         
-        // Increased wait time and added multiple refresh attempts
         await new Promise(resolve => setTimeout(resolve, 3000));
         
-        // First refresh
         await fetchPosts({
           forceRefresh: true,
           timestamp: Date.now(),
           reset: true
         }, 0, 20);
-
-        // // Second refresh after a short delay
-        // setTimeout(async () => {
-        //   await fetchPosts({
-        //     forceRefresh: true,
-        //     timestamp: Date.now(),
-        //     reset: true
-        //   }, 0, 20);
-        // }, 2000);
         
         onClose();
       } catch (err: any) {
@@ -438,16 +451,18 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
           ? 'tweet_id' 
           : selectedSource === 'reddit'
             ? 'reddit_id'
-            : 'url']: sourceData.source_identifier,
-        template_id: activeTemplate?.id
+            : 'url']: sourceData.source_identifier
       };
+
+      // Only add template_id if it exists
+      if (selectedTemplate?.id) {
+        payload.template_id = selectedTemplate.id;
+      }
       
       await api.post('/content/generate', payload);
       
-      // Increased wait time and added multiple refresh attempts
       await new Promise(resolve => setTimeout(resolve, 3000));
       
-      // First refresh
       await fetchPosts({
         forceRefresh: true,
         timestamp: Date.now(),
@@ -1006,10 +1021,6 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
     }
   };
 
-  // Add template state
-  const [activeTemplate] = useState(selectedTemplate);
-
-  // Add template info to modal header if template is selected
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">
       {/* Dark overlay */}
@@ -1024,11 +1035,11 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
               <div className="flex items-center justify-between">
                 <div>
                   <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {activeTemplate ? `New ${activeTemplate.category}` : 'Create New Blog Post'}
+                    Create New Blog Post
                   </Dialog.Title>
-                  {activeTemplate && (
+                  {selectedTemplate && (
                     <p className="text-sm text-gray-500 mt-1">
-                      Using template: {activeTemplate.title}
+                      Using template: {selectedTemplate.title}
                     </p>
                   )}
                 </div>

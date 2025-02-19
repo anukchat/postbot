@@ -246,3 +246,20 @@ CREATE TABLE IF NOT EXISTS user_generations (
 -- Step 4: Add indexes for faster lookups
 CREATE INDEX IF NOT EXISTS idx_user_thread_generations_profile_id ON user_thread_generations(profile_id);
 CREATE INDEX IF NOT EXISTS idx_user_thread_generations_thread_id ON user_thread_generations(thread_id);
+
+
+CREATE TABLE IF NOT EXISTS templates (
+    template_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    description TEXT,
+    template_type TEXT CHECK (template_type IN ('default', 'custom')) DEFAULT 'default',
+    profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE, -- NULL for default templates
+    parameters JSONB NOT NULL, -- Stores all layers (persona, age group, etc.)
+    template_image_url TEXT, -- URL to the template image (e.g., hosted on S3 or CDN)
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+
+ALTER TABLE content ADD COLUMN template_id UUID REFERENCES templates(template_id) ON DELETE SET NULL;

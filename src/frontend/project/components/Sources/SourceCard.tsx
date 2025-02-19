@@ -2,7 +2,7 @@ import React from 'react';
 import { MoreVertical, Eye, ArrowUpRight, AlertCircle } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import Tippy from '@tippyjs/react';
-import { Source } from '../../types';
+import { Source } from '../../types/editor';
 
 interface SourceCardProps {
   source: Source;

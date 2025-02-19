@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
+import { cacheService } from '../../services/cacheService';
 
 interface TemplateProps {
   id: string;
@@ -18,6 +19,39 @@ export const TemplateCard: React.FC<TemplateProps> = ({
   category 
 }) => {
   const navigate = useNavigate();
+  const [imageUrl, setImageUrl] = useState<string>('');
+
+  useEffect(() => {
+    const loadImage = async () => {
+      if (!thumbnail) return;
+
+      // Try to get from cache first
+      const cachedImage = cacheService.getCachedImage(thumbnail);
+      if (cachedImage) {
+        setImageUrl(URL.createObjectURL(cachedImage));
+        return;
+      }
+
+      // If not in cache, fetch and cache it
+      try {
+        const response = await fetch(thumbnail);
+        const blob = await response.blob();
+        await cacheService.cacheImage(thumbnail, blob);
+        setImageUrl(URL.createObjectURL(blob));
+      } catch (error) {
+        console.error('Failed to load template image:', error);
+      }
+    };
+
+    loadImage();
+
+    // Cleanup URL on unmount
+    return () => {
+      if (imageUrl) {
+        URL.revokeObjectURL(imageUrl);
+      }
+    };
+  }, [thumbnail]);
 
   const handleTemplateSelect = () => {
     navigate('/dashboard', { 
@@ -41,11 +75,14 @@ export const TemplateCard: React.FC<TemplateProps> = ({
       {/* Thumbnail with gradient overlay */}
       <div className="aspect-[16/9] overflow-hidden relative">
         <div className="absolute inset-0 bg-gradient-to-b from-black/0 to-black/60 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-        <img 
-          src={thumbnail} 
-          alt={title}
-          className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300"
-        />
+        {imageUrl ? (
+          <div 
+            className="w-full h-full bg-cover bg-center transform group-hover:scale-105 transition-transform duration-300"
+            style={{ backgroundImage: `url(${imageUrl})` }}
+          />
+        ) : (
+          <div className="w-full h-full bg-gray-100 dark:bg-gray-700 animate-pulse" />
+        )}
       </div>
 
       {/* Content */}

@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useEditorStore } from '../../store/editorStore';
-import { Post } from '../../types';
 import { Loader, Search, Filter, X, RefreshCw } from 'lucide-react';
 import debounce from 'lodash.debounce';
+import { Post } from '../../types/editor';
 
 interface NavigationDrawerProps {
   isOpen: boolean;
@@ -258,7 +258,6 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
   };
 
   const handlePostSelect = (post: Post) => {
-    setCurrentPost(post);
     onClose();
   };
 

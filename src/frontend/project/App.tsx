@@ -28,6 +28,7 @@ import { NewBlogModal } from './components/Modals/NewBlogModal';
 import { Bell, Settings as SettingsIcon } from 'lucide-react';
 import Tippy from '@tippyjs/react';
 import 'tippy.js/dist/tippy.css';
+import { AdminLayout } from './components/Admin/AdminLayout';
 
 // Set the root element for accessibility
 Modal.setAppElement('#root');
@@ -137,7 +138,13 @@ const MainAppLayout: React.FC = () => {
   };
 
   const handleCommandInsert = (commandText: string, replaceLength: number) => {
+    // Handle command insert logic here
     console.log('Command insert:', commandText, replaceLength);
+  };
+
+  const onTemplateSelect = (template: any) => {
+    // Show the source selection modal
+    setShowSourceModal(true);
   };
 
   return (
@@ -172,7 +179,7 @@ const MainAppLayout: React.FC = () => {
               </Tippy>
               <UserMenu />
             </div>
-          </div>
+        </div>
 
           {/* Content wrapper with adjusted padding */}
           <div className="flex flex-col h-full max-w-full overflow-x-hidden">
@@ -181,39 +188,39 @@ const MainAppLayout: React.FC = () => {
                 {/* IconMenuBar - Floating */}
                 <div className="fixed top-0 right-16 left-0 z-20">
                   <div className="flex items-center w-full bg-white dark:bg-gray-800 border-b">
-                    <IconMenuBar selectedTab={selectedTab} onCommandInsert={handleCommandInsert} />
+            <IconMenuBar selectedTab={selectedTab} onCommandInsert={handleCommandInsert} />
                   </div>
                 </div>
-                
+            
                 {/* FloatingTabs - Floating */}
                 <div className="fixed top-12 right-0 left-0 z-20">
-                  <FloatingTabs 
-                    selectedTab={selectedTab}
-                    onTabChange={handleTabChange}
-                    onViewChange={handleViewChange}
-                    currentView={isCanvasView ? 'canvas' : isPostDetailsView ? 'details' : 'editor'}
-                  />
+            <FloatingTabs 
+              selectedTab={selectedTab}
+              onTabChange={handleTabChange}
+              onViewChange={handleViewChange}
+              currentView={isCanvasView ? 'canvas' : isPostDetailsView ? 'details' : 'editor'}
+            />
                 </div>
-                
+            
                 {/* Content area */}
                 <div className="flex-1 overflow-y-auto overflow-x-hidden">
                   <div className="h-full max-w-full">
-                    {isCanvasView ? (
-                      <CanvasView />
-                    ) : isPostDetailsView ? (
-                      <PostDetails />
-                    ) : (
-                      <MarkdownEditor
-                        content={getContent()}
-                        onChange={handleContentChange}
-                        selectedTab={selectedTab}
-                      />
-                    )}
-                  </div>
-                </div>
+                {isCanvasView ? (
+                  <CanvasView />
+                ) : isPostDetailsView ? (
+                  <PostDetails />
+                ) : (
+                  <MarkdownEditor
+                    content={getContent()}
+                    onChange={handleContentChange}
+                    selectedTab={selectedTab}
+                  />
+                )}
+              </div>
+            </div>
               </>
             ) : (
-              <TemplatesView />
+              <TemplatesView onTemplateSelect={onTemplateSelect} />
             )}
           </div>
         </div>
@@ -255,6 +262,11 @@ export const App: React.FC = () => {
             <Route path="/settings" element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin" element={
+              <ProtectedRoute>
+                <AdminLayout />
               </ProtectedRoute>
             } />
 

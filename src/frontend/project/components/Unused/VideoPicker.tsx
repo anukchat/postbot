@@ -1,5 +1,5 @@
 import React from 'react';
-import { Media } from '../../types';
+import { Media } from '../../types/editor';
 import { X, Play } from 'lucide-react';
 
 interface VideoPickerProps {

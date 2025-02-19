@@ -1,6 +1,6 @@
 import React from 'react';
 import Modal from 'react-modal';
-import { Url } from '../../types';
+import { Url } from '../../types/editor';
 import { X } from 'lucide-react';
 import MicrolinkCard from '@microlink/react';
 

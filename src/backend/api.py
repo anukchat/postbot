@@ -54,6 +54,79 @@ class CallbackResponse(BaseModel):
     access_token: str  # The access token returned after the OAuth flow
     token_type: str    # The type of token (e.g., "bearer")
 
+
+# Model for a single parameter value
+class TemplateParameterValue(BaseModel):
+    parameter_id: UUID
+    value_id: UUID
+    value: str  # The actual value (e.g., "Technical Expert")
+
+# Model for a single parameter
+class TemplateParameter(BaseModel):
+    parameter_id: UUID
+    name: str  # Parameter name (e.g., "persona")
+    display_name: str  # Friendly name for UI
+    value: TemplateParameterValue  # Selected value
+
+# Model for creating a template
+class TemplateCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    template_type: str = "default"
+    template_image_url: Optional[str] = None
+    parameters: List[TemplateParameter]  # List of selected parameters
+
+# Model for updating a template
+class TemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    template_type: Optional[str] = None
+    template_image_url: Optional[str] = None
+    parameters: Optional[List[TemplateParameter]] = None  # Optional list of updated parameters
+
+# Model for template response
+class TemplateResponse(BaseModel):
+    template_id: UUID
+    name: str
+    description: Optional[str] = None
+    template_type: str
+    template_image_url: Optional[str] = None
+    parameters: List[TemplateParameter]  # List of parameters with selected values
+    created_at: datetime
+    updated_at: datetime
+    is_deleted: bool
+
+# Model for filtering templates
+class TemplateFilter(BaseModel):
+    persona: Optional[str] = None
+    age_group: Optional[str] = None
+    content_type: Optional[str] = None
+    template_type: Optional[str] = None  # Default or custom
+    is_deleted: Optional[bool] = False  # Filter by soft-deleted templates
+
+class ParameterResponse(BaseModel):
+    parameter_id: str
+    name: str
+    display_name: str
+    description: Optional[str]
+    is_required: bool
+    created_at: datetime
+
+class ParameterFilter(BaseModel):
+    parameter_id: UUID
+    value_id: UUID
+
+class AdvancedTemplateFilter(BaseModel):
+    parameters: List[ParameterFilter]
+    template_type: Optional[str] = None
+    is_deleted: Optional[bool] = False
+
+class ParameterValueResponse(BaseModel):
+    value_id: str
+    value: str
+    display_order: int
+    created_at: datetime
+
 class ContentListItem(BaseModel):
     id: str
     thread_id: str
@@ -99,6 +172,7 @@ class GeneratePostRequestModel(BaseModel):
     feedback: Optional[str] = None  # Add this field
     reddit_query: Optional[str] = None
     subreddit: Optional[str] = None
+    template_id: Optional[str] = None
 
 class SourceListResponse(BaseModel):
     items: List[Dict]
@@ -1132,6 +1206,506 @@ async def create_reddit_summary(
             status="error",
             error=str(e)
         )
+
+#Templates endpoints
+@app.post("/templates/", response_model=TemplateResponse, tags=["templates"])
+def create_template(
+    template: TemplateCreate, 
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Create a new template."""
+    try:
+        # Insert the template
+        template_data = {
+            "name": template.name,
+            "description": template.description,
+            "template_type": template.template_type,
+            "template_image_url": template.template_image_url,
+            "profile_id": profile["id"]
+        }
+        response = supabase.table("templates").insert(template_data).execute()
+        if not response.data:
+            raise HTTPException(status_code=400, detail="Failed to create template")
+        
+        template_id = response.data[0]["template_id"]
+
+        # Insert template parameters
+        for param in template.parameters:
+            supabase.table("template_parameters").insert({
+                "template_id": template_id,
+                "parameter_id": str(param.parameter_id),
+                "value_id": str(param.value.value_id)
+            }).execute()
+
+        # Fetch the created template with parameters
+        return read_template(template_id, profile)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.get("/templates/{template_id}", response_model=TemplateResponse, tags=["templates"])
+def read_template(
+    template_id: UUID, 
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Get a template by ID."""
+    try:
+        # Fetch the template
+        template_response = supabase.table("templates").select("*").eq("template_id", template_id).eq("profile_id", profile["id"]).execute()
+        if not template_response.data:
+            raise HTTPException(status_code=404, detail="Template not found")
+        template = template_response.data[0]
+
+        # Fetch template parameters
+        params_response = supabase.table("template_parameters").select(
+            "parameter_id, value_id, parameters(name, display_name), parameter_values(value)"
+        ).eq("template_id", template_id).execute()
+
+        # Format parameters
+        parameters = []
+        for param in params_response.data:
+            parameters.append({
+                "parameter_id": param["parameter_id"],
+                "name": param["parameters"]["name"],
+                "display_name": param["parameters"]["display_name"],
+                "value": {
+                    "parameter_id": param["parameter_id"],
+                    "value_id": param["value_id"],
+                    "value": param["parameter_values"]["value"]
+                }
+            })
+
+        # Return the template with parameters
+        return {
+            "template_id": template["template_id"],
+            "name": template["name"],
+            "description": template["description"],
+            "template_type": template["template_type"],
+            "template_image_url": template["template_image_url"],
+            "parameters": parameters,
+            "created_at": template["created_at"],
+            "updated_at": template["updated_at"],
+            "is_deleted": template["is_deleted"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.put("/templates/{template_id}", response_model=TemplateResponse, tags=["templates"])
+def update_template(
+    template_id: UUID, 
+    template: TemplateUpdate, 
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Update a template by ID."""
+    try:
+        # Update template fields
+        update_data = {}
+        if template.name:
+            update_data["name"] = template.name
+        if template.description:
+            update_data["description"] = template.description
+        if template.template_type:
+            update_data["template_type"] = template.template_type
+        if template.template_image_url:
+            update_data["template_image_url"] = template.template_image_url
+
+        if update_data:
+            supabase.table("templates").update(update_data).eq("template_id", template_id).eq("profile_id", profile["id"]).execute()
+
+        # Update template parameters (if provided)
+        if template.parameters:
+            # Delete existing parameters
+            supabase.table("template_parameters").delete().eq("template_id", template_id).execute()
+
+            # Insert new parameters
+            for param in template.parameters:
+                supabase.table("template_parameters").insert({
+                    "template_id": str(template_id),
+                    "parameter_id": str(param.parameter_id),
+                    "value_id": str(param.value.value_id)
+                }).execute()
+
+        # Fetch the updated template
+        return read_template(template_id, profile)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.delete("/templates/{template_id}", tags=["templates"])
+def delete_template(
+    template_id: UUID, 
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Soft delete a template by ID."""
+    try:
+        response = supabase.table("templates").update({
+            "updated_at": datetime.now().isoformat(),
+            "is_deleted": True
+        }).eq("template_id", template_id).eq("profile_id", profile["id"]).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Template not found")
+        return {"message": "Template deleted"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/templates/", response_model=List[TemplateResponse], tags=["templates"])
+def list_templates(
+    skip: int = 0, 
+    limit: int = 10, 
+    template_type: Optional[str] = None, 
+    profile: dict = Depends(get_current_user_profile)
+):
+    """List all templates for the authenticated user."""
+    try:
+        query = supabase.table("templates").select("*").eq("profile_id", profile["id"]).eq("is_deleted", False).range(skip, skip + limit - 1)
+
+        if template_type:
+            query = query.eq("template_type", template_type)
+        response = query.execute()
+        return [read_template(t["template_id"], profile) for t in response.data]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/templates/filter", response_model=List[TemplateResponse], tags=["templates"])
+def filter_templates(
+    filter: TemplateFilter, 
+    skip: int = 0, 
+    limit: int = 10, 
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Filter templates based on parameters."""
+    try:
+        # Base query
+        query = supabase.table("templates").select("*").eq("profile_id", profile["id"]).range(skip, skip + limit - 1)
+
+        # Apply filters
+        if filter.content_type:
+            query = query.eq("template_type", filter.template_type)
+        if filter.is_deleted is not None:
+            query = query.eq("is_deleted", filter.is_deleted)
+
+        # Execute the query
+        response = query.execute()
+        return [read_template(t["template_id"], profile) for t in response.data]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+     
+@app.get("/parameters/", response_model=List[ParameterResponse], tags=["parameters"])
+def get_all_parameters(
+    skip: int = 0, 
+    limit: int = 100,
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Get all available parameters."""
+    try:
+        response = supabase.table("parameters").select("*").range(skip, skip + limit - 1).execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# Response model for parameter values
+class ParameterWithValues(BaseModel):
+    parameter_id: UUID
+    name: str
+    display_name: str
+    description: Optional[str]
+    is_required: bool
+    created_at: datetime
+    values: List[ParameterValueResponse]
+
+@app.get("/parameters/all", response_model=List[ParameterWithValues], tags=["parameters"])
+def get_all_parameters_with_values(
+    skip: int = 0,
+    limit: int = 100,
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Get all parameters with their associated values in a single response."""
+    try:
+        # Get parameters and values in a single query using join
+        response = supabase.table("parameters") \
+            .select("*, parameter_values(*)") \
+            .range(skip, skip + limit - 1) \
+            .execute()
+
+        if not response.data:
+            return []
+
+        result = []
+        for param in response.data:
+            parameter_with_values = ParameterWithValues(
+                parameter_id=param["parameter_id"],
+                name=param["name"],
+                display_name=param["display_name"],
+                description=param.get("description"),
+                is_required=param["is_required"],
+                created_at=param["created_at"],
+                values=[
+                    ParameterValueResponse(
+                        value_id=value["value_id"],
+                        value=value["value"],
+                        display_order=value["display_order"],
+                        created_at=value["created_at"]
+                    ) for value in (param.get("parameter_values") or [])
+                ]
+            )
+            result.append(parameter_with_values)
+
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/parameters/{parameter_id}", response_model=ParameterResponse, tags=["parameters"])
+def get_parameter(
+    parameter_id: UUID, 
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Get details for a specific parameter."""
+    try:
+        response = supabase.table("parameters").select("*").eq("parameter_id", parameter_id).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Parameter not found")
+        return response.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/parameters/{parameter_id}/values", response_model=List[ParameterValueResponse], tags=["parameters"])
+def get_parameter_values(
+    parameter_id: UUID, 
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Get allowed values for a parameter."""
+    try:
+        response = supabase.table("parameter_values").select("*").eq("parameter_id", parameter_id).order("display_order").execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# Parameter management endpoints
+@app.post("/parameters/", response_model=ParameterResponse, tags=["parameters"])
+def create_parameter(
+    name: str = Body(...),
+    display_name: str = Body(...),
+    description: Optional[str] = Body(None),
+    is_required: bool = Body(True),
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Create a new parameter."""
+    try:
+        response = supabase.table("parameters").insert({
+            "name": name,
+            "display_name": display_name,
+            "description": description,
+            "is_required": is_required
+        }).execute()
+        return response.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.put("/parameters/{parameter_id}", response_model=ParameterResponse, tags=["parameters"])
+def update_parameter(
+    parameter_id: UUID,
+    name: Optional[str] = Body(None),
+    display_name: Optional[str] = Body(None),
+    description: Optional[str] = Body(None),
+    is_required: Optional[bool] = Body(None),
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Update a parameter."""
+    try:
+        update_data = {}
+        if name is not None:
+            update_data["name"] = name
+        if display_name is not None:
+            update_data["display_name"] = display_name
+        if description is not None:
+            update_data["description"] = description
+        if is_required is not None:
+            update_data["is_required"] = is_required
+
+        response = supabase.table("parameters").update(update_data).eq("parameter_id", parameter_id).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Parameter not found")
+        return response.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.delete("/parameters/{parameter_id}", tags=["parameters"])
+def delete_parameter(
+    parameter_id: UUID,
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Delete a parameter and its values."""
+    try:
+        # Delete parameter values first
+        supabase.table("parameter_values").delete().eq("parameter_id", parameter_id).execute()
+        # Delete parameter
+        response = supabase.table("parameters").delete().eq("parameter_id", parameter_id).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Parameter not found")
+        return {"message": "Parameter and associated values deleted"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# Parameter values management endpoints
+@app.post("/parameters/{parameter_id}/values", response_model=ParameterValueResponse, tags=["parameters"])
+def create_parameter_value(
+    parameter_id: UUID,
+    value: str = Body(...),
+    display_order: int = Body(0),
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Create a new parameter value."""
+    try:
+        # If display_order is 0 (default), get the max display_order and increment
+        if display_order == 0:
+            response = supabase.table("parameter_values") \
+                .select("display_order") \
+                .eq("parameter_id", str(parameter_id)) \
+                .order("display_order", desc=True) \
+                .limit(1) \
+                .execute()
+            
+            max_order = response.data[0]["display_order"] if response.data else 0
+            display_order = max_order + 1
+        else:
+            # Check if display_order already exists
+            exists = supabase.table("parameter_values") \
+                .select("value_id") \
+                .eq("parameter_id", str(parameter_id)) \
+                .eq("display_order", display_order) \
+                .execute()
+                
+            if exists.data:
+                raise HTTPException(status_code=400, detail="Display order already exists")
+
+        response = supabase.table("parameter_values").insert({
+            "parameter_id": str(parameter_id),
+            "value": value,
+            "display_order": display_order
+        }).execute()
+        return response.data[0]
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.put("/parameters/{parameter_id}/values/{value_id}", response_model=ParameterValueResponse, tags=["parameters"])
+def update_parameter_value(
+    parameter_id: UUID,
+    value_id: UUID,
+    value: Optional[str] = Body(None),
+    display_order: Optional[int] = Body(None),
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Update a parameter value."""
+    try:
+        update_data = {}
+        if value is not None:
+            update_data["value"] = value
+            
+        if display_order is not None:
+            # Check if display_order already exists for another value
+            exists = supabase.table("parameter_values") \
+                .select("value_id") \
+                .eq("parameter_id", str(parameter_id)) \
+                .eq("display_order", display_order) \
+                .neq("value_id", str(value_id)) \
+                .execute()
+                
+            if exists.data:
+                raise HTTPException(status_code=400, detail="Display order already exists")
+                
+            update_data["display_order"] = display_order
+
+        response = supabase.table("parameter_values").update(update_data).eq("value_id", str(value_id)).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Parameter value not found")
+        return response.data[0]
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.delete("/parameters/{parameter_id}/values/{value_id}", tags=["parameters"])
+def delete_parameter_value(
+    parameter_id: UUID,
+    value_id: UUID,
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Delete a parameter value."""
+    try:
+        response = supabase.table("parameter_values").delete().eq("value_id", value_id).eq("parameter_id", parameter_id).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Parameter value not found")
+        return {"message": "Parameter value deleted"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.get("/parameters/all", response_model=List[ParameterWithValues], tags=["parameters"])
+def get_all_parameters_with_values(
+    skip: int = 0,
+    limit: int = 100,
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Get all parameters with their associated values in a single response."""
+    try:
+        # Get parameters and values in a single query using join
+        response = supabase.table("parameters") \
+            .select("*, parameter_values(*)") \
+            .range(skip, skip + limit - 1) \
+            .execute()
+
+        if not response.data:
+            return []
+
+        result = []
+        for param in response.data:
+            parameter_with_values = ParameterWithValues(
+                parameter_id=param["parameter_id"],
+                name=param["name"],
+                display_name=param["display_name"],
+                description=param.get("description"),
+                is_required=param["is_required"],
+                created_at=param["created_at"],
+                values=[
+                    ParameterValueResponse(
+                        value_id=value["value_id"],
+                        value=value["value"],
+                        display_order=value["display_order"],
+                        created_at=value["created_at"]
+                    ) for value in (param.get("parameter_values") or [])
+                ]
+            )
+            result.append(parameter_with_values)
+
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/templates/advanced-filter", response_model=List[TemplateResponse], tags=["templates"])
+def advanced_filter_templates(
+    filter: AdvancedTemplateFilter,
+    skip: int = 0,
+    limit: int = 10,
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Filter templates by multiple parameters."""
+    try:
+        # Base query
+        query = supabase.table("templates").select("*, template_parameters!inner(*)").eq("profile_id", profile["id"]).range(skip, skip + limit - 1)
+
+        # Add parameter filters
+        for param_filter in filter.parameters:
+            query = query.contains("template_parameters", {"parameter_id": str(param_filter.parameter_id), "value_id": str(param_filter.value_id)})
+
+        # Add other filters
+        if filter.template_type:
+            query = query.eq("template_type", filter.template_type)
+        if filter.is_deleted is not None:
+            query = query.eq("is_deleted", filter.is_deleted)
+
+        response = query.execute()
+        return [read_template(t["template_id"], profile) for t in response.data]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
     uvicorn.run("src.backend.api:app", host="0.0.0.0", port=8000, reload=False)
