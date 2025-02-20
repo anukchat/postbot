@@ -97,7 +97,7 @@ export const TemplateManagement: React.FC = () => {
 
       {/* Header with create button */}
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold">Template Management</h2>
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Template Management</h2>
         <TemplateActionButton
           onClick={() => openEditDialog()}
           isLoading={isTemplateActionLoading}
@@ -113,7 +113,7 @@ export const TemplateManagement: React.FC = () => {
         {templates.map(template => (
           <div 
             key={template.template_id} 
-            className="flex p-4 border rounded-lg hover:shadow-md transition-shadow"
+            className="flex p-4 border dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow"
           >
             <div className="flex-shrink-0 w-24 h-24 mr-4">
               {template.template_image_url && (
@@ -127,9 +127,9 @@ export const TemplateManagement: React.FC = () => {
             <div className="flex-grow">
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="text-lg font-semibold">{template.name}</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{template.name}</h3>
                   <p className="text-gray-600 dark:text-gray-300">{template.description}</p>
-                  <p className="text-sm text-gray-500 mt-1">Type: {template.template_type}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Type: {template.template_type}</p>
                 </div>
                 <div className="flex gap-2">
                   <TemplateActionButton
@@ -150,10 +150,10 @@ export const TemplateManagement: React.FC = () => {
               </div>
               {/* Display parameters */}
               <div className="mt-2">
-                <p className="text-sm text-gray-500">Parameters:</p>
+                <p className="text-sm text-gray-500 dark:text-gray-300">Parameters:</p>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {template.parameters?.map((param: any) => (
-                    <span key={param.parameter_id} className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                    <span key={param.parameter_id} className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">
                       {param.display_name}: {param.value.value}
                     </span>
                   ))}
@@ -165,7 +165,7 @@ export const TemplateManagement: React.FC = () => {
       </div>
 
       {templates.length === 0 && !isTemplateLoading && (
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-gray-500 dark:text-gray-300">
           No templates found. Create your first template to get started.
         </div>
       )}

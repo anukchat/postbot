@@ -26,7 +26,7 @@ export const AdminLayout: React.FC = () => {
         <div className="h-full container mx-auto py-6 px-4">
 
           <div className="flex items-center mb-6">
-            <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Admin Dashboard</h1>
           </div>
 
           <SharedLayout />

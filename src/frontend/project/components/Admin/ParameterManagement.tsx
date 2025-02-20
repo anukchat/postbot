@@ -160,7 +160,7 @@ export const ParameterManagement = () => {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
       <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-        <h2 className="text-lg font-semibold">Parameters</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Parameters</h2>
         <button 
           onClick={() => setIsCreateModalOpen(true)}
           className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
@@ -176,7 +176,7 @@ export const ParameterManagement = () => {
             <div className="mb-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="text-lg font-semibold">{parameter.display_name}</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{parameter.display_name}</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">{parameter.description}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-xs text-gray-400">ID: {parameter.parameter_id}</span>
@@ -189,7 +189,7 @@ export const ParameterManagement = () => {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-700 dark:text-gray-300"
                     onClick={() => {
                       setEditingParameter(parameter);
                       setNewParameter({
@@ -245,11 +245,11 @@ export const ParameterManagement = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {(parameterValues[parameter.parameter_id] || []).map((value) => (
+                    {(parameter.values || []).map((value) => (
                       <tr key={value.value_id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">{value.value}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">{value.display_order}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(value.created_at).toLocaleDateString()}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{value.value}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{value.display_order}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{new Date(value.created_at).toLocaleDateString()}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end gap-2">
                             <button
@@ -301,37 +301,37 @@ export const ParameterManagement = () => {
       >
         <Dialog.Panel className="w-full max-w-md bg-white dark:bg-gray-800 rounded-lg shadow-xl">
           <div className="p-6">
-            <Dialog.Title className="text-lg font-semibold mb-4">
+            <Dialog.Title className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
               {editingParameter ? 'Edit Parameter' : 'Create Parameter'}
             </Dialog.Title>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Name</label>
+                <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Name</label>
                 <input
                   type="text"
                   value={newParameter.name}
                   onChange={(e) => setNewParameter({ ...newParameter, name: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Display Name</label>
+                <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Display Name</label>
                 <input
                   type="text"
                   value={newParameter.display_name}
                   onChange={(e) => setNewParameter({ ...newParameter, display_name: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Description</label>
+                <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Description</label>
                 <textarea
                   value={newParameter.description}
                   onChange={(e) => setNewParameter({ ...newParameter, description: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
                   rows={3}
                 />
               </div>
@@ -344,7 +344,7 @@ export const ParameterManagement = () => {
                   onChange={(e) => setNewParameter({ ...newParameter, is_required: e.target.checked })}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
-                <label htmlFor="isRequired" className="ml-2 text-sm">Required</label>
+                <label htmlFor="isRequired" className="ml-2 text-sm text-gray-900 dark:text-gray-100">Required</label>
               </div>
             </div>
 
@@ -383,30 +383,30 @@ export const ParameterManagement = () => {
       >
         <Dialog.Panel className="w-full max-w-md bg-white dark:bg-gray-800 rounded-lg shadow-xl">
           <div className="p-6">
-            <Dialog.Title className="text-lg font-semibold mb-4">
+            <Dialog.Title className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
               {editingValue ? 'Edit Value' : 'Add Value'}
             </Dialog.Title>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Value</label>
+                <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Value</label>
                 <input
                   type="text"
                   value={newValue.value}
                   onChange={(e) => setNewValue({ ...newValue, value: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter value"
                   autoFocus
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Display Order</label>
+                <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Display Order</label>
                 <input
                   type="number"
                   value={newValue.display_order}
                   onChange={(e) => setNewValue({ ...newValue, display_order: parseInt(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
                   min="0"
                 />
               </div>
