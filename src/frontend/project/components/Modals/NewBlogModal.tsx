@@ -317,13 +317,13 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
           template_id?: string;
         } = {
           post_types: ["blog"],
-          topic: redditSearch.query,
-          ...(selectedTemplate?.id ? { template_id: selectedTemplate.id } : {})
+          topic: redditSearch.query
         };
-        // Only add template_id if it exists
+        
         if (selectedTemplate?.id) {
           payload.template_id = selectedTemplate.id;
         }
+        
         await api.post('/content/generate', payload);
         
         await new Promise(resolve => setTimeout(resolve, 3000));
@@ -360,13 +360,16 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
           template_id?: string;
         } = {
           post_types: ["blog"],
-          topic: customTopic.topic,
-          ...(selectedTemplate?.id ? { template_id: selectedTemplate.id } : {})
+          topic: customTopic.topic
         };
+
+        if (selectedTemplate?.id) {
+          payload.template_id = selectedTemplate.id;
+        }
+
         await api.post('/content/generate', payload);
         
         await new Promise(resolve => setTimeout(resolve, 3000));
-        
         await fetchPosts({
           forceRefresh: true,
           timestamp: Date.now(),
@@ -400,13 +403,16 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
           template_id?: string;
         } = {
           post_types: ["blog"],
-          url: customUrl.url,
-          ...(selectedTemplate?.id ? { template_id: selectedTemplate.id } : {})
+          url: customUrl.url
         };
+
+        if (selectedTemplate?.id) {
+          payload.template_id = selectedTemplate.id;
+        }
+
         await api.post('/content/generate', payload);
         
         await new Promise(resolve => setTimeout(resolve, 3000));
-        
         await fetchPosts({
           forceRefresh: true,
           timestamp: Date.now(),
@@ -445,24 +451,35 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
     setIsGenerating(true);
     
     try {
-      const payload = {
-        post_types: ["blog"],
-        [selectedSource === 'twitter' 
-          ? 'tweet_id' 
-          : selectedSource === 'reddit'
-            ? 'reddit_id'
-            : 'url']: sourceData.source_identifier
+      const payload: {
+        post_types: string[];
+        tweet_id?: string;
+        reddit_id?: string;
+        url?: string;
+        template_id?: string;
+      } = {
+        post_types: ["blog"]
       };
 
-      // Only add template_id if it exists
+      // Add source-specific identifier
+      if (selectedSource === 'twitter') {
+        payload.tweet_id = sourceData.source_identifier;
+      } else if (selectedSource === 'reddit') {
+        payload.reddit_id = sourceData.source_identifier;
+      } else {
+        payload.url = sourceData.source_identifier;
+      }
+
+      // Add template if selected
       if (selectedTemplate?.id) {
         payload.template_id = selectedTemplate.id;
       }
+
+      console.log('Generate payload:', payload); // Debug log
       
       await api.post('/content/generate', payload);
       
       await new Promise(resolve => setTimeout(resolve, 3000));
-      
       await fetchPosts({
         forceRefresh: true,
         timestamp: Date.now(),

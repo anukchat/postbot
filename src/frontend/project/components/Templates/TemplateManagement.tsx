@@ -4,6 +4,7 @@ import { LoadingSpinner } from '../common/LoadingSpinner';
 import { TemplateActionButton } from './TemplateActionButton';
 import { TemplateDialog } from './TemplateDialog';
 import { DeleteConfirmationDialog } from './DeleteConfirmationDialog';
+import { toast } from 'react-hot-toast';
 
 export const TemplateManagement: React.FC = () => {
   const { 
@@ -31,27 +32,45 @@ export const TemplateManagement: React.FC = () => {
   }, [fetchTemplates, fetchParameters]);
 
   const handleCreateTemplate = async (templateData: any) => {
-    await createTemplate(templateData);
-    setIsEditDialogOpen(false);
-    setSelectedTemplate(null);
-    setSelectedTemplateData(null);
+    try {
+      await createTemplate(templateData);
+      toast.success('Template created successfully');
+      setIsEditDialogOpen(false);
+      setSelectedTemplate(null);
+      setSelectedTemplateData(null);
+    } catch (error) {
+      toast.error('Failed to create template');
+      console.error('Error creating template:', error);
+    }
   };
 
   const handleUpdateTemplate = async (templateData: any) => {
     if (selectedTemplate) {
-      await updateTemplate(selectedTemplate, templateData);
-      setIsEditDialogOpen(false);
-      setSelectedTemplate(null);
-      setSelectedTemplateData(null);
+      try {
+        await updateTemplate(selectedTemplate, templateData);
+        toast.success('Template updated successfully');
+        setIsEditDialogOpen(false);
+        setSelectedTemplate(null);
+        setSelectedTemplateData(null);
+      } catch (error) {
+        toast.error('Failed to update template');
+        console.error('Error updating template:', error);
+      }
     }
   };
 
   const handleDeleteConfirm = async () => {
     if (selectedTemplate) {
-      await deleteTemplate(selectedTemplate);
-      setIsDeleteDialogOpen(false);
-      setSelectedTemplate(null);
-      setSelectedTemplateData(null);
+      try {
+        await deleteTemplate(selectedTemplate);
+        toast.success('Template deleted successfully');
+        setIsDeleteDialogOpen(false);
+        setSelectedTemplate(null);
+        setSelectedTemplateData(null);
+      } catch (error) {
+        toast.error('Failed to delete template');
+        console.error('Error deleting template:', error);
+      }
     }
   };
 

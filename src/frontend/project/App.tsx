@@ -55,6 +55,12 @@ const MainAppLayout: React.FC = () => {
   const [isPostDetailsView, setIsPostDetailsView] = useState(false);
   const [selectedTab, setSelectedTab] = useState<'blog' | 'twitter' | 'linkedin'>('blog');
   const [showSourceModal, setShowSourceModal] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<{
+    id: string;
+    title: string;
+    description: string;
+    category: string;
+  } | null>(null);
   const location = useLocation();
   
   const { 
@@ -64,7 +70,8 @@ const MainAppLayout: React.FC = () => {
     updateLinkedinPost, 
     updateTwitterPost, 
     fetchContentByThreadId, 
-    setCurrentTab 
+    setCurrentTab,
+    currentTemplate
   } = useEditorStore();
 
   // Handle template selection from location state
@@ -143,7 +150,13 @@ const MainAppLayout: React.FC = () => {
   };
 
   const onTemplateSelect = (template: any) => {
-    // Show the source selection modal
+    console.log('Selected template:', template);
+    setSelectedTemplate({
+      id: template.id, // Changed from template.id
+      title: template.title,    // Changed from template.title
+      description: template.description,
+      category: template.category // Changed from template.category
+    }); 
     setShowSourceModal(true);
   };
 
@@ -229,8 +242,12 @@ const MainAppLayout: React.FC = () => {
       {/* Source Selection Modal */}
       <NewBlogModal
         isOpen={showSourceModal}
-        onClose={() => setShowSourceModal(false)}
+        onClose={() => {
+          setShowSourceModal(false);
+          setSelectedTemplate(null); // Clear the template when modal closes
+        }}
         onGenerate={async () => {}} // Implement generation logic
+        selectedTemplate={selectedTemplate || undefined}  // Pass the selected template
       />
     </div>
   );
@@ -240,7 +257,16 @@ export const App: React.FC = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Toaster position="top-right" />
+        <Toaster 
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              background: '#333',
+              color: '#fff',
+            },
+          }}
+        />
         <ErrorBoundary FallbackComponent={ErrorFallback}>
           <Routes>
             {/* Landing and Public routes */}
