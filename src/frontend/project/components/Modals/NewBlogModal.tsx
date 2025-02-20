@@ -304,170 +304,60 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
 
   // Update payload creation in handleGenerate function
   const handleGenerate = async () => {
-    if (isRedditSearch) {
-      if (!redditSearch.isValid) {
-        setError('Please enter a valid search query');
-        return;
-      }
-      setIsGenerating(true);
-      try {
-        const payload: {
-          post_types: string[];
-          topic: string;
-          template_id?: string;
-        } = {
-          post_types: ["blog"],
-          topic: redditSearch.query
-        };
-        
-        if (selectedTemplate?.id) {
-          payload.template_id = selectedTemplate.id;
-        }
-        
-        await api.post('/content/generate', payload);
-        
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        await fetchPosts({
-          forceRefresh: true,
-          timestamp: Date.now(),
-          reset: true
-        }, 0, 20);
-        
-        onClose();
-      } catch (err: any) {
-        console.error('Failed to generate blog:', err);
-        if (err.response?.status === 403 && err.response?.data?.detail?.includes("Generation limit reached")) {
-          toast.error('User has exceeded the generation limit');
-        } else {
-          setError('Failed to generate blog');
-        }
-      } finally {
-        setIsGenerating(false);
-      }
-      return;
-    }
-
-    if (isCustomTopic) {
-      if (!customTopic.isValid) {
-        setError('Please enter a valid topic');
-        return;
-      }
-      setIsGenerating(true);
-      try {
-        const payload: {
-          post_types: string[];
-          topic: string;
-          template_id?: string;
-        } = {
-          post_types: ["blog"],
-          topic: customTopic.topic
-        };
-
-        if (selectedTemplate?.id) {
-          payload.template_id = selectedTemplate.id;
-        }
-
-        await api.post('/content/generate', payload);
-        
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        await fetchPosts({
-          forceRefresh: true,
-          timestamp: Date.now(),
-          reset: true
-        }, 0, 20);
-        
-        onClose();
-      } catch (err: any) {
-        console.error('Failed to generate blog:', err);
-        if (err.response?.status === 403 && err.response?.data?.detail?.includes("Generation limit reached")) {
-          toast.error('User has exceeded the generation limit');
-        } else {
-          setError('Failed to generate blog');
-        }
-      } finally {
-        setIsGenerating(false);
-      }
-      return;
-    }
-
-    if (isCustomUrl) {
-      if (!customUrl.isValid) {
-        setError('Please enter a valid URL');
-        return;
-      }
-      setIsGenerating(true);
-      try {
-        const payload: {
-          post_types: string[];
-          url: string;
-          template_id?: string;
-        } = {
-          post_types: ["blog"],
-          url: customUrl.url
-        };
-
-        if (selectedTemplate?.id) {
-          payload.template_id = selectedTemplate.id;
-        }
-
-        await api.post('/content/generate', payload);
-        
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        await fetchPosts({
-          forceRefresh: true,
-          timestamp: Date.now(),
-          reset: true
-        }, 0, 20);
-        
-        onClose();
-      } catch (err: any) {
-        console.error('Failed to generate blog:', err);
-        if (
-          err.response?.status === 403 &&
-          err.response?.data?.detail?.includes("Generation limit reached")
-        ) {
-          toast.error('User has exceeded the generation limit');
-        } else {
-          setError('Failed to generate blog');
-        }
-      } finally {
-        setIsGenerating(false);
-      }
-      return;
-    }
-
-    // For non-custom URL sources
-    if (!selectedIdentifier) {
-      setError('Please select a source');
-      return;
-    }
-
-    const sourceData = sources.find(source => getUniqueId(source) === selectedIdentifier);
-    if (!sourceData) {
-      setError('Selected source not found');
-      return;
-    }
-
-    setIsGenerating(true);
-    
     try {
-      const payload: {
+      setError(''); // Clear any existing errors
+      setIsGenerating(true);
+
+      let payload: {
         post_types: string[];
+        topic?: string;
+        url?: string;
         tweet_id?: string;
         reddit_id?: string;
-        url?: string;
         template_id?: string;
       } = {
         post_types: ["blog"]
       };
 
-      // Add source-specific identifier
-      if (selectedSource === 'twitter') {
-        payload.tweet_id = sourceData.source_identifier;
-      } else if (selectedSource === 'reddit') {
-        payload.reddit_id = sourceData.source_identifier;
-      } else {
-        payload.url = sourceData.source_identifier;
+      // Handle Reddit search
+      if (isRedditSearch) {
+        if (!redditSearch.isValid) {
+          setError('Please enter a valid search query');
+          return;
+        }
+        payload.topic = redditSearch.query;
+      }
+      // Handle custom topic
+      else if (isCustomTopic) {
+        if (!customTopic.isValid) {
+          setError('Please enter a valid topic');
+          return;
+        }
+        payload.topic = customTopic.topic;
+      }
+      // Handle custom URL
+      else if (isCustomUrl) {
+        if (!customUrl.isValid) {
+          setError('Please enter a valid URL');
+          return;
+        }
+        payload.url = customUrl.url;
+      }
+      // Handle other sources
+      else {
+        const sourceData = sources.find(source => getUniqueId(source) === selectedIdentifier);
+        if (!sourceData) {
+          setError('Selected source not found');
+          return;
+        }
+
+        if (selectedSource === 'twitter') {
+          payload.tweet_id = sourceData.source_identifier;
+        } else if (selectedSource === 'reddit') {
+          payload.reddit_id = sourceData.source_identifier;
+        } else {
+          payload.url = sourceData.source_identifier;
+        }
       }
 
       // Add template if selected
@@ -475,36 +365,38 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
         payload.template_id = selectedTemplate.id;
       }
 
-      console.log('Generate payload:', payload); // Debug log
+      const response = await api.post('/content/generate', payload);
       
-      await api.post('/content/generate', payload);
-      
+      // Wait for a short time to ensure the post is generated
       await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Fetch latest posts to get the new blog
       await fetchPosts({
         forceRefresh: true,
         timestamp: Date.now(),
         reset: true
       }, 0, 20);
-
-      // Second refresh after a short delay
-      setTimeout(async () => {
-        await fetchPosts({
-          forceRefresh: true,
-          timestamp: Date.now(),
-          reset: true
-        }, 0, 20);
-      }, 2000);
       
-      onClose();
+      // Get the posts from the store
+      const posts = useEditorStore.getState().posts;
+      
+      // Get the most recent post (should be the one just generated)
+      if (posts.length > 0) {
+        const newPost = posts[0];
+        // Set the current post before navigating
+        useEditorStore.getState().setCurrentPost(newPost);
+        navigate('/dashboard');
+        onClose();
+      } else {
+        throw new Error('Generated post not found');
+      }
+
     } catch (err: any) {
       console.error('Failed to generate blog:', err);
-      if (
-        err.response?.status === 403 &&
-        err.response?.data?.detail?.includes("Generation limit reached")
-      ) {
+      if (err.response?.status === 403 && err.response?.data?.detail?.includes("Generation limit reached")) {
         toast.error('User has exceeded the generation limit');
       } else {
-        setError('Failed to generate blog');
+        setError(err.message || 'Failed to generate blog');
       }
     } finally {
       setIsGenerating(false);
@@ -973,7 +865,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
 
   // Add handler for viewing blog
   const handleViewBlog = (blogId: string) => {
-    navigate(`/editor/${blogId}`);
+    navigate(`/dashboard`); // Updated to use the correct route
     onClose();
   };
 

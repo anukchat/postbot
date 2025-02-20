@@ -995,7 +995,7 @@ class AgentWorkflow:
 
                 # Clean and validate content
                 blog_title = result.get("blog_title", "").strip() if post_type == "blog" else None
-                blog_body = result.get("reviewed_blog" if post_type == "blog" else f"{post_type}_post", "")
+                blog_body = result.get("final_blog" if post_type == "blog" else f"{post_type}_post", "")
                 
                 if isinstance(blog_body, str):
                     blog_body = blog_body.strip()
@@ -1090,8 +1090,8 @@ class AgentWorkflow:
         self.builder.add_node("write_final_sections", self.write_final_sections)
         self.builder.add_node("write_twitter_post", self.write_twitter_post)
         self.builder.add_node("write_linkedin_post", self.write_linkedin_post)
-        self.builder.add_node("review_blog", self.review_blog)
-        # self.builder.add_node("generate_tags", self.generate_tags)
+        # self.builder.add_node("review_blog", self.review_blog)
+        self.builder.add_node("generate_tags", self.generate_tags)
         self.builder.add_node("handle_feedback", self.handle_feedback)
 
         # Add basic flow edges
@@ -1106,7 +1106,7 @@ class AgentWorkflow:
             ["write_final_sections"],
         )
         self.builder.add_edge("write_final_sections", "compile_final_blog")
-        self.builder.add_edge("compile_final_blog", "review_blog")
+        self.builder.add_edge("compile_final_blog", "generate_tags")
 
         # Post-tags routing logic
         def route_after_tags(state: BlogState):
@@ -1136,7 +1136,7 @@ class AgentWorkflow:
 
         # Add routing edges
         self.builder.add_conditional_edges(
-            "review_blog",
+            "generate_tags",
             route_after_tags,
             ["write_linkedin_post", "write_twitter_post", "handle_feedback", END],
         )
@@ -1173,8 +1173,8 @@ class AgentWorkflow:
         graph = self.builder.compile(
             checkpointer=self.checkpointer,
             interrupt_after=[
-                # "generate_tags",
-                "review_blog",
+                "generate_tags",
+                # "review_blog",
                 "write_linkedin_post",
                 "write_twitter_post",
             ],
