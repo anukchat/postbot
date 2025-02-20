@@ -36,6 +36,7 @@ class BlogState:
     # media_meta: Optional[List[Dict]] = field(default_factory=list)
     linkedin_post_generated: Optional[bool] = field(default=False)
     twitter_post_generated: Optional[bool] = field(default=False)
+    template: Optional[Dict] = field(default=None)
 
 @dataclass
 class BlogStateInput:
@@ -47,6 +48,7 @@ class BlogStateInput:
     feedback: Optional[str] = field(default=None)
     thread_id: Optional[str] = field(default=None)
     media_markdown: Optional[str] = field(default=None)
+    template: Optional[Dict] = field(default=None)
     # media_meta: Optional[List[Dict]] = field(default_factory=list)
 
 @dataclass
@@ -71,3 +73,4 @@ class SectionState:
     blog_main_body_sections: Optional[str] = field(default=None)
     # media_meta: Optional[List[Dict]] = field(default_factory=list)
     media_markdown: Optional[str] = field(default=None)
+    template: Optional[Dict] = field(default=None)

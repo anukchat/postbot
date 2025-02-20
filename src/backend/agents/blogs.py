@@ -98,7 +98,7 @@ class AgentWorkflow:
         blog_structure = default_blog_structure
 
         system_instructions_sections = blog_planner_instructions.format(
-            user_instructions=user_instructions, blog_structure=blog_structure
+            user_instructions=user_instructions, blog_structure=blog_structure, **state.template['parameters']
         )
 
         report_sections = self.llm.invoke(
@@ -137,6 +137,7 @@ class AgentWorkflow:
             user_instructions=user_instructions,
             source_urls=url_source_str,
             media_markdown=media_markdown,
+            **state.template['parameters']
         )
 
         section_content = self.llm.invoke(
@@ -160,6 +161,7 @@ class AgentWorkflow:
             section_topic=section.description,
             main_body_sections=state.blog_main_body_sections,
             source_urls=state.urls,
+            **state.template['parameters']
         )
 
         section_content = self.llm.invoke([
@@ -182,6 +184,7 @@ class AgentWorkflow:
                     media_markdown=state.media_markdown,
                     urls=[state.input_url],
                     completed_sections=[],  # Initialize with empty list
+                    template=state.template
                 ),
             )
             for s in state.sections
@@ -206,6 +209,7 @@ class AgentWorkflow:
                     blog_main_body_sections=state.blog_main_body_sections,
                     urls=[state.input_url],
                     completed_sections=[],  # Initialize with empty list
+                    template=state.template
                 ),
             )
             for s in state.sections
@@ -229,7 +233,7 @@ class AgentWorkflow:
     def review_blog(self, state: BlogState):
         """Review the final blog"""
         final_blog = state.final_blog
-        review_prompt = blog_reviewer_instructions.format(blog_input=final_blog)
+        review_prompt = blog_reviewer_instructions.format(blog_input=final_blog,**state.template['parameters'])
 
         review = self.llm.invoke([
             HumanMessage(content=review_prompt)
@@ -512,13 +516,30 @@ class AgentWorkflow:
         source_id, url_meta, media_meta = self._setup_web_url_source(payload, thread_id, user)
         content =self._process_url_content(url_meta)
         media_markdown = get_media_content_url(media_meta)
+        # Format template if provided
+        template_dict = self.get_template_details(payload)
         return BlogStateInput(
             input_url=payload["url"],
             input_content=content,
             post_types=payload.get("post_types", ["blog"]),
             thread_id=thread_id,
             media_markdown=media_markdown,
+            template=template_dict
         ), source_id
+
+    def get_template_details(self, payload):
+        if payload.get('template'):
+            template_dict = {
+                'name': payload['template'].get('name', ''),
+                'description': payload['template'].get('description', ''),
+                'parameters': {
+                    param.get('name', ''): param.get('value', {}).get('value', '')
+                    for param in payload['template'].get('parameters', [])
+                }
+            }
+        else:
+            template_dict = None
+        return template_dict
     
     def _handle_topic_workflow(self, payload, thread_id, user):
         """Handle workflow for URL-based content"""
@@ -542,13 +563,14 @@ class AgentWorkflow:
             except Exception as e:
                 logger.warning(f"Failed to process URL {meta['original_url']}: {str(e)}")
                 continue
-
+        
         return BlogStateInput(
             input_topic=payload["topic"],
             input_url='\n'.join(urls),
             input_content=reference_content,
             post_types=payload.get("post_types", ["blog"]),
-            thread_id=thread_id
+            thread_id=thread_id,
+            template=self.get_template_details(payload)
         ), source_id
     
     def _handle_reddit_workflow(self, payload, thread_id, user):
@@ -584,7 +606,8 @@ class AgentWorkflow:
             input_url='',
             input_content=reddit_pre_summary,
             post_types=payload.get("post_types", ["blog"]),
-            thread_id=thread_id
+            thread_id=thread_id,
+            template=self.get_template_details(payload)
         ), source_id
     
 
@@ -643,6 +666,7 @@ class AgentWorkflow:
                 media_markdown=media_markdown,
                 post_types=payload.get("post_types", ["blog"]),
                 thread_id=thread_id,
+                template=self.get_template_details(payload)
             ), source_id
 
         return BlogStateInput(
@@ -651,6 +675,7 @@ class AgentWorkflow:
             media_markdown=media_markdown,
             post_types=payload.get("post_types", ["blog"]),
             thread_id=thread_id,
+            template=self.get_template_details(payload)
         ), source_id
 
     def _generate_new_content(self, test_input, thread_id, source_id, payload, user):

@@ -258,6 +258,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
   };
 
   const handlePostSelect = (post: Post) => {
+    setCurrentPost(post);
     onClose();
   };
 

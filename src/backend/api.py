@@ -519,7 +519,12 @@ async def generate_generic_blog(
     try:
         thread_id = payload.thread_id or str(uuid.uuid4())
         logger.debug(f"Using thread_id: {thread_id}")
-        
+        # Get template and parameters if template_id is provided
+        if payload.template_id:
+            template_data = read_template(UUID(payload.template_id), user)
+            payload_dict = payload.model_dump()
+            payload_dict["template"] = template_data
+            # payload = GeneratePostRequestModel(**payload_dict)
         # Check generation limit        
         limit_response = await check_generation_limit(user['id'])
         logger.info(f"Generation limit check: {limit_response}")
@@ -530,7 +535,7 @@ async def generate_generic_blog(
 
         # Proceed with generation
         logger.debug("Starting workflow execution")
-        result = workflow.run_generic_workflow(payload.dict(), thread_id, user)
+        result = workflow.run_generic_workflow(payload_dict, thread_id, user)
         logger.debug("Workflow execution completed")
 
         # Increment generation count
