@@ -1,6 +1,6 @@
 import os
 import uuid
-from fastapi import FastAPI, HTTPException, Depends, Query, Security, Body
+from fastapi import FastAPI, HTTPException, Depends, Query, Security, Body, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from src.backend.db.supabaseclient import supabase_client
 from src.backend.db.supabasedatamodel import *
@@ -15,6 +15,17 @@ from datetime import datetime
 from uuid import UUID
 from src.backend.utils.logger import setup_logger
 from src.backend.extraction.extractors.reddit import RedditExtractor
+from src.backend.db.repositories import (
+    TemplateRepository,
+    ParameterRepository,
+    ContentRepository,
+    ProfileRepository,
+    SourceRepository,
+    ContentTypeRepository,
+    AuthRepository
+)
+from src.backend.db.repository import RateLimitExceeded, QuotaExceeded
+from fastapi.responses import JSONResponse
 
 # Get settings from environment variables
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
@@ -42,6 +53,15 @@ security = HTTPBearer()
 
 # Setup logger
 logger = setup_logger(__name__)
+
+# Initialize repositories
+template_repository = TemplateRepository()
+parameter_repository = ParameterRepository()
+content_repository = ContentRepository()
+profile_repository = ProfileRepository()
+source_repository = SourceRepository()
+content_type_repository = ContentTypeRepository()
+auth_repository = AuthRepository(supabase)
 
 # Token Generation Models
 class TokenRequest(BaseModel):
@@ -208,48 +228,38 @@ def get_workflow() -> AgentWorkflow:
 # Authentication Dependency
 async def get_current_user_profile(credentials: HTTPAuthorizationCredentials = Security(security)):
     token = credentials.credentials
-    user = supabase.auth.get_user(token)
+    user = await auth_repository.get_user(token)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     
-    # Get associated profile
-    profile = supabase.table("profiles").select("*").eq("user_id", user.user.id).single().execute()
-    if not profile.data:
+    profile = profile_repository.find_by_id("user_id", user.user.id)
+    if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
     
-    return profile.data
+    return profile
 
 @app.post("/token", response_model=TokenResponse, tags=["auth"])
-def generate_token(token_request: TokenRequest):
-    provider = token_request.provider
+async def generate_token(token_request: TokenRequest):
     try:
-        # Prepare the credentials dictionary
         redirect_url = os.getenv("VITE_API_URL", "http://localhost:8000")
         credentials = {
-            "provider": provider,
+            "provider": token_request.provider,
             "options": {
-            "redirect_to": f"{redirect_url}/callback",  # Use environment variable if available
-            # Add other options if needed, e.g., "scopes" or "query_params"
+                "redirect_to": f"{redirect_url}/callback",
             }
         }
 
-        # For Google sign-in, request additional scopes
-        if provider == 'google':
+        if token_request.provider == 'google':
             credentials['options']['scopes'] = ['email', 'profile']
 
-        # Sign in with the OAuth provider
-        response = supabase.auth.sign_in_with_oauth(credentials)
-
-         # Check if the response is valid
+        response = await auth_repository.sign_in_with_oauth(credentials)
         if not response or not hasattr(response, "url"):
             raise HTTPException(status_code=401, detail="Failed to initiate OAuth flow")
 
-        # Return the OAuth URL to the client
         return {"oauth_url": response.url}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# Update callback to use correct profile schema
 @app.get("/callback", response_model=CallbackResponse, tags=["auth"])
 async def oauth_callback(code: str, state: Optional[str] = None):
     try:
@@ -304,27 +314,23 @@ async def oauth_callback(code: str, state: Optional[str] = None):
 @app.post("/auth/signup", tags=["auth"])
 async def signup(email: str, password: str):
     try:
-        # Create auth user
-        auth_response = supabase.auth.sign_up({
-            "email": email,
-            "password": password
-        })
+        auth_response = await auth_repository.sign_up(email, password)
         
         if auth_response.error:
             raise HTTPException(status_code=400, detail=str(auth_response.error))
 
         if auth_response.user:
-            # Create profile
-            profile_response = supabase.table('profiles').insert({
+            profile_data = {
                 "user_id": auth_response.user.id,
                 "email": email,
                 "role": "free",
                 "subscription_status": "none"
-            }).execute()
+            }
+            result = profile_repository.create(profile_data)
             
-            if profile_response.error:
+            if not result:
                 # Rollback user creation if profile creation fails
-                await supabase.auth.admin.delete_user(auth_response.user.id)
+                await auth_repository.delete_user(auth_response.user.id)
                 raise HTTPException(status_code=400, detail="Failed to create profile")
 
         return auth_response
@@ -334,13 +340,11 @@ async def signup(email: str, password: str):
 @app.get("/auth/callback", response_model=CallbackResponse, tags=["auth"])
 async def oauth_callback(code: str):
     try:
-        # Exchange code for session
-        response = await supabase.auth.exchange_code_for_session({"auth_code": code})
+        response = await auth_repository.exchange_code_for_session({"auth_code": code})
         
         if response.error:
             raise HTTPException(status_code=401, detail=str(response.error))
 
-        # Create/update profile for Google user
         if response.user and response.user.app_metadata.get('provider') == 'google':
             profile_data = {
                 "user_id": response.user.id,
@@ -351,20 +355,26 @@ async def oauth_callback(code: str):
                 "subscription_status": "none"
             }
             
-            await supabase.table('profiles').upsert(profile_data).execute()
+            result = profile_repository.update(
+                id_field="user_id",
+                id_value=response.user.id,
+                data=profile_data
+            )
+            if not result:
+                result = profile_repository.create(profile_data)
 
         return {
             "access_token": response.session.access_token,
             "token_type": "bearer"
         }
     except Exception as e:
-        print("OAuth callback error:", str(e))  # Debug log
+        print("OAuth callback error:", str(e))
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/auth/signin", tags=["auth"]) 
 async def signin(email: str, password: str):
     try:
-        response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+        response = await auth_repository.sign_in(email, password)
         return response
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -372,7 +382,7 @@ async def signin(email: str, password: str):
 @app.post("/auth/signout", tags=["auth"])
 async def signout(user: dict = Depends(get_current_user_profile)):
     try:
-        response = supabase.auth.sign_out()
+        response = await auth_repository.sign_out()
         return {"message": "Signed out successfully"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -380,109 +390,165 @@ async def signout(user: dict = Depends(get_current_user_profile)):
 # Profile Endpoints
 @app.post("/profiles/", response_model=Profile, tags=["profiles"])
 def create_profile(profile: ProfileCreate, user: dict = Depends(get_current_user_profile)):
-    profile.user_id = user.id  # Ensure the profile is linked to the authenticated user
-    response = supabase.table("profiles").insert(profile.dict()).execute()
-    if not response.data:
+    """Create a new profile"""
+    profile.user_id = user["id"]  # Ensure profile is linked to authenticated user
+    result = profile_repository.create(profile.dict())
+    if not result:
         raise HTTPException(status_code=400, detail="Failed to create profile")
-    return response.data[0]
+    return result
 
 @app.get("/profiles/{profile_id}", response_model=Profile, tags=["profiles"])
 def read_profile(profile_id: UUID, user: dict = Depends(get_current_user_profile)):
-    response = supabase.table("profiles").select("*").eq("id", profile_id).execute()
-    if not response.data:
+    """Get a profile by ID"""
+    result = profile_repository.find_by_id("id", profile_id)
+    if not result:
         raise HTTPException(status_code=404, detail="Profile not found")
-    return response.data[0]
+    return result
 
 @app.put("/profiles/{profile_id}", response_model=Profile, tags=["profiles"])
 def update_profile(profile_id: UUID, profile: ProfileUpdate, user: dict = Depends(get_current_user_profile)):
-    response = supabase.table("profiles").update(profile.dict()).eq("id", profile_id).execute()
-    if not response.data:
+    """Update a profile by ID"""
+    # Check if profile belongs to user
+    if str(profile_id) != str(user["id"]):
+        raise HTTPException(status_code=403, detail="Not authorized to update this profile")
+        
+    result = profile_repository.update(
+        id_field="id",
+        id_value=profile_id,
+        data=profile.dict(exclude_unset=True)
+    )
+    if not result:
         raise HTTPException(status_code=404, detail="Profile not found")
-    return response.data[0]
+    return result
 
 @app.delete("/profiles/{profile_id}", tags=["profiles"])
 def delete_profile(profile_id: UUID, user: dict = Depends(get_current_user_profile)):
-    # Perform soft delete by updating deleted_at and is_deleted fields 
-    response = supabase.table("profiles").update({
-        "deleted_at": datetime.now().isoformat(),
-        "is_deleted": True
-    }).eq("id", profile_id).execute()
-    
-    if not response.data:
+    """Soft delete a profile"""
+    # Check if profile belongs to user
+    if str(profile_id) != str(user["id"]):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this profile")
+        
+    result = profile_repository.update(
+        id_field="id",
+        id_value=profile_id,
+        data={
+            "is_deleted": True
+        }
+    )
+    if not result:
         raise HTTPException(status_code=404, detail="Profile not found")
     return {"message": "Profile deleted"}
 
 @app.get("/profiles/", response_model=List[Profile], tags=["profiles"])
-def filter_profiles(user_id: Optional[UUID] = None, role: Optional[str] = None, subscription_status: Optional[str] = None, skip: int = 0, limit: int = 10, user: dict = Depends(get_current_user_profile)):
-    query = supabase.table("profiles").select("*").range(skip, skip + limit - 1)
+def filter_profiles(
+    user_id: Optional[UUID] = None,
+    role: Optional[str] = None,
+    subscription_status: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 10,
+    user: dict = Depends(get_current_user_profile)
+):
+    """Filter profiles based on criteria"""
+    filters = {}
     if user_id:
-        query = query.eq("user_id", user_id)
+        filters["user_id"] = str(user_id)
     if role:
-        query = query.eq("role", role)
+        filters["role"] = role
     if subscription_status:
-        query = query.eq("subscription_status", subscription_status)
-    response = query.execute()
-    return response.data
+        filters["subscription_status"] = subscription_status
+        
+    results = profile_repository.filter(filters, skip, limit)
+    return results
 
 # ContentType Endpoints
 @app.post("/content-types/", response_model=ContentType, tags=["content_types"])
 def create_content_type(content_type: ContentTypeCreate, user: dict = Depends(get_current_user_profile)):
-    response = supabase.table("content_types").insert(content_type.dict()).execute()
-    if not response.data:
+    result = content_type_repository.create(content_type.dict())
+    if not result:
         raise HTTPException(status_code=400, detail="Failed to create content type")
-    return response.data[0]
+    return result
 
 @app.get("/content-types/{content_type_id}", response_model=ContentType, tags=["content_types"])
 def read_content_type(content_type_id: UUID, user: dict = Depends(get_current_user_profile)):
-    response = supabase.table("content_types").select("*").eq("content_type_id", content_type_id).execute()
-    if not response.data:
+    result = content_type_repository.find_by_id("content_type_id", content_type_id)
+    if not result:
         raise HTTPException(status_code=404, detail="ContentType not found")
-    return response.data[0]
+    return result
 
 @app.put("/content-types/{content_type_id}", response_model=ContentType, tags=["content_types"])
 def update_content_type(content_type_id: UUID, content_type: ContentTypeUpdate, user: dict = Depends(get_current_user_profile)):
-    response = supabase.table("content_types").update(content_type.dict()).eq("content_type_id", content_type_id).execute()
-    if not response.data:
+    result = content_type_repository.update(
+        id_field="content_type_id",
+        id_value=content_type_id,
+        data=content_type.dict(exclude_unset=True)
+    )
+    if not result:
         raise HTTPException(status_code=404, detail="ContentType not found")
-    return response.data[0]
+    return result
 
 @app.delete("/content-types/{content_type_id}", tags=["content_types"])
 def delete_content_type(content_type_id: UUID, user: dict = Depends(get_current_user_profile)):
-    response = supabase.table("content_types").delete().eq("content_type_id", content_type_id).execute()
-    if not response.data:
+    result = content_type_repository.delete("content_type_id", content_type_id)
+    if not result:
         raise HTTPException(status_code=404, detail="ContentType not found")
     return {"message": "ContentType deleted"}
 
 @app.get("/content-types/", response_model=List[ContentType], tags=["content_types"])
 def filter_content_types(name: Optional[str] = None, skip: int = 0, limit: int = 10, user: dict = Depends(get_current_user_profile)):
-    query = supabase.table("content_types").select("*").range(skip, skip + limit - 1)
+    query_filters = {}
     if name:
-        query = query.ilike("name", f"%{name}%")
-    response = query.execute()
-    return response.data
+        query_filters["name"] = name
+    result = content_type_repository.filter(query_filters, skip, limit)
+    return result
 
 # Update content endpoints to use profile_id
 @app.post("/content/", response_model=Content, tags=["content"])
 def create_content(content: ContentCreate, profile: dict = Depends(get_current_user_profile)):
-    content_data = content.dict()
-    content_data['profile_id'] = profile['id']  # Use profile_id instead of user_id
-    response = supabase.table("content").insert(content_data).execute()
-    if not response.data:
-        raise HTTPException(status_code=400, detail="Failed to create content")
-    return response.data[0]
+    """Create new content"""
+    try:
+        with content_repository.rate_limited_operation(
+            profile_id=profile["id"],
+            action_type='content_creation',
+            limit=20,  # 20 manual content creations per hour
+            window_minutes=60
+        ):
+            content_data = content.dict()
+            content_data['profile_id'] = profile['id']
+            result = content_repository.create(content_data)
+            if not result:
+                raise HTTPException(status_code=400, detail="Failed to create content")
+            return result
+    except RateLimitExceeded as e:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/content/", tags=["content"])
-def filter_content(content_type_id: Optional[UUID] = None, status: Optional[str] = None, search_text: Optional[str] = None, skip: int = 0, limit: int = 10, profile: dict = Depends(get_current_user_profile)):
-    query = supabase.table("content").select("*").eq('profile_id', profile['id']).range(skip, skip + limit - 1)
-
+def filter_content(
+    content_type_id: Optional[UUID] = None, 
+    status: Optional[str] = None, 
+    search_text: Optional[str] = None, 
+    skip: int = 0, 
+    limit: int = 10, 
+    profile: dict = Depends(get_current_user_profile)
+):
+    """List/filter content"""
+    filters = {
+        "profile_id": profile["id"],
+        "is_deleted": False
+    }
     if content_type_id:
-        query = query.eq("content_type_id", content_type_id) 
+        filters["content_type_id"] = str(content_type_id)
     if status:
-        query = query.eq("status", status)
-    if search_text:
-        query = query.or_(f"title.ilike.%{search_text}%,body.ilike.%{search_text}%")
-    response = query.execute()
-    return response.data
+        filters["status"] = status
+        
+    result = content_repository.filter_content(profile["id"], {
+        "content_type_id": content_type_id,
+        "status": status,
+        "title_contains": search_text
+    }, skip, limit)
+    
+    return result
 
 @app.get("/content/all", response_model=List[Dict], tags=["content"])
 def get_all_content(skip: int = 0, limit: int = 10, user: dict = Depends(get_current_user_profile)):
@@ -519,110 +585,66 @@ async def generate_generic_blog(
     try:
         thread_id = payload.thread_id or str(uuid.uuid4())
         logger.debug(f"Using thread_id: {thread_id}")
+
         # Get template and parameters if template_id is provided
-        if payload.template_id:
+        if (payload.template_id):
             template_data = read_template(UUID(payload.template_id), user)
             payload_dict = payload.model_dump()
             payload_dict["template"] = template_data
-            # payload = GeneratePostRequestModel(**payload_dict)
-        # Check generation limit        
-        limit_response = await check_generation_limit(user['id'])
-        logger.info(f"Generation limit check: {limit_response}")
+
+        # Use repository's rate limiting and quota checking
+        period_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         
-        if limit_response['generations_used'] >= limit_response['max_generations']:
-            logger.warning(f"Generation limit reached for user {user['id']}")
-            raise HTTPException(status_code=403, detail="Generation limit reached for this thread")
+        with content_repository.quota_limited_operation(
+            profile_id=user['id'],
+            quota_type='content_generation',
+            period_start=period_start
+        ):
+            with content_repository.rate_limited_operation(
+                profile_id=user['id'],
+                action_type='content_generation',
+                limit=5,  # 5 generations per hour
+                window_minutes=60
+            ):
+                # Proceed with generation
+                logger.debug("Starting workflow execution")
+                result = workflow.run_generic_workflow(payload.model_dump(), thread_id, user)
+                logger.debug("Workflow execution completed")
+                return result
 
-        # Proceed with generation
-        logger.debug("Starting workflow execution")
-        result = workflow.run_generic_workflow(payload_dict, thread_id, user)
-        logger.debug("Workflow execution completed")
-
-        # Increment generation count
-        await increment_generation_count(user['id'])
-        logger.info(f"Generation count incremented for user {user['id']}")
-
-        return result
-    except HTTPException as e:
-        logger.error(f"HTTP Exception in generate_generic_blog: {str(e)}")
-        raise e
+    except (RateLimitExceeded, QuotaExceeded) as e:
+        logger.warning(f"Limit exceeded for user {user['id']}: {str(e)}")
+        raise
     except Exception as e:
         logger.error(f"Unexpected error in generate_generic_blog: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
 
 async def check_generation_limit(profile_id: UUID) -> Dict:
-    """Check the generation limit for a specific thread."""
-    # Get user tier
-    profile = supabase.table("profiles").select("role").eq("id", profile_id).single().execute()
-    if not profile.data:
+    """Check the generation limit for a specific profile."""
+    profile_data = profile_repository.get_with_generation_limits(profile_id)
+    if not profile_data:
         raise HTTPException(status_code=404, detail="Profile not found")
 
-    tier = profile.data['role']
-
-    # Get generation limit for the tier
-    limit_query = supabase.table("generation_limits").select("max_generations").eq("tier", tier).single().execute()
-    if not limit_query.data:
-        raise HTTPException(status_code=404, detail="Generation limit not found for this tier")
-
-    max_generations = limit_query.data['max_generations']
-
-    # Get current generations used
-    generations_query = supabase.table("user_generations").select("generations_used").eq("profile_id", profile_id).execute()
-    
-    # If no entry exists, create one with generations_used = 0
-    if not generations_query.data:
-        supabase.table("user_generations").insert({
-            "profile_id": profile_id,
-            "generations_used": 0
-        }).execute()
-        generations_used = 0
-    else:
-        generations_used = generations_query.data[0]['generations_used']
-
     return {
-        "tier": tier,
-        "max_generations": max_generations,
-        "generations_used": generations_used
+        "tier": profile_data["role"],
+        "max_generations": profile_data["generation_limit"],
+        "generations_used": profile_data["generations_used"]
     }
 
 async def increment_generation_count(profile_id: UUID):
-    """Increment the generation count for a user."""
+    """Increment the generation count for a profile."""
     try:
-        # Fetch the current generation count
-        response = supabase.table("user_generations").select("generations_used").eq("profile_id", profile_id).execute()
-        
-        if response.data:
-            # Increment the count
-            current_count = response.data[0]["generations_used"]
-            new_count = current_count + 1
-        else:
-            # If no record exists, start with 1
-            new_count = 1
-
-        # Update the generations_used field
-        supabase.table("user_generations").update({
-            "generations_used": new_count
-        }).eq("profile_id", profile_id).execute()
-
+        success = profile_repository.increment_generation_count(profile_id)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to increment generation count")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to increment generation count: {str(e)}")
     
 # Update content endpoints to use profile_id
 @app.get("/content/list", response_model=ContentListResponse)
 async def list_content(skip: int = 0, limit: int = 10, profile: dict = Depends(get_current_user_profile)):
-    query = (
-    supabase.table("content")
-    .select(
-        "*, content_types:content_type_id(content_type_id, name), content_tags(tag_id, tags:tag_id(name)), content_sources(content_source_id, sources:source_id(source_id, source_types(name), url_references(url_reference_id, url, type, domain), media(media_id, media_url, media_type)))"
-    )
-    .eq('profile_id', profile['id'])  # Filter by profile_id instead of user_id
-    .order('created_at', desc=True)
-    .range(skip, skip + limit)
-)
-
-    response = query.execute()
-
-    # Parse the response
+    results = content_repository.list_content(profile["id"], skip, limit)
+    
     items = [
         ContentListItem(
             id=item["content_id"],
@@ -636,8 +658,8 @@ async def list_content(skip: int = 0, limit: int = 10, profile: dict = Depends(g
             linkedin_post=item["body"] if item["content_types"]["name"] == "linkedin_post" else "",
             urls=[{
                 "url": ref["url"],
-                "type": ref["type"],
-                "domain": ref["domain"]
+                "type": ref.get("type"),
+                "domain": ref.get("domain")
             } for source in item.get("content_sources", [])
                 if source.get("sources") and source["sources"].get("url_references")
                 for ref in source["sources"]["url_references"]
@@ -653,12 +675,12 @@ async def list_content(skip: int = 0, limit: int = 10, profile: dict = Depends(g
                 for source in item.get("content_sources", [])
                 if source.get("sources") and source["sources"].get("source_types")), None)
         )
-        for item in response.data
+        for item in results
     ]
 
     return ContentListResponse(
         items=items,
-        total=response.count if response.count else len(items),
+        total=len(results),
         page=skip // limit + 1,
         size=limit
     )
@@ -681,41 +703,23 @@ async def filter_content(
     url_type: Optional[str] = Query(None, description="Filter by URL type (e.g., internal, external)"),
     user: dict = Depends(get_current_user_profile)
 ):
-    # Base query with updated select to properly get source_identifier
-    query = supabase.table("content").select("*, content_types:content_type_id(content_type_id, name), content_tags(tag_id, tags:tag_id(name)), content_sources!inner(content_source_id, source:source_id(source_id, source_identifier, source_types(name), url_references(*), media(*)))"
-                                             ).order('created_at', desc=True)
-    query = query.eq('profile_id', user['id'])  # Filter by profile_id instead of user_id
-    # Apply filters
-    if title_contains:
-        query = query.ilike("title", f"\"%{title_contains}%\"")  # Case-insensitive title search
-    if post_type:
-        query = query.eq("content_types.name", post_type)
-    if status:
-        query = query.eq("status", status)
-    if domain:
-        query = query.ilike("content_sources.source.url_references.domain", f"\"%{domain}%\"")
-    if tag_name:
-        query = query.contains("content_tags.tags.name", [tag_name])
-    if source_type:
-        query = query.eq("content_sources.source.source_types.name", source_type)
-    if created_after:
-        query = query.gte("created_at", created_after.isoformat())
-    if created_before:
-        query = query.lte("created_at", created_before.isoformat())
-    if updated_after:
-        query = query.gte("updated_at", updated_after.isoformat())
-    if updated_before:
-        query = query.lte("updated_at", updated_before.isoformat())
-    if media_type:
-        query = query.eq("content_sources.source.media.media_type", media_type)
-    if url_type:
-        query = query.eq("content_sources.source.url_references.type", url_type)
-
-    query=query.range(skip, skip + limit)
-
-    response = query.execute()
-
-    # Add null checks when parsing response
+    filters = {
+        "title_contains": title_contains,
+        "post_type": post_type,
+        "status": status,
+        "domain": domain,
+        "tag_name": tag_name,
+        "source_type": source_type,
+        "created_after": created_after,
+        "created_before": created_before,
+        "updated_after": updated_after,
+        "updated_before": updated_before,
+        "media_type": media_type,
+        "url_type": url_type
+    }
+    
+    results = content_repository.filter_content(user["id"], filters, skip, limit)
+    
     items = [
         ContentListItem(
             id=item["content_id"],
@@ -753,87 +757,77 @@ async def filter_content(
                 for source in item.get("content_sources", [])
                 if source.get("source") and source["source"].get("source_types")), None)
         )
-        for item in response.data
+        for item in results
     ]
 
     return ContentListResponse(
         items=items,
-        total=response.count if response.count else len(items),
+        total=len(results),
         page=skip // limit + 1,
         size=limit
     )
 
 @app.get("/content/{content_id}", response_model=Content, tags=["content"])
 def read_content(content_id: UUID, user: dict = Depends(get_current_user_profile)):
-    response = supabase.table("content").select("*").eq("content_id", content_id).execute()
-    if not response.data:
+    """Get content by ID"""
+    result = content_repository.find_by_id("content_id", content_id)
+    if not result:
         raise HTTPException(status_code=404, detail="Content not found")
-    return response.data[0]
+    if result["profile_id"] != str(user["id"]):
+        raise HTTPException(status_code=403, detail="Not authorized to access this content")
+    return result
 
 @app.put("/content/{content_id}", response_model=Content, tags=["content"]) 
 def update_content(content_id: UUID, content: ContentUpdate, profile: dict = Depends(get_current_user_profile)):
-    # Add profile_id filter to ensure user can only update their own content
-    response = supabase.table("content").update(content.dict()).eq("content_id", content_id).eq("profile_id", profile["id"]).execute()
-    if not response.data:
+    """Update content"""
+    result = content_repository.update(
+        id_field="content_id",
+        id_value=content_id,
+        data=content.dict(exclude_unset=True)
+    )
+    if not result:
         raise HTTPException(status_code=404, detail="Content not found")
-    return response.data[0]
+    if result["profile_id"] != str(profile["id"]):
+        raise HTTPException(status_code=403, detail="Not authorized to update this content")
+    return result
 
 @app.delete("/content/{content_id}", tags=["content"])
 def delete_content(content_id: UUID, profile: dict = Depends(get_current_user_profile)):
-    # Perform soft delete by updating deleted_at and is_deleted fields
-    # Add profile_id filter to ensure user can only delete their own content
-    response = supabase.table("content").update({
-        "deleted_at": datetime.now().isoformat(),
-        "is_deleted": True
-    }).eq("content_id", content_id).eq("profile_id", profile["id"]).execute()
-    
-    if not response.data:
+    """Soft delete content"""
+    content = content_repository.find_by_id("content_id", content_id)
+    if not content:
         raise HTTPException(status_code=404, detail="Content not found")
+    if content["profile_id"] != str(profile["id"]):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this content")
+        
+    result = content_repository.soft_delete("content_id", content_id)
+    if not result:
+        raise HTTPException(status_code=400, detail="Failed to delete content")
     return {"message": "Content deleted"}
 
 @app.put("/content/thread/{thread_id}/save", tags=["content"])
-async def save_thread_content(thread_id: UUID, payload: SaveContentRequest, user: dict = Depends(get_current_user_profile)):
+async def save_thread_content(
+    thread_id: UUID, 
+    payload: SaveContentRequest, 
+    user: dict = Depends(get_current_user_profile)
+):
     """Save all content types for a thread in a single transaction"""
     try:
-        # Get all content records for this thread
-        content_types = supabase.table("content_types").select("*").in_("name", ["blog", "twitter", "linkedin"]).execute()
-        content_type_map = {ct["name"]: ct["content_type_id"] for ct in content_types.data}
-        
-
-        thread_content = supabase.table("content").select("*").eq("thread_id", thread_id).eq("profile_id", user["id"]).execute()
-        content_by_type = {item["content_type_id"]: item for item in thread_content.data}
-        
-        # Update blog content
-        if payload.content:
-            blog_content = content_by_type.get(content_type_map["blog"])
-            if blog_content:
-                supabase.table("content").update({
-                    "title": payload.title,
-                    "body": payload.content,
-                    "status": payload.status
-                }).eq("content_id", blog_content["content_id"]).execute()
-
-        # Update Twitter post
-        if payload.twitter_post:
-            twitter_content = content_by_type.get(content_type_map["twitter"])
-            if twitter_content:
-                supabase.table("content").update({
-                    "body": payload.twitter_post,
-                    "status": payload.status
-                }).eq("content_id", twitter_content["content_id"]).execute()
-
-        # Update LinkedIn post
-        if payload.linkedin_post:
-            linkedin_content = content_by_type.get(content_type_map["linkedin"])
-            if linkedin_content:
-                supabase.table("content").update({
-                    "body": payload.linkedin_post,
-                    "status": payload.status
-                }).eq("content_id", linkedin_content["content_id"]).execute()
-
-        
-        return {"message": "Content saved successfully"}
-
+        with content_repository.rate_limited_operation(
+            profile_id=user["id"],
+            action_type='content_save',
+            limit=60,  # 60 saves per hour
+            window_minutes=60
+        ):
+            # Get content type mapping
+            type_map = await content_type_repository.get_content_type_map(["blog", "twitter", "linkedin"])
+            if not type_map:
+                raise HTTPException(status_code=400, detail="Failed to get content types")
+                
+            result = content_repository.save_thread_content(thread_id, user["id"], payload.dict(), type_map)
+            return {"message": "Content saved successfully", "content": result}
+    except RateLimitExceeded as e:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -862,43 +856,23 @@ async def schedule_thread_content(thread_id: UUID, payload: ScheduleContentReque
 # Update sources endpoints to use profile_id
 @app.post("/sources/", response_model=Source, tags=["sources"])
 def create_source(source: SourceCreate, profile: dict = Depends(get_current_user_profile)):
-    source_data = source.dict()
-    source_data['profile_id'] = profile['id']  # Use profile_id
-    response = supabase.table("sources").insert(source_data).execute()
-    if not response.data:
-        raise HTTPException(status_code=400, detail="Failed to create source")
-    return response.data[0]
+    """Create a new source"""
+    try:
+        with source_repository.rate_limited_operation(
+            profile_id=profile["id"],
+            action_type='source_creation',
+            limit=30,  # 30 sources per hour
+            window_minutes=60
+        ):
+            result = source_repository.create_source(source.dict(), profile['id'])
+            if not result:
+                raise HTTPException(status_code=400, detail="Failed to create source")
+            return result
+    except RateLimitExceeded as e:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/sources/{source_id}", response_model=Source, tags=["sources"])
-def read_source(source_id: UUID, user: dict = Depends(get_current_user_profile)):
-    response = supabase.table("sources").select("*").eq("source_id", source_id).execute()
-    if not response.data:
-        raise HTTPException(status_code=404, detail="Source not found")
-    return response.data[0]
-
-@app.put("/sources/{source_id}", response_model=Source, tags=["sources"])
-def update_source(source_id: UUID, source: SourceUpdate, profile: dict = Depends(get_current_user_profile)):
-    # Add profile_id filter to ensure user can only update their own sources
-    response = supabase.table("sources").update(source.dict()).eq("source_id", source_id).eq("profile_id", profile["id"]).execute()
-    if not response.data:
-        raise HTTPException(status_code=404, detail="Source not found")
-    return response.data[0]
-
-@app.delete("/sources/{source_id}", tags=["sources"])
-def delete_source(source_id: UUID, profile: dict = Depends(get_current_user_profile)):
-    # Perform soft delete by updating deleted_at and is_deleted fields
-    # Add profile_id filter to ensure user can only delete their own sources
-    response = supabase.table("sources").update({
-        "deleted_at": datetime.now().isoformat(),
-        "is_deleted": True
-    }).eq("source_id", source_id).eq("profile_id", profile["id"]).execute()
-    
-    if not response.data:
-        raise HTTPException(status_code=404, detail="Source not found")
-    return {"message": "Source deleted"}
-
-
-# Update sources endpoints to use profile_id
 @app.get("/sources/", response_model=SourceListResponse, tags=["sources"])
 def filter_sources(
     type: Optional[str] = None, 
@@ -907,162 +881,105 @@ def filter_sources(
     limit: int = 10, 
     profile: dict = Depends(get_current_user_profile)
 ):
-    # Build base query with blog content information and url references
-    base_query = (
-        supabase.table("sources")
-        .select("*,source_types(source_type_id,name),content_sources(content:content_id(content_id,title,thread_id,content_types(name))),url_references(*)")
-        .eq('profile_id', profile['id'])  # Filter by profile_id instead of user_id
-        .order("created_at", desc=True)
+    result = source_repository.list_sources_with_related(
+        profile_id=profile['id'],
+        type=type,
+        source_identifier=source_identifier,
+        skip=skip,
+        limit=limit
     )
-    
-    # Apply filters
-    if type:
-        source_type_query = supabase.table("source_types").select("source_type_id").eq("name", type).execute()
-        if source_type_query.data:
-            source_type_id = source_type_query.data[0]["source_type_id"]
-            base_query = base_query.eq("source_type_id", source_type_id)
-        else:
-            return SourceListResponse(
-                items=[],
-                total=0,
-                page=1,
-                size=limit
-            )
-        
-    if source_identifier:
-        base_query = base_query.ilike("source_identifier", f"%{source_identifier}%")
-    
-    # Get total count and paginated data
-    count_response = base_query.execute()
-    total_count = len(count_response.data)
-    paginated_response = base_query.range(skip, skip + limit - 1).execute()
-    
-    # Transform the response to include blog information and has_url
-    transformed_data = []
-    for item in paginated_response.data:
-        source_type_name = item["source_types"]["name"] if item.get("source_types") else None
-        
-        # Check if blog content exists and get thread_id
-        has_blog = False
-        thread_id = None
-        for content in item.get("content_sources", []):
-            if content.get("content") and content["content"].get("content_types", {}).get("name") == "blog":
-                has_blog = True
-                thread_id = content["content"].get("thread_id")
-                break
+    return SourceListResponse(**result)
 
-        # Check if source has any URL references
-        has_url = bool(item.get("url_references") and len(item["url_references"]) > 0)
+@app.get("/sources/{source_id}", response_model=Source, tags=["sources"])
+def read_source(source_id: UUID, user: dict = Depends(get_current_user_profile)):
+    result = source_repository.find_by_id("source_id", source_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Source not found")
+    return result
 
-        transformed_item = {
-            **item,
-            "source_type": source_type_name,
-            "has_blog": has_blog,
-            "has_url": has_url,
-            "thread_id": thread_id
-        }
-        del transformed_item["source_types"]
-        del transformed_item["content_sources"]
-        del transformed_item["url_references"]
-        
-        transformed_data.append(transformed_item)
-        
-    return SourceListResponse(
-        items=transformed_data,
-        total=total_count,
-        page=skip // limit + 1,
-        size=limit
+@app.put("/sources/{source_id}", response_model=Source, tags=["sources"])
+def update_source(source_id: UUID, source: SourceUpdate, profile: dict = Depends(get_current_user_profile)):
+    result = source_repository.update(
+        id_field="source_id",
+        id_value=source_id,
+        data=source.dict(exclude_unset=True)
     )
+    if not result:
+        raise HTTPException(status_code=404, detail="Source not found")
+    return result
 
-@app.get("/content/thread/{thread_id}", response_model=ContentListItem, tags=["content"])
+@app.delete("/sources/{source_id}", tags=["sources"])
+def delete_source(source_id: UUID, profile: dict = Depends(get_current_user_profile)):
+    result = source_repository.soft_delete(source_id, profile["id"])
+    if not result:
+        raise HTTPException(status_code=404, detail="Source not found")
+    return {"message": "Source deleted"}
+
+@app.get("/content/thread/{thread_id}", response_model=ContentListItem, tags=["content"]) 
 async def get_content_by_thread(
-    thread_id: UUID, 
+    thread_id: UUID,
     post_type: Optional[str] = Query(None, description="Filter by post type (blog, twitter, linkedin)"),
     user: dict = Depends(get_current_user_profile)
 ):
-    # Map incoming post types to database post types
-    post_type_map = {
-        'twitter': 'twitter',
-        'linkedin': 'linkedin',
-        'blog': 'blog'
-    }
-    
-    mapped_post_type = post_type_map.get(post_type) if post_type else None
-    
-    # First, get the content type ID if post_type is provided
-    content_type_id = None
-    if mapped_post_type:
-        content_type_query = supabase.table("content_types").select("content_type_id").eq("name", mapped_post_type).execute()
-        if content_type_query.data:
-            content_type_id = content_type_query.data[0]["content_type_id"]
+    """Get content by thread ID with optional post type filter"""
+    try:
+        # Get content type ID if post_type is provided
+        content_type_id = None
+        if post_type:
+            type_id = await content_type_repository.get_content_type_id_by_name(f"{post_type}_post")
+            if not type_id:
+                raise HTTPException(status_code=400, detail=f"Invalid post type: {post_type}")
+            content_type_id = type_id
 
-    # Build the main query with proper joins and profile_id filter
-    query = (
-    supabase.table("content")
-    .select(
-        "*, content_type:content_type_id(*), content_sources!content_id(source:source_id(source_type:source_type_id(*), url_references(*), media(*))), content_tags!content_id(tag:tag_id(*))"
-        )
-        .eq("thread_id", thread_id)
-        .eq("profile_id", user["id"])  # Add profile_id filter
-    )
+        result = content_repository.get_content_by_thread(thread_id, user["id"], content_type_id)
 
-    if content_type_id:
-        query = query.eq("content_type_id", content_type_id)
+        if not result:
+            return ContentListItem(
+                id="",
+                thread_id=str(thread_id),
+                title="",
+                content="",
+                tags=[],
+                createdAt=datetime.now().isoformat(),
+                updatedAt=datetime.now().isoformat(),
+                status="",
+                twitter_post="",
+                linkedin_post="",
+                urls=[],
+                media=[],
+                source_type=None
+            )
 
-    response = query.execute()
+        content_type = result.get("content_type", {}).get("name")
+        source_info = next(iter(result.get("content_sources", [])), {})
+        source = source_info.get("source", {})
 
-    if not response.data:
-        # Return empty response
         return ContentListItem(
-            id="",
+            id=result["content_id"],
             thread_id=str(thread_id),
-            title="",
-            content="",
-            tags=[],
-            createdAt="",
-            updatedAt="",
-            status="",
-            twitter_post="",
-            linkedin_post="",
-            urls=[],
-            media=[],
-            source_type=None
+            source_identifier=source.get("source_identifier"),
+            title=result.get("title", "") if content_type == "blog" else "",
+            content=result.get("body", ""),
+            tags=[tag["tag"]["name"] for tag in result.get("content_tags", []) if tag.get("tag")],
+            createdAt=result["created_at"],
+            updatedAt=result["updated_at"],
+            status=result["status"],
+            twitter_post=result.get("body", "") if content_type == "twitter_post" else "",
+            linkedin_post=result.get("body", "") if content_type == "linkedin_post" else "",
+            urls=[{
+                "url": ref["url"],
+                "type": ref.get("type"),
+                "domain": ref.get("domain")
+            } for ref in source.get("url_references", [])],
+            media=[{
+                "url": media["media_url"],
+                "type": media["media_type"]
+            } for media in source.get("media", [])],
+            source_type=source.get("source_type", {}).get("name")
         )
-
-    # Get the first matching item
-    item = response.data[0]
-    content_type = item["content_type"]["name"] if item.get("content_type") else None
-
-    content_item = ContentListItem(
-        id=item["content_id"],
-        thread_id=str(thread_id),  # Convert UUID to string
-        title=item.get("title", "") if content_type == "blog" else "",
-        content=item.get("body", "") if content_type == post_type else "",
-        tags=[tag["tag"]["name"] for tag in item.get("content_tags", []) if tag.get("tag")],
-        createdAt=item["created_at"],
-        updatedAt=item["updated_at"],
-        status=item["status"],
-        twitter_post=item.get("body", "") if content_type == "twitter_post" else "",
-        linkedin_post=item.get("body", "") if content_type == "linkedin_post" else "",
-        urls=[{
-            "url": ref["url"],
-            "type": ref.get("type"),
-            "domain": ref.get("domain")
-        } for source in item.get("content_sources", [])
-            if source.get("source") and source["source"].get("url_references")
-            for ref in source["source"]["url_references"]],
-        media=[{
-            "url": media["media_url"],
-            "type": media["media_type"]
-        } for source in item.get("content_sources", [])
-            if source.get("source") and source["source"].get("media")
-            for media in source["source"]["media"]],
-        source_type=next((source["source"]["source_type"]["name"]
-            for source in item.get("content_sources", [])
-            if source.get("source") and source["source"].get("source_type")), None)
-    )
-
-    return content_item
+    except Exception as e:
+        logger.error(f"Error getting content by thread: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error retrieving content")
 
 @app.get("/reddit/trending", response_model=RedditResponse, tags=["reddit"])
 async def get_trending_reddit_topics(
@@ -1214,138 +1131,76 @@ async def create_reddit_summary(
 
 #Templates endpoints
 @app.post("/templates/", response_model=TemplateResponse, tags=["templates"])
-def create_template(
-    template: TemplateCreate, 
-    profile: dict = Depends(get_current_user_profile)
-):
+def create_template(template: TemplateCreate, profile: dict = Depends(get_current_user_profile)):
     """Create a new template."""
     try:
-        # Insert the template
-        template_data = {
-            "name": template.name,
-            "description": template.description,
-            "template_type": template.template_type,
-            "template_image_url": template.template_image_url,
-            "profile_id": profile["id"]
-        }
-        response = supabase.table("templates").insert(template_data).execute()
-        if not response.data:
-            raise HTTPException(status_code=400, detail="Failed to create template")
-        
-        template_id = response.data[0]["template_id"]
-
-        # Insert template parameters
-        for param in template.parameters:
-            supabase.table("template_parameters").insert({
-                "template_id": template_id,
-                "parameter_id": str(param.parameter_id),
-                "value_id": str(param.value.value_id)
-            }).execute()
-
-        # Fetch the created template with parameters
-        return read_template(template_id, profile)
+        with template_repository.rate_limited_operation(
+            profile_id=profile["id"],
+            action_type='template_creation',
+            limit=10,  # 10 templates per hour
+            window_minutes=60
+        ):
+            template_data = {
+                "name": template.name,
+                "description": template.description,
+                "template_type": template.template_type,
+                "template_image_url": template.template_image_url,
+                "profile_id": profile["id"],
+                "is_deleted": False
+            }
+            result = template_repository.create_template_with_parameters(template_data, template.parameters)
+            if not result:
+                raise HTTPException(status_code=400, detail="Failed to create template")
+            return read_template(result["template_id"], profile)
+    except RateLimitExceeded as e:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-    
+
 @app.get("/templates/{template_id}", response_model=TemplateResponse, tags=["templates"])
-def read_template(
-    template_id: UUID, 
-    profile: dict = Depends(get_current_user_profile)
-):
+def read_template(template_id: UUID, profile: dict = Depends(get_current_user_profile)):
     """Get a template by ID."""
     try:
-        # Fetch the template
-        template_response = supabase.table("templates").select("*").eq("template_id", template_id).eq("profile_id", profile["id"]).execute()
-        if not template_response.data:
+        result = template_repository.get_template_with_parameters(template_id, profile["id"])
+        if not result:
             raise HTTPException(status_code=404, detail="Template not found")
-        template = template_response.data[0]
-
-        # Fetch template parameters
-        params_response = supabase.table("template_parameters").select(
-            "parameter_id, value_id, parameters(name, display_name), parameter_values(value)"
-        ).eq("template_id", template_id).execute()
-
-        # Format parameters
-        parameters = []
-        for param in params_response.data:
-            parameters.append({
-                "parameter_id": param["parameter_id"],
-                "name": param["parameters"]["name"],
-                "display_name": param["parameters"]["display_name"],
-                "value": {
-                    "parameter_id": param["parameter_id"],
-                    "value_id": param["value_id"],
-                    "value": param["parameter_values"]["value"]
-                }
-            })
-
-        # Return the template with parameters
-        return {
-            "template_id": template["template_id"],
-            "name": template["name"],
-            "description": template["description"],
-            "template_type": template["template_type"],
-            "template_image_url": template["template_image_url"],
-            "parameters": parameters,
-            "created_at": template["created_at"],
-            "updated_at": template["updated_at"],
-            "is_deleted": template["is_deleted"]
-        }
+        return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-    
+
 @app.put("/templates/{template_id}", response_model=TemplateResponse, tags=["templates"])
-def update_template(
-    template_id: UUID, 
-    template: TemplateUpdate, 
-    profile: dict = Depends(get_current_user_profile)
-):
+def update_template(template_id: UUID, template: TemplateUpdate, profile: dict = Depends(get_current_user_profile)):
     """Update a template by ID."""
     try:
-        # Update template fields
-        update_data = {}
-        if template.name:
-            update_data["name"] = template.name
-        if template.description:
-            update_data["description"] = template.description
-        if template.template_type:
-            update_data["template_type"] = template.template_type
-        if template.template_image_url:
-            update_data["template_image_url"] = template.template_image_url
-
-        if update_data:
-            supabase.table("templates").update(update_data).eq("template_id", template_id).eq("profile_id", profile["id"]).execute()
-
-        # Update template parameters (if provided)
-        if template.parameters:
-            # Delete existing parameters
-            supabase.table("template_parameters").delete().eq("template_id", template_id).execute()
-
-            # Insert new parameters
-            for param in template.parameters:
-                supabase.table("template_parameters").insert({
-                    "template_id": str(template_id),
-                    "parameter_id": str(param.parameter_id),
-                    "value_id": str(param.value.value_id)
-                }).execute()
-
-        # Fetch the updated template
+        update_data = template.dict(exclude_unset=True)
+        update_data["updated_at"] = datetime.now().isoformat()
+        
+        result = template_repository.update_template_with_parameters(
+            template_id=template_id,
+            profile_id=profile["id"],
+            template_data=update_data,
+            parameters=template.parameters
+        )
+        if not result:
+            raise HTTPException(status_code=404, detail="Template not found")
         return read_template(template_id, profile)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.delete("/templates/{template_id}", tags=["templates"])
-def delete_template(
-    template_id: UUID, 
-    profile: dict = Depends(get_current_user_profile)
-):
+def delete_template(template_id: UUID, profile: dict = Depends(get_current_user_profile)):
     """Soft delete a template by ID."""
     try:
-        response = supabase.table("templates").update({
-            "updated_at": datetime.now().isoformat(),
-            "is_deleted": True
-        }).eq("template_id", template_id).eq("profile_id", profile["id"]).execute()
-        if not response.data:
+        result = template_repository.update_template_with_parameters(
+            template_id=template_id,
+            profile_id=profile["id"],
+            template_data={
+                "updated_at": datetime.now().isoformat(),
+                "is_deleted": True,
+                "deleted_at": datetime.now().isoformat()
+            }
+        )
+        if not result:
             raise HTTPException(status_code=404, detail="Template not found")
         return {"message": "Template deleted"}
     except Exception as e:
@@ -1360,12 +1215,14 @@ def list_templates(
 ):
     """List all templates for the authenticated user."""
     try:
-        query = supabase.table("templates").select("*").eq("profile_id", profile["id"]).eq("is_deleted", False).range(skip, skip + limit - 1)
-
-        if template_type:
-            query = query.eq("template_type", template_type)
-        response = query.execute()
-        return [read_template(t["template_id"], profile) for t in response.data]
+        results = template_repository.list_templates_for_profile(
+            profile_id=profile["id"],
+            skip=skip,
+            limit=limit,
+            template_type=template_type,
+            include_deleted=False
+        )
+        return [read_template(UUID(t["template_id"]), profile) for t in results]
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1378,21 +1235,38 @@ def filter_templates(
 ):
     """Filter templates based on parameters."""
     try:
-        # Base query
-        query = supabase.table("templates").select("*").eq("profile_id", profile["id"]).range(skip, skip + limit - 1)
-
-        # Apply filters
-        if filter.content_type:
-            query = query.eq("template_type", filter.template_type)
-        if filter.is_deleted is not None:
-            query = query.eq("is_deleted", filter.is_deleted)
-
-        # Execute the query
-        response = query.execute()
-        return [read_template(t["template_id"], profile) for t in response.data]
+        results = template_repository.list_templates_for_profile(
+            profile_id=profile["id"],
+            skip=skip,
+            limit=limit,
+            template_type=filter.template_type,
+            include_deleted=filter.is_deleted or False
+        )
+        return [read_template(UUID(t["template_id"]), profile) for t in results]
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-     
+
+@app.post("/templates/advanced-filter", response_model=List[TemplateResponse], tags=["templates"])
+def advanced_filter_templates(
+    filter: AdvancedTemplateFilter,
+    skip: int = 0,
+    limit: int = 10,
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Filter templates by multiple parameters."""
+    try:
+        results = template_repository.filter_templates(
+            profile_id=profile["id"],
+            parameters=filter.parameters,
+            template_type=filter.template_type,
+            include_deleted=filter.is_deleted,
+            skip=skip,
+            limit=limit
+        )
+        return [read_template(UUID(t["template_id"]), profile) for t in results]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.get("/parameters/", response_model=List[ParameterResponse], tags=["parameters"])
 def get_all_parameters(
     skip: int = 0, 
@@ -1401,8 +1275,8 @@ def get_all_parameters(
 ):
     """Get all available parameters."""
     try:
-        response = supabase.table("parameters").select("*").range(skip, skip + limit - 1).execute()
-        return response.data
+        parameters = parameter_repository.list_parameters_with_values(skip, limit)
+        return [param for param in parameters]
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1422,20 +1296,15 @@ def get_all_parameters_with_values(
     limit: int = 100,
     profile: dict = Depends(get_current_user_profile)
 ):
-    """Get all parameters with their associated values in a single response."""
+    """Get all parameters with their values."""
     try:
-        # Get parameters and values in a single query using join
-        response = supabase.table("parameters") \
-            .select("*, parameter_values(*)") \
-            .range(skip, skip + limit - 1) \
-            .execute()
-
-        if not response.data:
+        parameters = parameter_repository.list_parameters_with_values(skip, limit)
+        if not parameters:
             return []
-
-        result = []
-        for param in response.data:
-            parameter_with_values = ParameterWithValues(
+        # Convert raw parameters into ParameterWithValues schema
+        formatted_parameters = []
+        for param in parameters:
+            formatted_param = ParameterWithValues(
                 parameter_id=param["parameter_id"],
                 name=param["name"],
                 display_name=param["display_name"],
@@ -1445,29 +1314,29 @@ def get_all_parameters_with_values(
                 values=[
                     ParameterValueResponse(
                         value_id=value["value_id"],
-                        value=value["value"],
+                        value=value["value"], 
                         display_order=value["display_order"],
                         created_at=value["created_at"]
-                    ) for value in (param.get("parameter_values") or [])
+                    )
+                    for value in param.get("parameter_values", [])
                 ]
             )
-            result.append(parameter_with_values)
-
-        return result
+            formatted_parameters.append(formatted_param)
+        return formatted_parameters
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/parameters/{parameter_id}", response_model=ParameterResponse, tags=["parameters"])
 def get_parameter(
-    parameter_id: UUID, 
+    parameter_id: UUID,
     profile: dict = Depends(get_current_user_profile)
 ):
-    """Get details for a specific parameter."""
+    """Get a parameter by ID."""
     try:
-        response = supabase.table("parameters").select("*").eq("parameter_id", parameter_id).execute()
-        if not response.data:
+        result = parameter_repository.get_parameter(parameter_id)
+        if not result:
             raise HTTPException(status_code=404, detail="Parameter not found")
-        return response.data[0]
+        return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1478,8 +1347,10 @@ def get_parameter_values(
 ):
     """Get allowed values for a parameter."""
     try:
-        response = supabase.table("parameter_values").select("*").eq("parameter_id", parameter_id).order("display_order").execute()
-        return response.data
+        parameter = parameter_repository.get_parameter_with_values(parameter_id)
+        if not parameter:
+            raise HTTPException(status_code=404, detail="Parameter not found")
+        return parameter.get("parameter_values", [])
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1494,13 +1365,15 @@ def create_parameter(
 ):
     """Create a new parameter."""
     try:
-        response = supabase.table("parameters").insert({
+        result = parameter_repository.create_parameter({
             "name": name,
             "display_name": display_name,
             "description": description,
             "is_required": is_required
-        }).execute()
-        return response.data[0]
+        })
+        if not result:
+            raise HTTPException(status_code=400, detail="Failed to create parameter")
+        return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1515,20 +1388,17 @@ def update_parameter(
 ):
     """Update a parameter."""
     try:
-        update_data = {}
-        if name is not None:
-            update_data["name"] = name
-        if display_name is not None:
-            update_data["display_name"] = display_name
-        if description is not None:
-            update_data["description"] = description
-        if is_required is not None:
-            update_data["is_required"] = is_required
+        update_data = {k: v for k, v in {
+            "name": name,
+            "display_name": display_name,
+            "description": description,
+            "is_required": is_required
+        }.items() if v is not None}
 
-        response = supabase.table("parameters").update(update_data).eq("parameter_id", parameter_id).execute()
-        if not response.data:
+        result = parameter_repository.update_parameter(parameter_id, update_data)
+        if not result:
             raise HTTPException(status_code=404, detail="Parameter not found")
-        return response.data[0]
+        return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1539,11 +1409,8 @@ def delete_parameter(
 ):
     """Delete a parameter and its values."""
     try:
-        # Delete parameter values first
-        supabase.table("parameter_values").delete().eq("parameter_id", parameter_id).execute()
-        # Delete parameter
-        response = supabase.table("parameters").delete().eq("parameter_id", parameter_id).execute()
-        if not response.data:
+        success = parameter_repository.delete_parameter(parameter_id)
+        if not success:
             raise HTTPException(status_code=404, detail="Parameter not found")
         return {"message": "Parameter and associated values deleted"}
     except Exception as e:
@@ -1559,36 +1426,12 @@ def create_parameter_value(
 ):
     """Create a new parameter value."""
     try:
-        # If display_order is 0 (default), get the max display_order and increment
-        if display_order == 0:
-            response = supabase.table("parameter_values") \
-                .select("display_order") \
-                .eq("parameter_id", str(parameter_id)) \
-                .order("display_order", desc=True) \
-                .limit(1) \
-                .execute()
-            
-            max_order = response.data[0]["display_order"] if response.data else 0
-            display_order = max_order + 1
-        else:
-            # Check if display_order already exists
-            exists = supabase.table("parameter_values") \
-                .select("value_id") \
-                .eq("parameter_id", str(parameter_id)) \
-                .eq("display_order", display_order) \
-                .execute()
-                
-            if exists.data:
-                raise HTTPException(status_code=400, detail="Display order already exists")
-
-        response = supabase.table("parameter_values").insert({
-            "parameter_id": str(parameter_id),
-            "value": value,
-            "display_order": display_order
-        }).execute()
-        return response.data[0]
-    except HTTPException as e:
-        raise e
+        result = parameter_repository.create_parameter_value(parameter_id, value, display_order)
+        if not result:
+            raise HTTPException(status_code=400, detail="Failed to create parameter value")
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1602,30 +1445,17 @@ def update_parameter_value(
 ):
     """Update a parameter value."""
     try:
-        update_data = {}
-        if value is not None:
-            update_data["value"] = value
-            
-        if display_order is not None:
-            # Check if display_order already exists for another value
-            exists = supabase.table("parameter_values") \
-                .select("value_id") \
-                .eq("parameter_id", str(parameter_id)) \
-                .eq("display_order", display_order) \
-                .neq("value_id", str(value_id)) \
-                .execute()
-                
-            if exists.data:
-                raise HTTPException(status_code=400, detail="Display order already exists")
-                
-            update_data["display_order"] = display_order
+        update_data = {k: v for k, v in {
+            "value": value,
+            "display_order": display_order
+        }.items() if v is not None}
 
-        response = supabase.table("parameter_values").update(update_data).eq("value_id", str(value_id)).execute()
-        if not response.data:
+        result = parameter_repository.update_parameter_value(value_id, parameter_id, update_data)
+        if not result:
             raise HTTPException(status_code=404, detail="Parameter value not found")
-        return response.data[0]
-    except HTTPException as e:
-        raise e
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1637,80 +1467,58 @@ def delete_parameter_value(
 ):
     """Delete a parameter value."""
     try:
-        response = supabase.table("parameter_values").delete().eq("value_id", value_id).eq("parameter_id", parameter_id).execute()
-        if not response.data:
+        success = parameter_repository.delete_parameter_value(value_id, parameter_id)
+        if not success:
             raise HTTPException(status_code=404, detail="Parameter value not found")
         return {"message": "Parameter value deleted"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-    
-@app.get("/parameters/all", response_model=List[ParameterWithValues], tags=["parameters"])
-def get_all_parameters_with_values(
-    skip: int = 0,
-    limit: int = 100,
+
+@app.post("/templates/{template_id}/duplicate", response_model=TemplateResponse, tags=["templates"])
+def duplicate_template(
+    template_id: UUID, 
+    new_name: str = Body(..., embed=True),
     profile: dict = Depends(get_current_user_profile)
 ):
-    """Get all parameters with their associated values in a single response."""
+    """Create a copy of an existing template."""
     try:
-        # Get parameters and values in a single query using join
-        response = supabase.table("parameters") \
-            .select("*, parameter_values(*)") \
-            .range(skip, skip + limit - 1) \
-            .execute()
-
-        if not response.data:
-            return []
-
-        result = []
-        for param in response.data:
-            parameter_with_values = ParameterWithValues(
-                parameter_id=param["parameter_id"],
-                name=param["name"],
-                display_name=param["display_name"],
-                description=param.get("description"),
-                is_required=param["is_required"],
-                created_at=param["created_at"],
-                values=[
-                    ParameterValueResponse(
-                        value_id=value["value_id"],
-                        value=value["value"],
-                        display_order=value["display_order"],
-                        created_at=value["created_at"]
-                    ) for value in (param.get("parameter_values") or [])
-                ]
-            )
-            result.append(parameter_with_values)
-
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/templates/advanced-filter", response_model=List[TemplateResponse], tags=["templates"])
-def advanced_filter_templates(
-    filter: AdvancedTemplateFilter,
-    skip: int = 0,
-    limit: int = 10,
-    profile: dict = Depends(get_current_user_profile)
-):
-    """Filter templates by multiple parameters."""
-    try:
-        # Base query
-        query = supabase.table("templates").select("*, template_parameters!inner(*)").eq("profile_id", profile["id"]).range(skip, skip + limit - 1)
-
-        # Add parameter filters
-        for param_filter in filter.parameters:
-            query = query.contains("template_parameters", {"parameter_id": str(param_filter.parameter_id), "value_id": str(param_filter.value_id)})
-
-        # Add other filters
-        if filter.template_type:
-            query = query.eq("template_type", filter.template_type)
-        if filter.is_deleted is not None:
-            query = query.eq("is_deleted", filter.is_deleted)
-
-        response = query.execute()
-        return [read_template(t["template_id"], profile) for t in response.data]
+        result = template_repository.duplicate_template(template_id, profile["id"], new_name)
+        if not result:
+            raise HTTPException(status_code=404, detail="Template not found")
+        return read_template(result["template_id"], profile)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/templates/count", response_model=Dict[str, int], tags=["templates"])
+def count_templates(
+    template_type: Optional[str] = None,
+    include_deleted: bool = False,
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Get count of templates for the current user."""
+    try:
+        count = template_repository.count_templates(
+            profile_id=profile["id"],
+            template_type=template_type,
+            include_deleted=include_deleted
+        )
+        return {"count": count}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={"detail": str(exc)}
+    )
+
+@app.exception_handler(QuotaExceeded)
+async def quota_exceeded_handler(request: Request, exc: QuotaExceeded):
+    return JSONResponse(
+        status_code=402,
+        content={"detail": str(exc)}
+    )
 
 if __name__ == "__main__":
     uvicorn.run("src.backend.api:app", host="0.0.0.0", port=8000, reload=False)

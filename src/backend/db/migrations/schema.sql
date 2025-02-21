@@ -76,28 +76,34 @@ CREATE OR REPLACE FUNCTION "public"."delete_old_checkpoints"() RETURNS "void"
     LANGUAGE "plpgsql"
     AS $$
 BEGIN
-    DELETE FROM checkpoints
+    -- Delete from checkpoints table
+    DELETE FROM public.checkpoints
     WHERE thread_id IN (
-        SELECT thread_id::text  -- Cast to text if checkpoints.thread_id is of type text
-        FROM content
-        WHERE status = 'Published'
-        AND created_at < NOW() - INTERVAL '10 days'
+        SELECT c.thread_id 
+        FROM public.checkpoints c
+        LEFT JOIN public.content ct ON c.thread_id = ct.thread_id::text
+        WHERE ct.status = 'Published'
+        AND ct.created_at < NOW() - INTERVAL '10 days'
     );
 
-    DELETE FROM checkpoint_writes
+    -- Delete from checkpoint_writes
+    DELETE FROM public.checkpoint_writes
     WHERE thread_id IN (
-        SELECT thread_id::text  -- Cast to text if checkpoint_writes.thread_id is of type text
-        FROM content
-        WHERE status = 'Published'
-        AND created_at < NOW() - INTERVAL '10 days'
+        SELECT cw.thread_id 
+        FROM public.checkpoint_writes cw
+        LEFT JOIN public.content ct ON cw.thread_id = ct.thread_id::text
+        WHERE ct.status = 'Published'
+        AND ct.created_at < NOW() - INTERVAL '10 days'
     );
 
-    DELETE FROM checkpoint_blobs
+    -- Delete from checkpoint_blobs
+    DELETE FROM public.checkpoint_blobs
     WHERE thread_id IN (
-        SELECT thread_id::text  -- Cast to text if checkpoint_blobs.thread_id is of type text
-        FROM content
-        WHERE status = 'Published'
-        AND created_at < NOW() - INTERVAL '10 days'
+        SELECT cb.thread_id 
+        FROM public.checkpoint_blobs cb
+        LEFT JOIN public.content ct ON cb.thread_id = ct.thread_id::text
+        WHERE ct.status = 'Published'
+        AND ct.created_at < NOW() - INTERVAL '10 days'
     );
 END;
 $$;
@@ -343,6 +349,31 @@ CREATE TABLE IF NOT EXISTS "public"."media" (
 ALTER TABLE "public"."media" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."parameter_values" (
+    "value_id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
+    "parameter_id" "uuid",
+    "value" "text" NOT NULL,
+    "display_order" integer,
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."parameter_values" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."parameters" (
+    "parameter_id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
+    "name" "text" NOT NULL,
+    "display_name" "text" NOT NULL,
+    "description" "text",
+    "is_required" boolean DEFAULT false,
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."parameters" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."payments" (
     "payment_id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
     "subscription_id" "uuid",
@@ -382,7 +413,7 @@ CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "preferences" "jsonb" DEFAULT '{"theme": "light", "defaultView": "blog", "emailNotifications": true}'::"jsonb",
     "is_deleted" boolean DEFAULT false,
     "deleted_at" timestamp with time zone,
-    "generations_used_per_thread" integer DEFAULT 0,
+    "generations_used" integer DEFAULT 0,
     "bio" "text",
     "website" "text",
     "company" "text",
@@ -394,6 +425,28 @@ CREATE TABLE IF NOT EXISTS "public"."profiles" (
 
 
 ALTER TABLE "public"."profiles" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."quota_usage" (
+    "id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
+    "profile_id" "uuid",
+    "quota_type" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."quota_usage" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."rate_limits" (
+    "id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
+    "profile_id" "uuid",
+    "action_type" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."rate_limits" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."source_metadata" (
@@ -461,13 +514,24 @@ CREATE TABLE IF NOT EXISTS "public"."tags" (
 ALTER TABLE "public"."tags" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."template_parameters" (
+    "template_param_id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
+    "template_id" "uuid",
+    "parameter_id" "uuid",
+    "value_id" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."template_parameters" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."templates" (
     "template_id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
     "name" "text" NOT NULL,
     "description" "text",
     "template_type" "text" DEFAULT 'default'::"text",
     "profile_id" "uuid",
-    "parameters" "jsonb" NOT NULL,
     "template_image_url" "text",
     "created_at" timestamp with time zone DEFAULT "now"(),
     "updated_at" timestamp with time zone DEFAULT "now"(),
@@ -608,6 +672,26 @@ ALTER TABLE ONLY "public"."source_metadata"
 
 
 
+ALTER TABLE ONLY "public"."parameter_values"
+    ADD CONSTRAINT "parameter_values_parameter_id_value_key" UNIQUE ("parameter_id", "value");
+
+
+
+ALTER TABLE ONLY "public"."parameter_values"
+    ADD CONSTRAINT "parameter_values_pkey" PRIMARY KEY ("value_id");
+
+
+
+ALTER TABLE ONLY "public"."parameters"
+    ADD CONSTRAINT "parameters_name_key" UNIQUE ("name");
+
+
+
+ALTER TABLE ONLY "public"."parameters"
+    ADD CONSTRAINT "parameters_pkey" PRIMARY KEY ("parameter_id");
+
+
+
 ALTER TABLE ONLY "public"."payments"
     ADD CONSTRAINT "payments_pkey" PRIMARY KEY ("payment_id");
 
@@ -620,6 +704,16 @@ ALTER TABLE ONLY "public"."plans"
 
 ALTER TABLE ONLY "public"."profiles"
     ADD CONSTRAINT "profiles_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."quota_usage"
+    ADD CONSTRAINT "quota_usage_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."rate_limits"
+    ADD CONSTRAINT "rate_limits_pkey" PRIMARY KEY ("id");
 
 
 
@@ -650,6 +744,16 @@ ALTER TABLE ONLY "public"."tags"
 
 ALTER TABLE ONLY "public"."tags"
     ADD CONSTRAINT "tags_pkey" PRIMARY KEY ("tag_id");
+
+
+
+ALTER TABLE ONLY "public"."template_parameters"
+    ADD CONSTRAINT "template_parameters_pkey" PRIMARY KEY ("template_param_id");
+
+
+
+ALTER TABLE ONLY "public"."template_parameters"
+    ADD CONSTRAINT "template_parameters_template_id_parameter_id_key" UNIQUE ("template_id", "parameter_id");
 
 
 
@@ -793,6 +897,11 @@ ALTER TABLE ONLY "public"."source_metadata"
 
 
 
+ALTER TABLE ONLY "public"."parameter_values"
+    ADD CONSTRAINT "parameter_values_parameter_id_fkey" FOREIGN KEY ("parameter_id") REFERENCES "public"."parameters"("parameter_id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."payments"
     ADD CONSTRAINT "payments_subscription_id_fkey" FOREIGN KEY ("subscription_id") REFERENCES "public"."subscriptions"("subscription_id") ON DELETE CASCADE;
 
@@ -800,6 +909,16 @@ ALTER TABLE ONLY "public"."payments"
 
 ALTER TABLE ONLY "public"."profiles"
     ADD CONSTRAINT "profiles_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."quota_usage"
+    ADD CONSTRAINT "quota_usage_profile_id_fkey" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id");
+
+
+
+ALTER TABLE ONLY "public"."rate_limits"
+    ADD CONSTRAINT "rate_limits_profile_id_fkey" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id");
 
 
 
@@ -815,6 +934,21 @@ ALTER TABLE ONLY "public"."subscriptions"
 
 ALTER TABLE ONLY "public"."subscriptions"
     ADD CONSTRAINT "subscriptions_profile_id_fkey" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."template_parameters"
+    ADD CONSTRAINT "template_parameters_parameter_id_fkey" FOREIGN KEY ("parameter_id") REFERENCES "public"."parameters"("parameter_id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."template_parameters"
+    ADD CONSTRAINT "template_parameters_template_id_fkey" FOREIGN KEY ("template_id") REFERENCES "public"."templates"("template_id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."template_parameters"
+    ADD CONSTRAINT "template_parameters_value_id_fkey" FOREIGN KEY ("value_id") REFERENCES "public"."parameter_values"("value_id") ON DELETE CASCADE;
 
 
 
@@ -1209,6 +1343,18 @@ GRANT ALL ON TABLE "public"."media" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."parameter_values" TO "anon";
+GRANT ALL ON TABLE "public"."parameter_values" TO "authenticated";
+GRANT ALL ON TABLE "public"."parameter_values" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."parameters" TO "anon";
+GRANT ALL ON TABLE "public"."parameters" TO "authenticated";
+GRANT ALL ON TABLE "public"."parameters" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."payments" TO "anon";
 GRANT ALL ON TABLE "public"."payments" TO "authenticated";
 GRANT ALL ON TABLE "public"."payments" TO "service_role";
@@ -1224,6 +1370,18 @@ GRANT ALL ON TABLE "public"."plans" TO "service_role";
 GRANT ALL ON TABLE "public"."profiles" TO "anon";
 GRANT ALL ON TABLE "public"."profiles" TO "authenticated";
 GRANT ALL ON TABLE "public"."profiles" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."quota_usage" TO "anon";
+GRANT ALL ON TABLE "public"."quota_usage" TO "authenticated";
+GRANT ALL ON TABLE "public"."quota_usage" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."rate_limits" TO "anon";
+GRANT ALL ON TABLE "public"."rate_limits" TO "authenticated";
+GRANT ALL ON TABLE "public"."rate_limits" TO "service_role";
 
 
 
@@ -1254,6 +1412,12 @@ GRANT ALL ON TABLE "public"."subscriptions" TO "service_role";
 GRANT ALL ON TABLE "public"."tags" TO "anon";
 GRANT ALL ON TABLE "public"."tags" TO "authenticated";
 GRANT ALL ON TABLE "public"."tags" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."template_parameters" TO "anon";
+GRANT ALL ON TABLE "public"."template_parameters" TO "authenticated";
+GRANT ALL ON TABLE "public"."template_parameters" TO "service_role";
 
 
 

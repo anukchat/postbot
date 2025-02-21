@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+from typing import Optional
 import uuid
 
 from fastapi import HTTPException
@@ -40,6 +41,9 @@ from src.backend.extraction.factory import ConverterRegistry, ExtracterRegistry
 import atexit
 from src.backend.utils.logger import setup_logger
 from src.backend.utils.general import safe_json_loads, shorten_link
+from src.backend.db.connection import DatabaseConnectionManager, db_retry
+from src.backend.db.repository import BaseRepository
+from src.backend.db.repositories.content_repository import ContentRepository
 
 # Setup logger
 logger = setup_logger(__name__)
@@ -47,7 +51,6 @@ logger = setup_logger(__name__)
 supabase: Client = supabase_client()
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
-
 
 class AgentWorkflow:
 
@@ -73,6 +76,8 @@ class AgentWorkflow:
         }
         self.conn = Connection.connect(dsn, **connection_kwargs)
         self.checkpointer = PostgresSaver(self.conn)
+        self.db = DatabaseConnectionManager()
+        self.content_repo = ContentRepository()
 
         # self.checkpointer.setup()
 
@@ -978,76 +983,67 @@ class AgentWorkflow:
                 ).execute()
 
     def _store_new_content(self, result, thread_id, source_id, payload, user):
-        """Store newly generated content"""
+        """Store newly generated content with improved error handling and transactions"""
         try:
-            for post_type in payload.get("post_types", ["blog"]):
-                # Validate post type exists
-                content_type_result = (
-                    supabase.table("content_types")
-                    .select("*")
-                    .eq("name", post_type)
-                    .execute()
-                )
-                
-                if not content_type_result.data:
-                    logging.error(f"Content type {post_type} not found")
-                    continue
+            with self.db.transaction() as conn:
+                for post_type in payload.get("post_types", ["blog"]):
+                    content_type_result = (
+                        conn.table("content_types")
+                        .select("*")
+                        .eq("name", post_type)
+                        .single()
+                        .execute()
+                    )
+                    
+                    if not content_type_result.data:
+                        logger.error(f"Content type {post_type} not found")
+                        continue
 
-                # Clean and validate content
-                blog_title = result.get("blog_title", "").strip() if post_type == "blog" else None
-                blog_body = result.get("final_blog" if post_type == "blog" else f"{post_type}_post", "")
-                
-                if isinstance(blog_body, str):
-                    blog_body = blog_body.strip()
+                    blog_title = result.get("blog_title", "").strip() if post_type == "blog" else None
+                    blog_body = result.get("final_blog" if post_type == "blog" else f"{post_type}_post", "")
+                    
+                    content_data = {
+                        "profile_id": user["id"],
+                        "content_type_id": content_type_result.data["content_type_id"],
+                        "title": blog_title,
+                        "body": blog_body.strip(),
+                        "status": "Draft",
+                        "thread_id": thread_id,
+                    }
 
-                content_data = {
-                    "profile_id": user["id"],
-                    "content_type_id": content_type_result.data[0]["content_type_id"],
-                    "title": blog_title,
-                    "body": blog_body.strip(),
-                    "status": "Draft",
-                    "thread_id": thread_id,
-                }
-
-                # Insert content with error handling
-                try:
-                    content = supabase.table("content").insert(content_data).execute()
+                    content = conn.table("content").insert(content_data).execute()
                     content_id = content.data[0]["content_id"]
 
-                    # Store source reference if provided
                     if source_id:
                         content_source_data = {
                             "content_id": content_id,
                             "source_id": source_id,
                         }
-                        supabase.table("content_sources").insert(content_source_data).execute()
+                        conn.table("content_sources").insert(content_source_data).execute()
 
-                    # Store tags
-                    if result:
-                        self._store_tags(result, content_id)
-
-                except Exception as e:
-                    logging.error(f"Error storing content: {str(e)}")
-                    raise Exception(f"Failed to store content: {str(e)}")
+                    if result.get("tags"):
+                        self._store_tags(conn, result["tags"], content_id)
 
         except Exception as e:
-            logging.error(f"Error in _store_new_content: {str(e)}")
+            logger.error(f"Error in _store_new_content: {str(e)}")
             raise
 
-    def _store_tags(self, result, content_id):
-        """Store tags for content"""
-        if result.get("tags"):
-            for tag_name in result["tags"]:
-                tag = supabase.table("tags").select("*").eq("name", tag_name).execute()
+    def _store_tags(self, conn: Client, tags: List[str], content_id: uuid.UUID):
+        """Store tags with improved error handling"""
+        for tag_name in tags:
+            try:
+                tag = conn.table("tags").select("*").eq("name", tag_name).single().execute()
                 if not tag.data:
-                    tag = supabase.table("tags").insert({"name": tag_name}).execute()
+                    tag = conn.table("tags").insert({"name": tag_name}).execute()
                 tag_id = tag.data[0]["tag_id"]
 
-                content_tag_data = {
+                conn.table("content_tags").insert({
                     "content_id": content_id,
                     "tag_id": tag_id,
-                }
-                supabase.table("content_tags").insert(content_tag_data).execute()
+                }).execute()
+            except Exception as e:
+                logger.error(f"Error storing tag {tag_name}: {str(e)}")
+                continue
 
     def _process_url_content(self, url_meta):
         """Helper to process URL content based on type"""

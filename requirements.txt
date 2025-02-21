@@ -7,5 +7,6 @@ fastapi
 uvicorn
 psycopg2
 supabase
-backoff
+backoff>=2.2.1
+postgrest>=0.10.6
 pyshorteners
