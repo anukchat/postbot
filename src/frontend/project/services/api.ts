@@ -18,6 +18,9 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+// Add deleteContent method
+const deleteContent = (threadId: string) => api.delete(`/content/thread/${threadId}`);
+
 // Template-specific methods
 const templateApi = {
   getTemplate: (templateId: string) => api.get(`/templates/${templateId}`),
@@ -33,5 +36,5 @@ const templateApi = {
   getParameterValues: (parameterId: string) => api.get(`/parameters/${parameterId}/values`),
 };
 
-export { templateApi };
+export { templateApi, deleteContent };
 export default api;

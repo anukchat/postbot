@@ -791,16 +791,16 @@ def update_content(content_id: UUID, content: ContentUpdate, profile: dict = Dep
         raise HTTPException(status_code=403, detail="Not authorized to update this content")
     return result
 
-@app.delete("/content/{content_id}", tags=["content"])
-def delete_content(content_id: UUID, profile: dict = Depends(get_current_user_profile)):
+@app.delete("/content/thread/{thread_id}", tags=["content"])
+def delete_content(thread_id: UUID, profile: dict = Depends(get_current_user_profile)):
     """Soft delete content"""
-    content = content_repository.find_by_id("content_id", content_id)
+    content = content_repository.find_by_id("thread_id", thread_id)
     if not content:
         raise HTTPException(status_code=404, detail="Content not found")
     if content["profile_id"] != str(profile["id"]):
         raise HTTPException(status_code=403, detail="Not authorized to delete this content")
         
-    result = content_repository.soft_delete("content_id", content_id)
+    result = content_repository.soft_delete("thread_id", thread_id)
     if not result:
         raise HTTPException(status_code=400, detail="Failed to delete content")
     return {"message": "Content deleted"}
@@ -820,7 +820,7 @@ async def save_thread_content(
             window_minutes=60
         ):
             # Get content type mapping
-            type_map = await content_type_repository.get_content_type_map(["blog", "twitter", "linkedin"])
+            type_map = content_type_repository.get_content_type_map(["blog", "twitter", "linkedin"])
             if not type_map:
                 raise HTTPException(status_code=400, detail="Failed to get content types")
                 
@@ -838,13 +838,13 @@ async def schedule_thread_content(thread_id: UUID, payload: ScheduleContentReque
         async with supabase.pool.acquire() as connection:
             async with connection.transaction():
                 # Get content type for the platform
-                content_type = await supabase.table("content_types").select("*").eq("name", f"{payload.platform}_post").execute()
+                content_type = supabase.table("content_types").select("*").eq("name", f"{payload.platform}_post").execute()
                 
                 if not content_type.data:
                     raise HTTPException(status_code=400, detail=f"Invalid platform: {payload.platform}")
 
                 # Update the specific content type for this thread
-                response = await supabase.table("content").update({
+                response = supabase.table("content").update({
                     "status": payload.status,
                     "scheduled_at": payload.schedule_date
                 }).eq("thread_id", thread_id).eq("content_type_id", content_type.data[0]["content_type_id"]).execute()
@@ -926,7 +926,7 @@ async def get_content_by_thread(
         # Get content type ID if post_type is provided
         content_type_id = None
         if post_type:
-            type_id = await content_type_repository.get_content_type_id_by_name(f"{post_type}_post")
+            type_id = content_type_repository.get_content_type_id_by_name(post_type)
             if not type_id:
                 raise HTTPException(status_code=400, detail=f"Invalid post type: {post_type}")
             content_type_id = type_id

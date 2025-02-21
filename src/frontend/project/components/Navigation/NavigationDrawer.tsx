@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useEditorStore } from '../../store/editorStore';
-import { Loader, Search, Filter, X, RefreshCw } from 'lucide-react';
+import { Loader, Search, Filter, X, RefreshCw, Trash2 } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import { Post } from '../../types/editor';
+import toast from 'react-hot-toast';
 
 interface NavigationDrawerProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
     limit, 
     isLoading,
     hasReachedEnd,
+    deletePost, // Add this
   } = useEditorStore();
   
   const isListLoading = useEditorStore(state => state.isListLoading);
@@ -262,6 +264,18 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
     onClose();
   };
 
+  const handleDelete = async (e: React.MouseEvent, threadId: string) => {
+    e.stopPropagation(); // Prevent post selection when clicking delete
+    if (window.confirm('Are you sure you want to delete this post?')) {
+      try {
+        await deletePost(threadId);
+        toast.success('Post deleted successfully');
+      } catch (error) {
+        toast.error('Failed to delete post');
+      }
+    }
+  };
+
   // Reset filters when drawer is closed
   useEffect(() => {
     if (!isOpen) {
@@ -450,15 +464,24 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
                     >
                       <button
                         onClick={() => handlePostSelect(post)}
-                        className="w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700"
+                        className="w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 group"
                       >
-                        <h3 className={`mb-1 break-words leading-snug line-clamp-2 ${
-                          latestDate && new Date(post.updatedAt).getDate() === latestDate.getDate() 
-                            ? 'font-medium' 
-                            : 'font-normal'
-                        }`}>
-                          {post.title}
-                        </h3>
+                        <div className="flex justify-between items-start">
+                          <h3 className={`mb-1 break-words leading-snug line-clamp-2 flex-1 ${
+                            latestDate && new Date(post.updatedAt).getDate() === latestDate.getDate() 
+                              ? 'font-medium' 
+                              : 'font-normal'
+                          }`}>
+                            {post.title}
+                          </h3>
+                          <button
+                            onClick={(e) => handleDelete(e, post.thread_id)}
+                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-opacity ml-2 -mr-1"
+                            title="Delete post"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                        </div>
                         <div className="flex justify-between items-center">
                           <p className="text-sm text-gray-500 dark:text-gray-400">
                             {new Date(post.updatedAt).toLocaleDateString()}

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { templateApi } from '../services/api';
+import { templateApi, deleteContent } from '../services/api';
 import { Post } from '../types/editor';
 import api from '../services/api';
 import { cacheService } from '../services/cacheService';
@@ -129,6 +129,7 @@ interface EditorState {
   fetchContentByThreadId: (thread_id: string, post_type?: string) => Promise<void>;
   generatePost: (post_types: string[], thread_id: string, payload?: GeneratePayload) => Promise<void>;
   fetchTrendingBlogTopics: (subreddits?: string[], limit?: number) => Promise<void>;
+  deletePost: (threadId: string) => Promise<void>;
 }
 
 // Separate admin state interface
@@ -959,6 +960,28 @@ ${content}`;
       await fetchParameterValues(parameterId);
     } catch (error) {
       console.error('Error deleting parameter value:', error);
+      throw error;
+    }
+  },
+
+  deletePost: async (threadId: string) => {
+    const { fetchPosts } = get();
+    try {
+      set({ isLoading: true });
+      await deleteContent(threadId);
+      
+      // Update local state
+      set(state => ({
+        posts: state.posts.filter(post => post.thread_id !== threadId),
+        currentPost: state.currentPost?.thread_id === threadId ? null : state.currentPost
+      }));
+      
+      // Refresh the list
+      await fetchPosts({});
+      set({ isLoading: false, error: null });
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      set({ isLoading: false, error: 'Failed to delete post' });
       throw error;
     }
   },

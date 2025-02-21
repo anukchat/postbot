@@ -258,7 +258,7 @@ class AgentWorkflow:
         """Write the Twitter post"""
         final_blog = state.final_blog
         twitter_post = self.llm.invoke([
-            SystemMessage(content=twitter_post_instructions.format(final_blog=final_blog)),
+            SystemMessage(content=twitter_post_instructions.format(final_blog=final_blog, **state.template['parameters'])),
             HumanMessage(content="Generate a Twitter post based on the provided article")
         ])
         return {"twitter_post": twitter_post}
@@ -267,7 +267,7 @@ class AgentWorkflow:
         """Write the LinkedIn post"""
         final_blog = state.final_blog
         linkedin_post = self.llm.invoke([
-            SystemMessage(content=linkedin_post_instructions.format(final_blog=final_blog)),
+            SystemMessage(content=linkedin_post_instructions.format(final_blog=final_blog, **state.template['parameters'])),
             HumanMessage(content="Generate a LinkedIn post based on the provided article")
         ])
         return {"linkedin_post": linkedin_post}
@@ -317,7 +317,10 @@ class AgentWorkflow:
         User feedback:
         {state.feedback}
         
-        Please modify the content according to the feedback while maintaining the technical accuracy and quality."""
+        Modify the content according to the feedback while maintaining the quality.
+        
+        Stricly return only the modified content in markdown format and do not include any additional text including introductory phrases like conversation starters e.g. Do not include 'Here's is the modified content etc.'.
+        """
 
         # Invoke the LLM to modify the content
         modified_content = self.llm.invoke(

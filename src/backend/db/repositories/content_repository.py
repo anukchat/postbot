@@ -8,7 +8,7 @@ class ContentRepository(BaseRepository):
     def __init__(self):
         super().__init__("content")
 
-    def get_content_by_thread(self, thread_id: uuid.UUID, profile_id: uuid.UUID) -> Optional[Dict]:
+    def get_content_by_thread(self, thread_id: uuid.UUID, profile_id: uuid.UUID, content_type_id: Optional[uuid.UUID] = None) -> Optional[Dict]:
         with self.db.connection() as conn:
             query = (
                 conn.table(self.table_name)
@@ -16,6 +16,8 @@ class ContentRepository(BaseRepository):
                 .eq("thread_id", thread_id)
                 .eq("profile_id", profile_id)
             )
+            if content_type_id:
+                query = query.eq("content_type_id", content_type_id)
             response = query.execute()
             return response.data[0] if response.data else None
 
@@ -32,7 +34,7 @@ class ContentRepository(BaseRepository):
         with self.db.connection() as conn:
             query = conn.table(self.table_name).select(
                 "*, content_types:content_type_id(content_type_id, name), content_tags(tag_id, tags:tag_id(name)), content_sources!inner(content_source_id, source:source_id(source_id, source_identifier, source_types(name), url_references(*), media(*)))"
-            ).eq("profile_id", profile_id).order("created_at", desc=True)
+            ).eq("profile_id", profile_id).eq("is_deleted", False).order("created_at", desc=True)
 
             # Apply filters
             if filters.get("title_contains"):
