@@ -1,154 +1,67 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Search, Filter, Sparkles, X, Loader2 } from 'lucide-react';
 import { TemplateCard } from './TemplateCard';
+import { TemplateManagement } from './TemplateManagement';
+import { useEditorStore } from '../../store/editorStore';
+import { cacheService } from '../../services/cacheService';
 
-// Updated categories
-const TEMPLATE_CATEGORIES = [
-  'Blog Post',
-  'Product Review',
-  'Tutorial',
-  'Case Study',
-  'Industry News',
-  'Opinion Piece',
-  'How-to Guide',
-  'Comparison Article',
-  'List Article',
-  'Interview',
-  'Research Summary',
-  'Newsletter',
-  'Social Media',
-  'Personal Story',
-  'Company Update',
-  'Event Coverage',
-  'Expert Analysis'
-];
+interface Template {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+}
 
-// Extended template list
-const DUMMY_TEMPLATES = [
-  {
-    id: '1',
-    title: 'Product Review Template',
-    description: 'A comprehensive template for reviewing products with pros, cons, and detailed analysis.',
-    thumbnail: 'https://images.unsplash.com/photo-1515378960530-7c0da6231fb1',
-    category: 'Product Review'
-  },
-  {
-    id: '2',
-    title: 'How-to Guide Template',
-    description: 'Step-by-step guide template with clear sections and explanations.',
-    thumbnail: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3',
-    category: 'How-to Guide'
-  },
-  {
-    id: '3',
-    title: 'Industry News Analysis',
-    description: 'Template for analyzing and reporting on industry news and trends.',
-    thumbnail: 'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f',
-    category: 'Industry News'
-  },
-  {
-    id: '4',
-    title: 'Case Study Template',
-    description: 'Structured template for presenting detailed case studies and success stories.',
-    thumbnail: 'https://images.unsplash.com/photo-1605810230434-7631ac76ec81',
-    category: 'Case Study'
-  },
-  {
-    id: '5',
-    title: 'Interview Article',
-    description: 'Template for formatting expert interviews and Q&A sessions.',
-    thumbnail: 'https://images.unsplash.com/photo-1521791136064-7986c2920216',
-    category: 'Interview'
-  },
-  {
-    id: '6',
-    title: 'Research Summary',
-    description: 'Template for summarizing and presenting research findings clearly.',
-    thumbnail: 'https://images.unsplash.com/photo-1532619187608-e5375cab36aa',
-    category: 'Research Summary'
-  },
-  {
-    id: '7',
-    title: 'Top 10 List Article',
-    description: 'Template for creating engaging and informative list-based content.',
-    thumbnail: 'https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b',
-    category: 'List Article'
-  },
-  {
-    id: '8',
-    title: 'Technical Tutorial',
-    description: 'Detailed template for technical how-to guides and tutorials.',
-    thumbnail: 'https://images.unsplash.com/photo-1517180102446-f3ece451e9d8',
-    category: 'Tutorial'
-  },
-  {
-    id: '9',
-    title: 'Newsletter Roundup',
-    description: 'Weekly digest template perfect for curating and summarizing content for your audience.',
-    thumbnail: 'https://images.unsplash.com/photo-1586339949216-35c2747cc36d',
-    category: 'Newsletter'
-  },
-  {
-    id: '10',
-    title: 'Social Media Success Story',
-    description: 'Template for showcasing social media campaign results and strategies.',
-    thumbnail: 'https://images.unsplash.com/photo-1611926653458-09294b3142bf',
-    category: 'Social Media'
-  },
-  {
-    id: '11',
-    title: 'Personal Journey Blog',
-    description: 'Engaging template for sharing personal experiences and lessons learned.',
-    thumbnail: 'https://images.unsplash.com/photo-1512245570155-d0d910ec9bc5',
-    category: 'Personal Story'
-  },
-  {
-    id: '12',
-    title: 'Monthly Company Update',
-    description: 'Professional template for sharing company news, milestones, and achievements.',
-    thumbnail: 'https://images.unsplash.com/photo-1553484771-048eacb424b3',
-    category: 'Company Update'
-  },
-  {
-    id: '13',
-    title: 'Conference Coverage',
-    description: 'Template for comprehensive event reporting and key takeaways.',
-    thumbnail: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2',
-    category: 'Event Coverage'
-  },
-  {
-    id: '14',
-    title: 'Expert Opinion Piece',
-    description: 'Template for in-depth analysis and professional insights on industry topics.',
-    thumbnail: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40',
-    category: 'Expert Analysis'
-  },
-  {
-    id: '15',
-    title: 'Product Comparison Guide',
-    description: 'Side-by-side comparison template for evaluating multiple products or services.',
-    thumbnail: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f',
-    category: 'Comparison Article'
-  },
-  {
-    id: '16',
-    title: 'Quick Tips & Tricks',
-    description: 'Concise template for sharing quick, actionable advice and tips.',
-    thumbnail: 'https://images.unsplash.com/photo-1586281380117-5a60ae2050cc',
-    category: 'How-to Guide'
-  }
-];
+interface TemplatesViewProps {
+  onTemplateSelect: (template: Template) => void;
+}
 
-export const TemplatesView = () => {
+export const TemplatesView = ({ onTemplateSelect }: TemplatesViewProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const filtersRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+
+  // Use editor store for templates
+  const { templates, isTemplateLoading, fetchTemplates } = useEditorStore();
+
+  // Add cache error state
+  const [cacheError, setCacheError] = useState<string | null>(null);
+
+  // Enhance useEffect for template fetching
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        await fetchTemplates();
+        // Clear any previous cache errors
+        setCacheError(null);
+      } catch (error) {
+        console.error('Error loading templates:', error);
+        setCacheError('Failed to load templates. Retrying...');
+        // Retry once after cache failure
+        try {
+          cacheService.clearCache();
+          await fetchTemplates();
+          setCacheError(null);
+        } catch (retryError) {
+          setCacheError('Unable to load templates. Please try again later.');
+        }
+      }
+    };
+
+    loadTemplates();
+  }, [fetchTemplates]);
+
+  // Add cache stats monitoring (for development)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      const stats = cacheService.getCacheStats();
+      console.log('Cache stats:', stats);
+    }
+  }, [templates]);
 
   // Clear all filters
   const clearFilters = () => {
@@ -161,7 +74,6 @@ export const TemplatesView = () => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       
-      // Check if click is outside the filters panel and not on the filter button
       if (filtersRef.current && 
           !filtersRef.current.contains(target) && 
           !target.closest('[data-filter-toggle]')) {
@@ -176,20 +88,6 @@ export const TemplatesView = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showFilters]);
 
-  // Debounced search with loading state
-  useEffect(() => {
-    setIsSearching(true);
-    searchTimeoutRef.current = setTimeout(() => {
-      setIsSearching(false);
-    }, 300);
-
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, [searchTerm, selectedCategory]);
-
   // Handle scroll behavior
   useEffect(() => {
     const handleScroll = () => {
@@ -200,168 +98,200 @@ export const TemplatesView = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Filter templates locally
   const filteredTemplates = useMemo(() => {
-    return DUMMY_TEMPLATES.filter(template => {
-      const matchesSearch = template.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          template.description.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = !selectedCategory || template.category === selectedCategory;
+    return templates.filter(template => {
+      const matchesSearch = 
+        template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (template.description || '').toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesCategory = !selectedCategory || 
+        template.parameters.some(param => 
+          param.name === 'content_type' && 
+          param.value.value === selectedCategory
+        );
+
       return matchesSearch && matchesCategory;
     });
-  }, [searchTerm, selectedCategory]);
+  }, [templates, searchTerm, selectedCategory]);
+
+  // Extract unique categories from templates
+  const availableCategories = useMemo(() => {
+    const categories = new Set<string>();
+    templates.forEach(template => {
+      template.parameters.forEach(param => {
+        if (param.name === 'content_type') {
+          categories.add(param.value.value);
+        }
+      });
+    });
+    return Array.from(categories);
+  }, [templates]);
+
+  const handleTemplateClick = (template: any) => {
+    // Convert the template structure to match what NewBlogModal expects
+    const formattedTemplate = {
+      id: template.template_id,
+      title: template.name,
+      description: template.description || '',
+      category: template.parameters.find((p: { name: string; }) => p.name === 'content_type')?.value.value || ''
+    };
+    onTemplateSelect(formattedTemplate);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Fixed Search Bar with Backdrop */}
-      <div 
-        className={`fixed top-0 left-16 right-0 z-[15] bg-white dark:bg-gray-800 shadow-sm transition-all duration-300 ease-out ${
-          isScrolled 
-            ? 'border-b border-gray-200 dark:border-gray-700' 
-            : 'border-transparent'
-        }`}
-      >
-        <div 
-          className="max-w-xl mx-auto relative animate-in fade-in slide-in-from-top-2 duration-700 ease-out"
-          style={{ 
-            paddingTop: isScrolled ? '0.75rem' : '1rem',
-            paddingBottom: isScrolled ? '0.75rem' : '1rem'
-          }}
-        >
-          {/* Search Bar Container */}
-          <div className="relative">
-            {/* Search Input with Icon */}
+      <div className={`fixed top-0 left-16 right-0 z-[15] bg-white dark:bg-gray-800 shadow-sm transition-all duration-300 ease-out ${
+        isScrolled 
+          ? 'border-b border-gray-200 dark:border-gray-700' 
+          : 'border-transparent'
+      }`}>
+        <div className="flex justify-center items-center px-4">
+          <div 
+            className="max-w-xl w-full relative animate-in fade-in slide-in-from-top-2 duration-700 ease-out"
+            style={{ 
+              paddingTop: isScrolled ? '0.75rem' : '1rem',
+              paddingBottom: isScrolled ? '0.75rem' : '1rem'
+            }}
+          >
+            {/* Search Bar Container */}
             <div className="relative">
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder={!selectedCategory ? "Search templates..." : "Search in category..."}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onFocus={() => setIsSearchFocused(true)}
-                onBlur={() => setIsSearchFocused(false)}
-                className={`w-full pl-10 pr-20 py-2.5 rounded-lg border-2 border-gray-200 bg-white hover:bg-white focus:bg-white dark:bg-gray-800 dark:hover:bg-gray-800 dark:focus:bg-gray-800 dark:border-gray-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all will-change-[padding] duration-300 ease-out text-sm placeholder:text-gray-400`}
-                style={selectedCategory ? {
-                  paddingLeft: 'calc(2.75rem + var(--chip-width, 0px))'
-                } : undefined}
-              />
-              
-              {/* Search Icon */}
-              <div className={`absolute left-3 top-1/2 -translate-y-1/2 transition-all duration-300 pointer-events-none z-10 ${
-                isSearching ? 'scale-110' : ''
-              }`}>
-                {isSearching ? (
-                  <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
-                ) : (
-                  <Search className={`w-5 h-5 transition-colors duration-200 ${
-                    isSearchFocused ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
-                  }`} />
+              {/* Search Input with Icon */}
+              <div className="relative">
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder={!selectedCategory ? "Search templates..." : "Search in category..."}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setIsSearchFocused(false)}
+                  className={`w-full pl-10 pr-20 py-2.5 rounded-lg border-2 border-gray-200 bg-white hover:bg-white focus:bg-white dark:bg-gray-800 dark:hover:bg-gray-800 dark:focus:bg-gray-800 dark:border-gray-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all will-change-[padding] duration-300 ease-out text-sm placeholder:text-gray-400`}
+                  style={selectedCategory ? {
+                    paddingLeft: 'calc(2.75rem + var(--chip-width, 0px))'
+                  } : undefined}
+                />
+                
+                {/* Search Icon */}
+                <div className={`absolute left-3 top-1/2 -translate-y-1/2 transition-all duration-300 pointer-events-none z-10 ${
+                  isTemplateLoading ? 'scale-110' : ''
+                }`}>
+                  {isTemplateLoading ? (
+                    <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+                  ) : (
+                    <Search className={`w-5 h-5 transition-colors duration-200 ${
+                      isSearchFocused ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
+                    }`} />
+                  )}
+                </div>
+                
+                {/* Category Badge with auto-sizing */}
+                {selectedCategory && (
+                  <div className="absolute left-9 top-1/2 -translate-y-1/2 flex items-center z-20">
+                    <span 
+                      className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300 text-sm font-medium flex items-center gap-1 min-w-0 transition-all duration-300 ease-out will-change-[width]"
+                      ref={node => {
+                        if (node) {
+                          requestAnimationFrame(() => {
+                            const width = node.getBoundingClientRect().width;
+                            document.documentElement.style.setProperty('--chip-width', `${width}px`);
+                          });
+                        }
+                      }}
+                    >
+                      <span className="truncate">{selectedCategory}</span>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          searchInputRef.current?.focus();
+                          document.documentElement.style.setProperty('--chip-width', '0px');
+                          setTimeout(() => setSelectedCategory(''), 50);
+                        }}
+                        className="flex-shrink-0 p-0.5 hover:bg-blue-100 dark:hover:bg-blue-800 rounded-full transition-colors duration-200"
+                        aria-label="Clear category filter"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
+                  </div>
                 )}
               </div>
-              
-              {/* Category Badge with auto-sizing */}
-              {selectedCategory && (
-                <div className="absolute left-9 top-1/2 -translate-y-1/2 flex items-center z-20">
-                  <span 
-                    className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300 text-sm font-medium flex items-center gap-1 min-w-0 transition-all duration-300 ease-out will-change-[width]"
-                    ref={node => {
-                      if (node) {
-                        requestAnimationFrame(() => {
-                          const width = node.getBoundingClientRect().width;
-                          document.documentElement.style.setProperty('--chip-width', `${width}px`);
-                        });
-                      }
+
+              {/* Action Buttons */}
+              <div className={`absolute right-4 top-1/2 transform -translate-y-1/2 flex items-center gap-1 transition-transform duration-300`}>
+                {(selectedCategory || searchTerm) && (
+                  <button
+                    onClick={() => {
+                      clearFilters();
+                      searchInputRef.current?.focus();
                     }}
+                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                    title="Clear filters"
                   >
-                    <span className="truncate">{selectedCategory}</span>
+                    <X className="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors ${
+                    showFilters ? 'bg-gray-100 dark:bg-gray-700' : ''
+                  }`}
+                  title={showFilters ? "Hide filters" : "Show filters"}
+                  data-filter-toggle
+                >
+                  <Filter 
+                    className={`w-4 h-4 transition-colors duration-200 ${
+                      showFilters || selectedCategory 
+                        ? 'text-blue-500' 
+                        : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                    }`} 
+                  />
+                </button>
+              </div>
+
+              {/* Floating Filters Panel - Updated positioning and width */}
+              {showFilters && (
+                <div 
+                  ref={filtersRef}
+                  className="absolute left-0 right-0 mt-1 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200/60 dark:border-gray-700/60 transform-gpu transition-all duration-200 ease-out z-[20] max-h-[280px] overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-200"
+                >
+                  <div className="flex flex-wrap gap-2">
                     <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        searchInputRef.current?.focus();
-                        document.documentElement.style.setProperty('--chip-width', '0px');
-                        setTimeout(() => setSelectedCategory(''), 50);
+                      onClick={() => {
+                        setSelectedCategory('');
+                        setShowFilters(false);
                       }}
-                      className="flex-shrink-0 p-0.5 hover:bg-blue-100 dark:hover:bg-blue-800 rounded-full transition-colors duration-200"
-                      aria-label="Clear category filter"
+                      className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                        !selectedCategory 
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
                     >
-                      <X className="w-3.5 h-3.5" />
+                      All
                     </button>
-                  </span>
+                    {availableCategories.map((category) => (
+                      <button
+                        key={category}
+                        onClick={() => {
+                          setSelectedCategory(category);
+                          setShowFilters(false);
+                        }}
+                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                          selectedCategory === category
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        {category}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
-
-            {/* Action Buttons */}
-            <div className={`absolute right-4 top-1/2 transform -translate-y-1/2 flex items-center gap-1 transition-transform duration-300`}>
-              {(selectedCategory || searchTerm) && (
-                <button
-                  onClick={() => {
-                    clearFilters();
-                    searchInputRef.current?.focus();
-                  }}
-                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                  title="Clear filters"
-                >
-                  <X className="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
-                </button>
-              )}
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors ${
-                  showFilters ? 'bg-gray-100 dark:bg-gray-700' : ''
-                }`}
-                title={showFilters ? "Hide filters" : "Show filters"}
-                data-filter-toggle
-              >
-                <Filter 
-                  className={`w-4 h-4 transition-colors duration-200 ${
-                    showFilters || selectedCategory 
-                      ? 'text-blue-500' 
-                      : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
-                  }`} 
-                />
-              </button>
-            </div>
           </div>
-
-          {/* Floating Filters Panel */}
-          {showFilters && (
-            <div 
-              ref={filtersRef}
-              className="absolute left-0 right-0 mt-2 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200/60 dark:border-gray-700/60 transform-gpu transition-all duration-200 ease-out z-[20] max-h-[280px] overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-200"
-            >
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => {
-                    setSelectedCategory('');
-                    setShowFilters(false);
-                  }}
-                  className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                    !selectedCategory 
-                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  All
-                </button>
-                {TEMPLATE_CATEGORIES.map((category) => (
-                  <button
-                    key={category}
-                    onClick={() => {
-                      setSelectedCategory(category);
-                      setShowFilters(false);
-                    }}
-                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                      selectedCategory === category
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    {category}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -398,7 +328,7 @@ export const TemplatesView = () => {
 
         {/* Templates Grid - Adding background to create new stacking context */}
         <div className="relative z-10 max-w-[1600px] mx-auto px-6 py-8 -mt-20 bg-gray-50 dark:bg-gray-900">
-          {isSearching ? (
+          {isTemplateLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {[...Array(8)].map((_, i) => (
                 <div key={i} className="animate-pulse">
@@ -415,8 +345,19 @@ export const TemplatesView = () => {
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredTemplates.map((template) => (
-                  <div key={template.id} className="transform" style={{ transform: 'translate3d(0, 0, 0)' }}>
-                    <TemplateCard {...template} />
+                  <div 
+                    key={template.template_id} 
+                    className="transform cursor-pointer p-4 border rounded-lg hover:border-blue-500 transition-colors" 
+                    style={{ transform: 'translate3d(0, 0, 0)' }}
+                    onClick={() => handleTemplateClick(template)}
+                  >
+                    <TemplateCard
+                      id={template.template_id}
+                      title={template.name}
+                      description={template.description || ''}
+                      thumbnail={template.template_image_url || ''} // You might want to add a default image
+                      category={template.parameters.find(p => p.name === 'content_type')?.value.value || ''}
+                    />
                   </div>
                 ))}
               </div>
@@ -432,6 +373,23 @@ export const TemplatesView = () => {
           )}
         </div>
       </div>
+
+      {/* Add cache error message */}
+      {cacheError && (
+        <div className="fixed top-4 right-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-lg z-50">
+          <div className="flex items-center">
+            <div className="py-1">
+              <svg className="w-6 h-6 mr-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div>
+              <p className="font-bold">Error</p>
+              <p className="text-sm">{cacheError}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

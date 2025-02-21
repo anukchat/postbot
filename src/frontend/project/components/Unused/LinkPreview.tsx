@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Url } from '../../types';
+import { Url } from '../../types/editor';
 import { Globe, Link as LinkIcon, Loader } from 'lucide-react';
 import api from '../../services/api';
 import { getLinkPreviewFromCache, setLinkPreviewInCache } from '../../utils/cache';

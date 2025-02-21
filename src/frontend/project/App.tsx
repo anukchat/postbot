@@ -28,6 +28,7 @@ import { NewBlogModal } from './components/Modals/NewBlogModal';
 import { Bell, Settings as SettingsIcon } from 'lucide-react';
 import Tippy from '@tippyjs/react';
 import 'tippy.js/dist/tippy.css';
+import { AdminLayout } from './components/Admin/AdminLayout';
 
 // Set the root element for accessibility
 Modal.setAppElement('#root');
@@ -54,6 +55,12 @@ const MainAppLayout: React.FC = () => {
   const [isPostDetailsView, setIsPostDetailsView] = useState(false);
   const [selectedTab, setSelectedTab] = useState<'blog' | 'twitter' | 'linkedin'>('blog');
   const [showSourceModal, setShowSourceModal] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<{
+    id: string;
+    title: string;
+    description: string;
+    category: string;
+  } | null>(null);
   const location = useLocation();
   
   const { 
@@ -63,7 +70,8 @@ const MainAppLayout: React.FC = () => {
     updateLinkedinPost, 
     updateTwitterPost, 
     fetchContentByThreadId, 
-    setCurrentTab 
+    setCurrentTab,
+    currentTemplate
   } = useEditorStore();
 
   // Handle template selection from location state
@@ -137,7 +145,19 @@ const MainAppLayout: React.FC = () => {
   };
 
   const handleCommandInsert = (commandText: string, replaceLength: number) => {
+    // Handle command insert logic here
     console.log('Command insert:', commandText, replaceLength);
+  };
+
+  const onTemplateSelect = (template: any) => {
+    console.log('Selected template:', template);
+    setSelectedTemplate({
+      id: template.id, // Changed from template.id
+      title: template.title,    // Changed from template.title
+      description: template.description,
+      category: template.category // Changed from template.category
+    }); 
+    setShowSourceModal(true);
   };
 
   return (
@@ -172,7 +192,7 @@ const MainAppLayout: React.FC = () => {
               </Tippy>
               <UserMenu />
             </div>
-          </div>
+        </div>
 
           {/* Content wrapper with adjusted padding */}
           <div className="flex flex-col h-full max-w-full overflow-x-hidden">
@@ -181,39 +201,39 @@ const MainAppLayout: React.FC = () => {
                 {/* IconMenuBar - Floating */}
                 <div className="fixed top-0 right-16 left-0 z-20">
                   <div className="flex items-center w-full bg-white dark:bg-gray-800 border-b">
-                    <IconMenuBar selectedTab={selectedTab} onCommandInsert={handleCommandInsert} />
+            <IconMenuBar selectedTab={selectedTab} onCommandInsert={handleCommandInsert} />
                   </div>
                 </div>
-                
+            
                 {/* FloatingTabs - Floating */}
                 <div className="fixed top-12 right-0 left-0 z-20">
-                  <FloatingTabs 
-                    selectedTab={selectedTab}
-                    onTabChange={handleTabChange}
-                    onViewChange={handleViewChange}
-                    currentView={isCanvasView ? 'canvas' : isPostDetailsView ? 'details' : 'editor'}
-                  />
+            <FloatingTabs 
+              selectedTab={selectedTab}
+              onTabChange={handleTabChange}
+              onViewChange={handleViewChange}
+              currentView={isCanvasView ? 'canvas' : isPostDetailsView ? 'details' : 'editor'}
+            />
                 </div>
-                
+            
                 {/* Content area */}
                 <div className="flex-1 overflow-y-auto overflow-x-hidden">
                   <div className="h-full max-w-full">
-                    {isCanvasView ? (
-                      <CanvasView />
-                    ) : isPostDetailsView ? (
-                      <PostDetails />
-                    ) : (
-                      <MarkdownEditor
-                        content={getContent()}
-                        onChange={handleContentChange}
-                        selectedTab={selectedTab}
-                      />
-                    )}
-                  </div>
-                </div>
+                {isCanvasView ? (
+                  <CanvasView />
+                ) : isPostDetailsView ? (
+                  <PostDetails />
+                ) : (
+                  <MarkdownEditor
+                    content={getContent()}
+                    onChange={handleContentChange}
+                    selectedTab={selectedTab}
+                  />
+                )}
+              </div>
+            </div>
               </>
             ) : (
-              <TemplatesView />
+              <TemplatesView onTemplateSelect={onTemplateSelect} />
             )}
           </div>
         </div>
@@ -222,8 +242,12 @@ const MainAppLayout: React.FC = () => {
       {/* Source Selection Modal */}
       <NewBlogModal
         isOpen={showSourceModal}
-        onClose={() => setShowSourceModal(false)}
+        onClose={() => {
+          setShowSourceModal(false);
+          setSelectedTemplate(null); // Clear the template when modal closes
+        }}
         onGenerate={async () => {}} // Implement generation logic
+        selectedTemplate={selectedTemplate || undefined}  // Pass the selected template
       />
     </div>
   );
@@ -233,7 +257,16 @@ export const App: React.FC = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Toaster position="top-right" />
+        <Toaster 
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              background: '#333',
+              color: '#fff',
+            },
+          }}
+        />
         <ErrorBoundary FallbackComponent={ErrorFallback}>
           <Routes>
             {/* Landing and Public routes */}
@@ -255,6 +288,11 @@ export const App: React.FC = () => {
             <Route path="/settings" element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin" element={
+              <ProtectedRoute>
+                <AdminLayout />
               </ProtectedRoute>
             } />
 

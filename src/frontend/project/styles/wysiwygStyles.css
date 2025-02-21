@@ -85,6 +85,9 @@
     line-height: 1.6 !important;
   }
 
+  .bn-block-content[data-content-type="bulletListItem"] .bn-inline-content {
+    line-height: 1.6 !important;
+  }
   .bn-editor [data-content-type=table] .tableWrapper {
     top: 0;
     padding-bottom: 0;

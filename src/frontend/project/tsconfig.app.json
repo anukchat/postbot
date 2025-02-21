@@ -21,5 +21,5 @@
     "noFallthroughCasesInSwitch": true,
     "incremental": true // Enable incremental compilation
   },
-  "include": ["components", "contexts", "lib", "pages", "providers", "services", "store", "utils", "App.tsx", "main.tsx", "types.ts", "vite-env.d.ts"]
+  "include": ["components", "contexts", "lib", "pages", "providers", "services", "store", "utils", "App.tsx", "main.tsx", "types", "vite-env.d.ts"]
 }
