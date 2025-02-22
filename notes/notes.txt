@@ -81,6 +81,13 @@ TODO:
 63. Add logic with different post generation using template configuration
 64. template configuration screen and workflow in settigns
 65. Admin workflow
+66. Overall Design review
+67. Tool integrated agent
+68. Cache
+69. Remove unnecessary api endpoints
+70. Refactoring
+
+
 
 LLm improvements
 1. Simple explainations, without repetations
