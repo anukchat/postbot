@@ -14,6 +14,10 @@ api.interceptors.request.use(async (config) => {
   const session = await authService.getSession();
   if (session?.access_token) {
     config.headers.Authorization = `Bearer ${session.access_token}`;
+    // Set refresh token as an HttpOnly cookie with proper security attributes
+    if (session.refresh_token) {
+      document.cookie = `refresh_token=${session.refresh_token}; path=/; secure; samesite=strict; httpOnly`;
+    }
   }
   return config;
 });

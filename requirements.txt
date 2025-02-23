@@ -5,8 +5,12 @@ python-magic
 html2text
 fastapi
 uvicorn
+psycopg[binary]>=3.1.12
+psycopg-pool>=3.1.1
 psycopg2
 supabase
 backoff>=2.2.1
+python-dotenv>=1.0.0
+pydantic>=2.4.2
 postgrest>=0.10.6
 pyshorteners

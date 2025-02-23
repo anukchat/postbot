@@ -1,20 +1,18 @@
+from typing import Optional, Dict, Any, List
+from uuid import UUID
+import uuid
 import ast
 import json
 import logging
 import os
 import re
-from typing import Optional
-import uuid
-
+import atexit
 from fastapi import HTTPException
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.constants import Send
 from langgraph.graph import START, END, StateGraph
-# from langchain_core.messages import HumanMessage, SystemMessage
 from psycopg import Connection
-from supabase import Client
 
-# from src.agents import configuration
 from src.backend.agents.prompts import (
     default_blog_structure,
     blog_planner_instructions,
@@ -30,41 +28,35 @@ from src.backend.agents.prompts import (
     relevant_reddit_prompt,
     twitter_query_creator,
     blog_reviewer_instructions
-
 )
 from src.backend.agents.tools import ImageSearch, RedditSearch, WebSearch
 from src.backend.clients.llm import LLMClient, HumanMessage, SystemMessage
 from src.backend.agents.state import BlogState, BlogStateInput, BlogStateOutput, SectionState
 from src.backend.agents.utils import *
-from src.backend.db.supabaseclient import supabase_client
 from src.backend.extraction.factory import ConverterRegistry, ExtracterRegistry
-import atexit
 from src.backend.utils.logger import setup_logger
 from src.backend.utils.general import safe_json_loads, shorten_link
-from src.backend.db.connection import DatabaseConnectionManager, db_retry
-from src.backend.db.repository import BaseRepository
-from src.backend.db.repositories.content_repository import ContentRepository
+from src.backend.db.connection import DatabaseConnectionManager
+from src.backend.db.repositories import (
+    BlogRepository,
+    ContentRepository,
+    ContentTypeRepository,
+    SourceRepository
+)
 
-# Setup logger
 logger = setup_logger(__name__)
 
-supabase: Client = supabase_client()
-logging.basicConfig(level=logging.ERROR)
-logger = logging.getLogger(__name__)
-
 class AgentWorkflow:
-
     def __init__(self):
         logger.info("Initializing AgentWorkflow")
         self.llm = LLMClient()
         self.websearcher = WebSearch(provider='google', num_results=15)
-        self.imagesearch=ImageSearch()
-        self.reddit_searcher=RedditSearch()
+        self.imagesearch = ImageSearch()
+        self.reddit_searcher = RedditSearch()
         self.builder = StateGraph(
             BlogState,
             input=BlogStateInput,
             output=BlogStateOutput
-            # config_schema=configuration.Configuration,
         )
         dsn = os.getenv("SUPABASE_POSTGRES_DSN", "")
         connection_kwargs = {
@@ -77,23 +69,32 @@ class AgentWorkflow:
         self.conn = Connection.connect(dsn, **connection_kwargs)
         self.checkpointer = PostgresSaver(self.conn)
         self.db = DatabaseConnectionManager()
+        
+        # Initialize repositories
+        self.blog_repo = BlogRepository()
         self.content_repo = ContentRepository()
+        self.content_type_repo = ContentTypeRepository()
+        self.source_repo = SourceRepository()
+        
+        # Initialize converters and extractors
+        self.generic_converter = ConverterRegistry.get_converter("generic")
+        self.html_converter = ConverterRegistry.get_converter("html")
+        self.arxiv_extracter = ExtracterRegistry.get_extractor("arxiv")
+        self.github_extracter = ExtracterRegistry.get_extractor("github")
+        self.reddit_extracter = ExtracterRegistry.get_extractor("reddit")
 
-        # self.checkpointer.setup()
-
-        # Add finalizer to close connection when object is destroyed
+        # Register cleanup
         atexit.register(self._cleanup)
         self.graph = self.setup_workflow()
-        self.generic_converter=ConverterRegistry.get_converter("generic")
-        self.html_converter=ConverterRegistry.get_converter("html")
-        self.arxiv_extracter=ExtracterRegistry.get_extractor("arxiv")
-        self.github_extracter=ExtracterRegistry.get_extractor("github")
-        self.reddit_extracter=ExtracterRegistry.get_extractor("reddit")
 
     def _cleanup(self):
         """Close database connection on exit"""
         if hasattr(self, 'conn'):
-            self.conn.close()
+            try:
+                self.conn.close()
+                logger.info("Database connection closed")
+            except Exception as e:
+                logger.error(f"Error closing database connection: {str(e)}")
 
     def generate_blog_plan(self, state: BlogState):
         """Generate the report plan"""
@@ -368,60 +369,46 @@ class AgentWorkflow:
             ValueError: If no source is found for the tweet_id
         """
         try:
-            # Get source record
-            source_id = self._get_source_id(tweet_id)
-            
-            # Fetch associated data
-            urls = self._fetch_url_references(source_id)
-            media = self._fetch_media(source_id)
-
-            return {
-                "tweet_id": tweet_id,
-                "source_id": source_id,
-                "urls": urls,
-                "media": media
-            }
-
+            return self.blog_repo.fetch_urls_and_media(tweet_id)
         except Exception as e:
-            logger.error(f"Error fetching data for tweet {tweet_id}: {str(e)}")
+            logger.error(f"Error fetching URLs and media: {str(e)}")
             raise
 
     def _get_source_id(self, tweet_id):
         """Helper method to get source_id for a tweet"""
-        source = (supabase.table("sources")
-                 .select("source_id")
-                 .eq("source_identifier", tweet_id)
-                 .single()
-                 .execute())
-                 
-        if not source.data:
-            raise ValueError(f"No source found for tweet_id: {tweet_id}")
-            
-        return source.data["source_id"]
+        source = self.blog_repo.get_source_by_identifier(tweet_id)
+        if not source:
+            raise ValueError(f"No source found for tweet {tweet_id}")
+        return uuid.UUID(source["source_id"])
 
     def _fetch_url_references(self, source_id):
         """Helper method to fetch URL references"""
-        response = (supabase.table("url_references")
-                   .select("*")
-                   .eq("source_id", source_id)
-                   .execute())
-        return response.data
+        return self.blog_repo.get_url_references(source_id)
 
     def _fetch_media(self, source_id):
         """Helper method to fetch media"""
-        response = (supabase.table("media")
-                   .select("*")
-                   .eq("source_id", source_id)
-                   .execute())
-        return response.data
+        return self.blog_repo.get_media(source_id)
 
     def _fetch_content_metadata(self, source_id):
         """Helper method to fetch content metadata"""
-        response = (supabase.table("source_metadata")
-                   .select("*")
-                   .eq("source_id", source_id)
-                   .execute())
-        return response.data
+        return self.blog_repo.get_source_metadata(source_id)
+
+    def _validate_existing_content(self, source_id, payload):
+        """Check if content already exists for given source"""
+        try:
+            existing_content = self.content_repo.get_content_by_source_id(source_id)
+            if existing_content:
+                if payload.get("force_regenerate") is not True:
+                    raise ValueError(f"Content already exists for source {source_id}")
+        except Exception as e:
+            logger.error(f"Error validating existing content: {str(e)}")
+            raise
+
+    def _initialize_workflow(self, payload, thread_id):
+        """Initialize workflow with thread ID and empty source data"""
+        thread_id = thread_id or str(uuid.uuid4())
+        return thread_id, None, None, None
+
 #-------------Agent main workflow----------------
 
     def _summarize_websearch_results(self, urls, search_query):
@@ -447,7 +434,7 @@ class AgentWorkflow:
         # elif :
         #     search_query = ""
 
-        relevance_prompt = relevant_search_prompt.format(search_results="\n".join(urls),user_query=query)
+        relevance_prompt = relevant_search_prompt.format(research_results="\n".join(urls),user_query=query)
         
         llm_response= self.llm.invoke(
             [
@@ -514,110 +501,64 @@ class AgentWorkflow:
         relevant_urls = parse_url_string(relevant_match)
         return relevant_urls
     
-    def _initialize_workflow(self, payload,thread_id):
+    def _initialize_workflow(self, payload, thread_id):
         """Initialize workflow with thread ID and empty source data"""
         thread_id = payload.get("thread_id") or thread_id
         return thread_id, None, None, None
 
     def _handle_url_workflow(self, payload, thread_id, user):
-        """Handle workflow for URL-based content"""
-        source_id, url_meta, media_meta = self._setup_web_url_source(payload, thread_id, user)
-        content =self._process_url_content(url_meta)
-        media_markdown = get_media_content_url(media_meta)
-        # Format template if provided
-        template_dict = self.get_template_details(payload)
-        return BlogStateInput(
-            input_url=payload["url"],
-            input_content=content,
-            post_types=payload.get("post_types", ["blog"]),
-            thread_id=thread_id,
-            media_markdown=media_markdown,
-            template=template_dict
-        ), source_id
+        url_meta = get_url_metadata(payload["url"])
+        media_meta = get_media_links(payload["url"])
+        source_id = self.blog_repo.setup_web_url_source(payload, thread_id, user, url_meta, media_meta)
+        return source_id, url_meta, media_meta
 
-    def get_template_details(self, payload):
-        if payload.get('template'):
-            template_dict = {
-                'name': payload['template'].get('name', ''),
-                'description': payload['template'].get('description', ''),
-                'parameters': {
-                    param.get('name', ''): param.get('value', {}).get('value', '')
-                    for param in payload['template'].get('parameters', [])
-                }
-            }
-        else:
-            template_dict = None
-        return template_dict
-    
     def _handle_topic_workflow(self, payload, thread_id, user):
-        """Handle workflow for URL-based content"""
-        reference_content = ''
-        query=self._query_rewriter(payload['topic'],type='topic')
-        urls=self.websearcher.search(query).get_all_urls()
-        urls=self._relevant_search_selection(urls,query)
+        query = self._query_rewriter(payload["topic"])
+        search_results = self.websearcher.search(query)
+        urls = [result["link"] for result in search_results]
+        source_id = self.blog_repo.setup_topic_source(payload["topic"], urls, thread_id, user)
+        return source_id, urls
 
-        source_id,url_meta = self._setup_topic_source(payload,urls ,thread_id, user)
-        image_urls=self.imagesearch.search(query)
-        media_meta=[{"type":"image","original_url":url['imageUrl']} for url in image_urls.results]
-        
-        self._handle_media_storage(source_id, media_meta)
-
-        # reference_content=self._summarize_websearch_results(urls, query)
-        for meta in url_meta:
-            try:
-                # url_meta = get_url_metadata(url)
-                content = self._process_url_content(meta)
-                reference_content += f"# Source 1: \n **Source URL:* {meta['original_url']} \n **Raw Content**:\n {content} \n\n"
-            except Exception as e:
-                logger.warning(f"Failed to process URL {meta['original_url']}: {str(e)}")
-                continue
-        
-        return BlogStateInput(
-            input_topic=payload["topic"],
-            input_url='\n'.join(urls),
-            input_content=reference_content,
-            post_types=payload.get("post_types", ["blog"]),
-            thread_id=thread_id,
-            template=self.get_template_details(payload)
-        ), source_id
-    
     def _handle_reddit_workflow(self, payload, thread_id, user):
-        """Handle workflow for reddit-based content"""
-        reference_content = ''
-        query=self._query_rewriter(payload['reddit_query'],type='reddit')
-        urls=self.websearcher.search(query).get_all_urls()
-        urls=self._relevant_search_selection(urls,query)
+        source_id = self.blog_repo.setup_reddit_source(payload, thread_id, user)
+        return source_id
 
-        # if payload.get("subreddit"):
-        #     reddit_obj=self.reddit_searcher.search(payload['reddit_query'],subreddit=payload.get("subreddit"))
-        # else:
-        reddit_obj=[]
-        for url in urls:
-            reddit_obj.append(self.reddit_searcher.search(url)[0])
+    def _handle_tweet_workflow(self, payload, thread_id, user):
+        source_id = self.blog_repo.setup_tweet_source(payload["tweet_id"], thread_id, user)
+        return source_id, payload["tweet_id"]
 
-        # urls=self._relevant_reddit_post_selection(reddit_obj,payload['reddit_query'])
+    def _generate_new_content(self, test_input, thread_id, source_id, payload, user):
+        result = self.llm.invoke([test_input])
+        self.blog_repo.store_blog_content(result, thread_id, source_id, payload, user)
+        return result
 
-        #filter reddit_obj based on the selected urls
-        # reddit_obj=[data for data in reddit_obj if data['url'] in urls]
-    
-        # reddit_summary=self.reddit_extracter.create_summary(reddit_obj)
-        reddit_pre_summary=self.reddit_extracter._create_pre_summary(reddit_obj)
-
-        source_id = self._setup_reddit_source(payload ,thread_id, user)
-
-        image_urls=self.imagesearch.search(query)
-        media_meta=[{"type":"image","original_url":url['imageUrl']} for url in image_urls.results['images']]
-        self._handle_media_storage(source_id, media_meta)
-        
-        return BlogStateInput(
-            input_reddit=payload["reddit_query"],
-            input_url='',
-            input_content=reddit_pre_summary,
-            post_types=payload.get("post_types", ["blog"]),
-            thread_id=thread_id,
-            template=self.get_template_details(payload)
-        ), source_id
-    
+    def run_generic_workflow(self, payload, thread_id, user):
+        try:
+            source_id = None
+            test_input = None
+            
+            if payload.get("url"):
+                source_id, url_meta, media_meta = self._handle_url_workflow(payload, thread_id, user)
+                test_input = self._process_url_content(url_meta)
+            elif payload.get("topic"):
+                source_id, urls = self._handle_topic_workflow(payload, thread_id, user)
+                test_input = self._summarize_websearch_results(urls, payload["topic"])
+            elif payload.get("reddit_query"):
+                source_id = self._handle_reddit_workflow(payload, thread_id, user)
+                test_input = self._handle_reddit_search(payload)
+            elif payload.get("tweet_id"):
+                source_id, tweet_id = self._handle_tweet_workflow(payload, thread_id, user)
+                test_input = self._handle_tweet_processing(tweet_id)
+            
+            if test_input:
+                result = self._generate_new_content(test_input, thread_id, source_id, payload, user)
+                return result
+            else:
+                raise ValueError("No valid input source found")
+                
+        except Exception as e:
+            logger.error(f"Error in workflow: {str(e)}")
+            raise
 
     def _query_rewriter(self, query,type=None):
         """Rewrite tweet text for queryable content"""
@@ -739,144 +680,115 @@ class AgentWorkflow:
 
     def _validate_existing_content(self, source_id, payload):
         """Check if content already exists for given source"""
-        existing_content = (
-            supabase.table("content_sources")
-            .select("*")
-            .eq("source_id", source_id)
-            .execute()
-        )
-        if existing_content.data:
-            raise ValueError(f"Content already exists for this {payload.get('url', 'tweet')}")
-        return True
+        try:
+            existing_content = self.content_repo.get_content_by_source_id(source_id)
+            if existing_content:
+                if payload.get("force_regenerate") is not True:
+                    raise ValueError(f"Content already exists for source {source_id}")
+        except Exception as e:
+            logger.error(f"Error validating existing content: {str(e)}")
+            raise
 
-    def _create_source_record(self, url, thread_id, source_type_name, user):
+    def _create_source_record(self, identifier: str, thread_id: str, source_type_name: str, user: Dict[str, Any]) -> UUID:
         """Create a new source record"""
-        source_type = (
-            supabase.table("source_types")
-            .select("*")
-            .eq("name", source_type_name)
-            .execute()
+        source = self.source_repo.create_source(
+            source_type=source_type_name,
+            identifier=identifier,
+            batch_id=thread_id,
+            profile_id=user["id"]
         )
-        source_data = {
-            "source_type_id": source_type.data[0]["source_type_id"],
-            "source_identifier": url,
-            "batch_id": thread_id,
-            "profile_id": user["id"]
-        }
-        source = supabase.table("sources").insert(source_data).execute()
-        return source.data[0]["source_id"]
+        return UUID(source["source_id"])
 
-    def _handle_url_references(self, source_id, url_meta):
+    def _handle_url_references(self, source_id: UUID, url_meta: Dict[str, Any]) -> None:
         """Handle URL reference storage"""
-        url_ref_data = {
-            "source_id": source_id,
-            "url": url_meta["original_url"],
-            "type": url_meta["type"],
-            "domain": url_meta["domain"],
-            "content_type": url_meta["content_type"],
-            "file_category": url_meta["file_category"],
-        }
-        supabase.table("url_references").insert(url_ref_data).execute()
+        self.source_repo.create_url_reference(source_id, url_meta)
 
-    def _handle_media_storage(self, source_id, media_meta):
+    def _handle_media_storage(self, source_id: UUID, media_meta: List[Dict[str, Any]]) -> None:
         """Handle media storage"""
         if media_meta:
             for media in media_meta:
-                media_data = {
-                    "source_id": source_id,
-                    "media_url": media["original_url"],
-                    "media_type": media["type"],
-                }
-                supabase.table("media").insert(media_data).execute()
+                self.source_repo.create_media(source_id, media)
 
-    def _setup_topic_source(self, payload,urls, thread_id, user):
+    def _setup_topic_source(self, payload: Dict[str, Any], urls: List[str], thread_id: str, user: Dict[str, Any]) -> tuple[UUID, List[Dict[str, Any]]]:
         """Setup source records for web URL"""
-        existing_source = (
-            supabase.table("sources")
-            .select("*")
-            .eq("source_identifier", payload["topic"])
-            .eq("profile_id", user["id"])
-            .execute()
+        url_meta = []
+        existing_source = self.source_repo.find_by_identifier_and_profile(
+            identifier=payload["topic"],
+            profile_id=user["id"]
         )
 
-        url_meta=[]
-        if existing_source.data:
-            source_id = existing_source.data[0]["source_id"]
+        if existing_source:
+            source_id = UUID(existing_source["source_id"])
             self._validate_existing_content(source_id, payload)
             for url in urls:
-                meta= get_url_metadata(url)
+                meta = get_url_metadata(url)
                 if meta:
                     url_meta.append(meta)
-            return source_id,url_meta
+            return source_id, url_meta
 
         source_id = self._create_source_record(payload["topic"], thread_id, "topic", user)
 
         for url in urls:
-            meta=get_url_metadata(url)
+            meta = get_url_metadata(url)
             if meta:
                 url_meta.append(meta)
                 self._handle_url_references(source_id, meta)
                 
         return source_id, url_meta
 
-    def _setup_reddit_source(self, payload, thread_id, user):
-        """Setup source records for web URL"""
-        existing_source = (
-            supabase.table("sources")
-            .select("*")
-            .eq("source_identifier", payload["reddit_query"])
-            .eq("profile_id", user["id"])
-            .execute()
+    def _setup_reddit_source(self, payload: Dict[str, Any], thread_id: str, user: Dict[str, Any]) -> UUID:
+        """Setup source records for reddit content"""
+        existing_source = self.source_repo.find_by_identifier_and_profile(
+            identifier=payload["reddit_query"],
+            profile_id=user["id"]
         )
 
-        if existing_source.data:
-            source_id = existing_source.data[0]["source_id"]
+        if existing_source:
+            source_id = UUID(existing_source["source_id"])
             self._validate_existing_content(source_id, payload)
-            
             return source_id
 
         source_id = self._create_source_record(payload["reddit_query"], thread_id, "reddit", user)
+        
+        # Store metadata
+        metadata = {
+            "subreddit": payload.get("subreddit", ""),
+            "query": payload.get("reddit_query", "")
+        }
+        self.source_repo.create_source_metadata(source_id, metadata)
                 
         return source_id
     
-    def _setup_web_url_source(self, payload, thread_id, user):
+    def _setup_web_url_source(self, payload: Dict[str, Any], thread_id: str, user: Dict[str, Any]) -> tuple[UUID, Dict[str, Any], List[Dict[str, Any]]]:
         """Setup source records for web URL"""
-        existing_source = (
-            supabase.table("sources")
-            .select("*")
-            .eq("source_identifier", payload["url"])
-            .eq("profile_id", user["id"])
-            .execute()
-        )
-
-        if existing_source.data:
-            source_id = existing_source.data[0]["source_id"]
-            self._validate_existing_content(source_id, payload)
-            url_meta = get_url_metadata(payload["url"])
-            media_meta = get_media_links(payload["url"])
-            return source_id, url_meta, media_meta
-
         url_meta = get_url_metadata(payload["url"])
         media_meta = get_media_links(payload["url"])
+
+        existing_source = self.source_repo.find_by_identifier_and_profile(
+            identifier=payload["url"],
+            profile_id=user["id"]
+        )
+
+        if existing_source:
+            return UUID(existing_source["source_id"]), url_meta, media_meta
+
         source_id = self._create_source_record(payload["url"], thread_id, "web_url", user)
-        
+
+        # Store URL reference
         self._handle_url_references(source_id, url_meta)
+
+        # Store media
         self._handle_media_storage(source_id, media_meta)
-        
+                
         return source_id, url_meta, media_meta
 
     def _setup_tweet_source(self, payload, thread_id, user):
         """Setup source records for tweet"""
-        existing_source = (
-            supabase.table("sources")
-            .select("*")
-            .eq("source_identifier", payload["tweet_id"])
-            .eq("profile_id", user["id"])
-            .execute()
-        )
+        tweet_id = payload["tweet_id"]
+        tweet_data = self.blog_repo.fetch_urls_and_media(tweet_id)
 
-        if existing_source.data:
-            source_id = existing_source.data[0]["source_id"]
+        if tweet_data:
+            source_id = tweet_data["source_id"]
             self._validate_existing_content(source_id, payload)
             tweet_data = self.fetch_urls_and_media(payload["tweet_id"])
             tweet_meta = self._fetch_content_metadata(source_id)
@@ -887,13 +799,8 @@ class AgentWorkflow:
 
     def _handle_social_post_generation(self, thread_id, payload, user):
         """Handle generation of social media posts"""
-        content = (
-            supabase.table("content")
-            .select("*")
-            .eq("thread_id", thread_id)
-            .execute()
-        )
-        if not content.data:
+        content = self.content_repo.get_content_by_thread(thread_id, user["id"])
+        if not content:
             raise ValueError("No content found for thread_id")
 
         config = {"configurable": {"thread_id": thread_id}}
@@ -908,15 +815,8 @@ class AgentWorkflow:
 
     def _handle_feedback(self, thread_id, payload):
         """Handle feedback processing"""
-        # Check if content exists for thread_id
-        existing_content = (
-            supabase.table("content")
-            .select("*")
-            .eq("thread_id", thread_id)
-            .execute()
-        )
-        
-        if not existing_content.data:
+        content = self.content_repo.get_content_by_thread(thread_id, payload["user_id"])
+        if not content:
             raise ValueError(f"No content found for thread_id: {thread_id}")
 
         config = {"configurable": {"thread_id": thread_id}}
@@ -931,122 +831,67 @@ class AgentWorkflow:
         result = self.graph.invoke(None, config)
         self.graph.update_state(config, values={"feedback": None})
 
-        self._update_content_with_feedback(thread_id, payload, result)
-        return result
-
-    def _store_social_content(self, thread_id, payload, result, user):
-        """Store generated social media content"""
-        for post_type in payload.get("post_types", ["twitter", "linkedin"]):
-            content_type = (
-                supabase.table("content_types")
-                .select("*")
-                .eq("name", post_type)
-                .execute()
-            )
-            existing_content = (
-                supabase.table("content")
-                .select("*")
-                .eq("thread_id", thread_id)
-                .eq("content_type_id", content_type.data[0]["content_type_id"])
-                .execute()
-            )
-
-            if not existing_content.data:
-                content_body = result.get(
-                    "final_blog" if post_type == "blog" else f"{post_type}_post"
-                )
-                if content_body:
-                    content_data = {
-                        "profile_id": user["id"],
-                        "content_type_id": content_type.data[0]["content_type_id"],
-                        "body": content_body,
-                        "status": "Draft",
-                        "thread_id": thread_id,
-                    }
-                    supabase.table("content").insert(content_data).execute()
-
-    def _update_content_with_feedback(self, thread_id, payload, result):
-        """Update existing content with feedback"""
-        for post_type in payload.get("post_types", ["blog", "twitter", "linkedin"]):
+        # Update content with feedback
+        content_updates = {}
+        for post_type in payload.get("post_types", ["blog"]):
             content_body = result.get(
                 "final_blog" if post_type == "blog" else f"{post_type}_post"
             )
             if content_body:
-                content_type = (
-                    supabase.table("content_types")
-                    .select("*")
-                    .eq("name", post_type)
-                    .execute()
-                )
-                content_data = {"body": content_body, "status": "Draft"}
-                supabase.table("content").update(content_data).eq(
-                    "thread_id", thread_id
-                ).eq(
-                    "content_type_id", content_type.data[0]["content_type_id"]
-                ).execute()
+                content_updates["body"] = content_body
+                content_updates["status"] = "Draft"
+                
+                content_type_id = self.content_type_repo.get_content_type_id_by_name(post_type)
+                if content_type_id:
+                    self.content_repo.update("thread_id", uuid.UUID(thread_id), content_updates)
+
+        return result
+
+    def _store_social_content(self, thread_id, payload, result, user):
+        """Store generated social media posts"""
+        for post_type in payload.get("post_types", ["twitter", "linkedin"]):
+            content_type_id = self.content_type_repo.get_content_type_id_by_name(post_type)
+            if not content_type_id:
+                continue
+
+            content = self.content_repo.get_content_by_thread(thread_id, user["id"], str(content_type_id))
+            content_body = result.get(
+                "final_blog" if post_type == "blog" else f"{post_type}_post"
+            )
+
+            if not content and content_body:
+                self.content_repo.create({
+                    "profile_id": user["id"],
+                    "content_type_id": str(content_type_id),
+                    "body": content_body,
+                    "status": "Draft",
+                    "thread_id": thread_id,
+                })
+
+    def _store_tags(self, tags: List[str], content_id: uuid.UUID):
+        """Store tags with improved error handling"""
+        for tag_name in tags:
+            try:
+                tag = self.content_repo.find_by_tag_name(tag_name)
+                if not tag:
+                    tag = self.content_repo.create_tag({"name": tag_name})
+                tag_id = tag["tag_id"]
+
+                self.content_repo.create_content_tag({
+                    "content_id": str(content_id),
+                    "tag_id": tag_id,
+                })
+            except Exception as e:
+                logger.error(f"Error storing tag {tag_name}: {str(e)}")
+                continue
 
     def _store_new_content(self, result, thread_id, source_id, payload, user):
         """Store newly generated content with improved error handling and transactions"""
         try:
-            with self.db.transaction() as conn:
-                for post_type in payload.get("post_types", ["blog"]):
-                    content_type_result = (
-                        conn.table("content_types")
-                        .select("*")
-                        .eq("name", post_type)
-                        .single()
-                        .execute()
-                    )
-                    
-                    if not content_type_result.data:
-                        logger.error(f"Content type {post_type} not found")
-                        continue
-
-                    blog_title = result.get("blog_title", "").strip() if post_type == "blog" else None
-                    blog_body = result.get("final_blog" if post_type == "blog" else f"{post_type}_post", "")
-                    
-                    content_data = {
-                        "profile_id": user["id"],
-                        "content_type_id": content_type_result.data["content_type_id"],
-                        "title": blog_title,
-                        "body": blog_body.strip(),
-                        "status": "Draft",
-                        "thread_id": thread_id,
-                    }
-
-                    content = conn.table("content").insert(content_data).execute()
-                    content_id = content.data[0]["content_id"]
-
-                    if source_id:
-                        content_source_data = {
-                            "content_id": content_id,
-                            "source_id": source_id,
-                        }
-                        conn.table("content_sources").insert(content_source_data).execute()
-
-                    if result.get("tags"):
-                        self._store_tags(conn, result["tags"], content_id)
-
+            self.blog_repo.store_blog_content(result, thread_id, source_id, payload, user)
         except Exception as e:
-            logger.error(f"Error in _store_new_content: {str(e)}")
+            logger.error(f"Error storing content: {str(e)}")
             raise
-
-    def _store_tags(self, conn: Client, tags: List[str], content_id: uuid.UUID):
-        """Store tags with improved error handling"""
-        for tag_name in tags:
-            try:
-                tag = conn.table("tags").select("*").eq("name", tag_name).single().execute()
-                if not tag.data:
-                    tag = conn.table("tags").insert({"name": tag_name}).execute()
-                tag_id = tag.data[0]["tag_id"]
-
-                conn.table("content_tags").insert({
-                    "content_id": content_id,
-                    "tag_id": tag_id,
-                }).execute()
-            except Exception as e:
-                logger.error(f"Error storing tag {tag_name}: {str(e)}")
-                continue
 
     def _process_url_content(self, url_meta):
         """Helper to process URL content based on type"""

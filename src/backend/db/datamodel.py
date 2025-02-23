@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional, List, Dict, Union
+from typing import Any, Optional, List, Dict, Union
 from uuid import UUID
 
 # Profile Pydantic Model
@@ -416,3 +416,77 @@ class UserSelectedSource(UserSelectedSourceBase):
 
     class Config:
         from_attributes = True
+
+# Response Models (moved from api.py)
+class ContentListItem(BaseModel):
+    id: str
+    thread_id: str
+    source_identifier: Optional[str] = None
+    title: Optional[str] = None
+    content: str
+    tags: List[str]
+    createdAt: str
+    updatedAt: str
+    status: str
+    twitter_post: Optional[str]
+    linkedin_post: Optional[str]
+    urls: List[dict]
+    media: List[dict]
+    source_type: Optional[str]
+
+class ContentListResponse(BaseModel):
+    items: List[ContentListItem]
+    total: int
+    page: int
+    size: int
+
+class SourceListResponse(BaseModel):
+    items: List[Dict]
+    total: int
+    page: int
+    size: int
+
+class TemplateParameterValue(BaseModel):
+    parameter_id: UUID
+    value_id: UUID
+    value: str
+    display_order: Optional[int] = None
+
+class TemplateParameter(BaseModel):
+    parameter_id: UUID
+    name: str
+    display_name: str
+    description: Optional[str] = None
+    is_required: bool = True
+    value: Optional[TemplateParameterValue] = None
+
+class TemplateResponse(BaseModel):
+    template_id: UUID
+    name: str
+    description: Optional[str] = None
+    template_type: str
+    template_image_url: Optional[str] = None
+    parameters: Optional[List[TemplateParameter]] = None
+    created_at: datetime
+    updated_at: datetime
+
+# Parameter Response Models
+class ParameterValueResponse(BaseModel):
+    value_id: str
+    value: str
+    display_order: int
+    created_at: datetime
+
+class ParameterResponse(BaseModel):
+    parameter_id: str
+    name: str
+    display_name: str
+    description: Optional[str]
+    is_required: bool
+    created_at: datetime
+    values: List[ParameterValueResponse]
+
+class RedditResponse(BaseModel):
+    data: Dict[str, Any]
+    status: str
+    error: Optional[str] = None

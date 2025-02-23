@@ -1,178 +1,211 @@
-from typing import Any, Optional, List, Dict
+from typing import Dict, List, Optional, Any
 from uuid import UUID
-from ..repository import BaseRepository
-from datetime import datetime
+from sqlalchemy.orm import joinedload
+from sqlalchemy import desc, and_
+from ..models import Template, Parameter, ParameterValue
+from ..sqlalchemy_repository import SQLAlchemyRepository
+from ...formatters import format_template_response
 
-class TemplateRepository(BaseRepository):
+class TemplateRepository(SQLAlchemyRepository[Template]):
     def __init__(self):
-        super().__init__("templates")
+        super().__init__(Template)
 
-    def create_template_with_parameters(self, template_data: Dict[str, Any], parameters: List[Dict[str, Any]]) -> Dict:
-        with self.db.transaction() as conn:
-            # Set defaults and ensure required fields
-            template_data.setdefault("template_type", "default")
-            template_data.setdefault("is_deleted", False)
-            template_data.setdefault("created_at", datetime.now().isoformat())
-            template_data.setdefault("updated_at", datetime.now().isoformat())
-            
-            # Create template
-            template_response = conn.table(self.table_name).insert(template_data).execute()
-            if not template_response.data:
-                return None
-            
-            template_id = template_response.data[0]["template_id"]
-            
-            # Create template parameters
-            if parameters:
-                params_data = [{
-                    "template_id": template_id,
-                    "parameter_id": str(param["parameter_id"]),
-                    "value_id": str(param["value"]["value_id"]),
-                    "created_at": datetime.now().isoformat()
-                } for param in parameters]
+    def create_template_with_parameters(self, session, template_data: Dict[str, Any], parameters: List[Dict[str, Any]]) -> Template:
+        """Create a template with its parameters"""
+        # Create template
+        template = self.create(session, template_data)
+        
+        # Add parameters if provided
+        if parameters:
+            for param_data in parameters:
+                param_id = param_data.get('parameter_id')
+                if param_id:
+                    param = session.query(Parameter).get(param_id)
+                    if param:
+                        template.parameters.append(param)
+        
+        session.flush()
+        return template
+
+    def get_template_with_parameters(self, template_id: UUID, profile_id: UUID):
+        """Get template with its parameters"""
+        try:
+            with self.db.session() as session:
+                template = session.query(Template)\
+                    .options(
+                        joinedload(Template.parameters).joinedload(Parameter.values)
+                    )\
+                    .filter(
+                        Template.template_id == template_id,
+                        Template.profile_id == profile_id,
+                        Template.is_deleted == False
+                    ).first()
                 
-                conn.table("template_parameters").insert(params_data).execute()
-            
-            return template_response.data[0]
+                if not template:
+                    return None
 
-    def get_template_with_parameters(self, template_id: UUID, profile_id: UUID) -> Optional[Dict]:
-        with self.db.connection() as conn:
-            # Get template with validation
-            template_response = conn.table(self.table_name).select("*").eq("template_id", template_id).eq("profile_id", profile_id).execute()
-            if not template_response.data:
-                return None
-            
-            # Get parameters with full details
-            params_response = conn.table("template_parameters").select(
-                "parameter_id, value_id, parameters(name, display_name, description, is_required), parameter_values(value, display_order)"
-            ).eq("template_id", template_id).execute()
-            
-            template = template_response.data[0]
-            template["parameters"] = []
-            
-            for param in params_response.data:
-                param_info = param["parameters"]
-                value_info = param["parameter_values"]
+                return format_template_response(template.__dict__)
+
+        except Exception as e:
+            raise e
+
+    def list_templates_for_profile(
+        self,
+        profile_id: UUID,
+        skip: int = 0,
+        limit: int = 10,
+        template_type: Optional[str] = None,
+        include_deleted: bool = False
+    ):
+        """List all templates for a profile"""
+        try:
+            with self.db.session() as session:
+                query = session.query(Template)\
+                    .options(joinedload(Template.parameters).joinedload(Parameter.values))\
+                    .filter(Template.profile_id == profile_id)
+
+                if not include_deleted:
+                    query = query.filter(Template.is_deleted == False)
                 
-                template["parameters"].append({
-                    "parameter_id": param["parameter_id"],
-                    "name": param_info["name"],
-                    "display_name": param_info["display_name"],
-                    "description": param_info.get("description"),
-                    "is_required": param_info["is_required"],
-                    "value": {
-                        "parameter_id": param["parameter_id"],
-                        "value_id": param["value_id"],
-                        "value": value_info["value"],
-                        "display_order": value_info["display_order"]
-                    }
-                })
+                if template_type:
+                    query = query.filter(Template.template_type == template_type)
+
+                templates = query.order_by(desc(Template.created_at))\
+                    .offset(skip)\
+                    .limit(limit)\
+                    .all()
+
+                return [format_template_response(template.__dict__) for template in templates]
+
+        except Exception as e:
+            raise e
+
+    def update_template_with_parameters(
+        self,
+        template_id: UUID,
+        profile_id: UUID,
+        template_data: Dict[str, Any],
+        parameters: Optional[List[Dict[str, Any]]] = None
+    ) -> Optional[Template]:
+        """Update a template and its parameters"""
+        with self.db.transaction() as session:
+            template = (
+                session.query(Template)
+                .filter(
+                    Template.template_id == template_id,
+                    Template.profile_id == profile_id
+                )
+                .first()
+            )
             
-            return template
-
-    def update_template_with_parameters(self, template_id: UUID, profile_id: UUID, template_data: Dict[str, Any], parameters: Optional[List[Dict[str, Any]]] = None) -> Optional[Dict]:
-        with self.db.transaction() as conn:
-            # Verify template exists and belongs to profile
-            existing = conn.table(self.table_name).select("template_id").eq("template_id", template_id).eq("profile_id", profile_id).single().execute()
-            if not existing.data:
+            if not template:
                 return None
-
-            # Update template
-            template_data["updated_at"] = datetime.now().isoformat()
-            template_response = conn.table(self.table_name).update(template_data).eq("template_id", template_id).eq("profile_id", profile_id).execute()
-            if not template_response.data:
-                return None
+            
+            # Update template fields
+            for key, value in template_data.items():
+                if hasattr(template, key):
+                    setattr(template, key, value)
             
             # Update parameters if provided
             if parameters is not None:
-                # Delete existing parameters
-                conn.table("template_parameters").delete().eq("template_id", template_id).execute()
+                # Clear existing parameters
+                template.parameters = []
                 
-                # Insert new parameters
-                params_data = [{
-                    "template_id": template_id,
-                    "parameter_id": str(param["parameter_id"]),
-                    "value_id": str(param["value"]["value_id"]),
-                    "created_at": datetime.now().isoformat()
-                } for param in parameters]
-                
-                if params_data:
-                    conn.table("template_parameters").insert(params_data).execute()
+                # Add new parameters
+                for param_data in parameters:
+                    param_id = param_data.get('parameter_id')
+                    if param_id:
+                        param = session.query(Parameter).get(param_id)
+                        if param:
+                            template.parameters.append(param)
             
-            return template_response.data[0]
+            session.flush()
+            return template
 
-    def list_templates_for_profile(self, profile_id: UUID, skip: int = 0, limit: int = 10, template_type: Optional[str] = None, include_deleted: bool = False) -> List[Dict]:
-        with self.db.connection() as conn:
-            query = conn.table(self.table_name).select("*").eq("profile_id", profile_id)
-            
-            if not include_deleted:
-                query = query.eq("is_deleted", False)
-            if template_type:
-                query = query.eq("template_type", template_type)
-                
-            # Add sorting
-            query = query.order("created_at", desc=True)
-            
-            # Add pagination
-            query = query.range(skip, skip + limit - 1)
-            response = query.execute()
-            return response.data if response.data else []
-
-    def filter_templates(self, profile_id: UUID, parameters: Optional[List[Dict]] = None, template_type: Optional[str] = None, include_deleted: bool = False, skip: int = 0, limit: int = 10) -> List[Dict]:
-        with self.db.connection() as conn:
-            query = conn.table(self.table_name).select("*, template_parameters!inner(*)").eq("profile_id", profile_id)
-            
-            # Apply parameter filters
-            if parameters:
-                for param in parameters:
-                    query = query.eq("template_parameters.parameter_id", param["parameter_id"])
-                    query = query.eq("template_parameters.value_id", param["value_id"])
-            
-            # Apply other filters
-            if template_type:
-                query = query.eq("template_type", template_type)
-            if not include_deleted:
-                query = query.eq("is_deleted", False)
-                
-            # Add sorting and pagination
-            query = query.order("created_at", desc=True)
-            query = query.range(skip, skip + limit - 1)
-            
-            response = query.execute()
-            return response.data if response.data else []
-
-    def count_templates(self, profile_id: UUID, template_type: Optional[str] = None, include_deleted: bool = False) -> int:
-        """Count templates for a profile with optional filters"""
-        with self.db.connection() as conn:
-            query = conn.table(self.table_name).select("*", count="exact").eq("profile_id", profile_id)
-            
-            if not include_deleted:
-                query = query.eq("is_deleted", False)
-            if template_type:
-                query = query.eq("template_type", template_type)
-                
-            response = query.execute()
-            return response.count if hasattr(response, 'count') else 0
-
-    def duplicate_template(self, template_id: UUID, profile_id: UUID, new_name: str) -> Optional[Dict]:
-        """Create a copy of an existing template with its parameters"""
-        with self.db.transaction() as conn:
-            # Get original template
-            template = self.get_template_with_parameters(template_id, profile_id)
-            if not template:
+    def duplicate_template(self, template_id: UUID, profile_id: UUID, new_name: str) -> Optional[Template]:
+        """Create a copy of an existing template"""
+        with self.db.transaction() as session:
+            # Get original template with parameters
+            original = self.get_template_with_parameters(template_id, profile_id)
+            if not original:
                 return None
-                
-            # Create new template
-            new_template_data = {
-                "name": new_name,
-                "description": template["description"],
-                "template_type": template["template_type"],
-                "template_image_url": template["template_image_url"],
-                "profile_id": str(profile_id),
-                "is_deleted": False,
-                "created_at": datetime.now().isoformat(),
-                "updated_at": datetime.now().isoformat()
-            }
             
-            # Create duplicate with parameters
-            return self.create_template_with_parameters(new_template_data, template["parameters"])
+            # Create new template
+            new_template = Template(
+                profile_id=profile_id,
+                name=new_name,
+                description=original.description,
+                template_type=original.template_type,
+                template_image_url=original.template_image_url
+            )
+            session.add(new_template)
+            
+            # Copy parameters
+            new_template.parameters = original.parameters.copy()
+            
+            session.flush()
+            return new_template
+
+    def filter_templates(
+        self,
+        profile_id: UUID,
+        parameters: List[Dict[str, UUID]],
+        template_type: Optional[str] = None,
+        include_deleted: bool = False,
+        skip: int = 0,
+        limit: int = 10
+    ) -> List[Template]:
+        """Filter templates by parameters"""
+        with self.db.session() as session:
+            query = (
+                session.query(Template)
+                .join(Template.parameters)
+                .filter(Template.profile_id == profile_id)
+            )
+            
+            if not include_deleted:
+                query = query.filter(Template.is_deleted.is_(False))
+            
+            if template_type:
+                query = query.filter(Template.template_type == template_type)
+            
+            # Filter by parameters
+            for param in parameters:
+                param_id = param.get('parameter_id')
+                value_id = param.get('value_id')
+                if param_id and value_id:
+                    query = query.filter(
+                        and_(
+                            Parameter.parameter_id == param_id,
+                            ParameterValue.value_id == value_id
+                        )
+                    )
+            
+            query = (
+                query.options(
+                    joinedload(Template.parameters).joinedload(Parameter.values)
+                )
+                .order_by(desc(Template.created_at))
+                .offset(skip)
+                .limit(limit)
+            )
+            
+            return query.all()
+
+    def count_templates(
+        self,
+        profile_id: UUID,
+        template_type: Optional[str] = None,
+        include_deleted: bool = False
+    ) -> int:
+        """Count templates for a profile"""
+        with self.db.session() as session:
+            query = session.query(Template).filter(Template.profile_id == profile_id)
+            
+            if not include_deleted:
+                query = query.filter(Template.is_deleted.is_(False))
+            
+            if template_type:
+                query = query.filter(Template.template_type == template_type)
+            
+            return query.count()

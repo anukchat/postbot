@@ -2,8 +2,8 @@ import os
 import uuid
 from fastapi import FastAPI, HTTPException, Depends, Query, Security, Body, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from src.backend.db.supabaseclient import supabase_client
-from src.backend.db.supabasedatamodel import *
+from src.backend.db.connection import DatabaseConnectionManager
+from src.backend.db.datamodel import *
 from typing import List, Optional
 import uvicorn
 from src.backend.agents.blogs import AgentWorkflow
@@ -26,6 +26,34 @@ from src.backend.db.repositories import (
 )
 from src.backend.db.repository import RateLimitExceeded, QuotaExceeded
 from fastapi.responses import JSONResponse
+from src.backend.formatters import (
+    format_content_list_item,
+    format_content_list_response,
+    format_parameter_response,
+    format_source_list_response,
+    format_template_response,
+    format_reddit_response
+)
+
+from typing import List, Dict, Optional, Any, Union
+from uuid import UUID
+from datetime import datetime
+from fastapi import FastAPI, HTTPException, Depends, Body, Query, Response
+from pydantic import BaseModel
+
+from src.backend.db.datamodel import (
+    Content, ContentCreate, ContentUpdate,
+    Profile, ProfileCreate, ProfileUpdate,
+    ContentType, ContentTypeCreate, ContentTypeUpdate,
+    Source, SourceCreate, SourceUpdate,
+    Tag, TagCreate, TagUpdate,
+    # Response models
+    ContentListItem, ContentListResponse,
+    SourceListResponse, TemplateResponse,
+    RedditResponse, TemplateParameter,
+    TemplateParameterValue, ParameterResponse,
+    ParameterValueResponse
+)
 
 # Get settings from environment variables
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
@@ -48,7 +76,7 @@ app.add_middleware(
     max_age=600  # Move max_age here as middleware parameter
 )
 
-supabase = supabase_client()
+db_manager = DatabaseConnectionManager()
 security = HTTPBearer()
 
 # Setup logger
@@ -61,40 +89,51 @@ content_repository = ContentRepository()
 profile_repository = ProfileRepository()
 source_repository = SourceRepository()
 content_type_repository = ContentTypeRepository()
-auth_repository = AuthRepository(supabase)
+auth_repository = AuthRepository()
 
 # Token Generation Models
 class TokenRequest(BaseModel):
-    provider: str  # e.g., "google", "github"
+    grant_type: str
+    code: Optional[str] = None
+    refresh_token: Optional[str] = None
+    provider: Optional[str] = None
 
 class TokenResponse(BaseModel):
-    oauth_url: str  # URL to redirect the user for OAuth authentication
+    access_token: str
+    refresh_token: Optional[str] = None
+    token_type: str = "bearer"
+    expires_in: Optional[int] = None
+    provider: Optional[str] = None
 
 class CallbackResponse(BaseModel):
-    access_token: str  # The access token returned after the OAuth flow
-    token_type: str    # The type of token (e.g., "bearer")
-
+    access_token: str
+    refresh_token: Optional[str] = None
+    token_type: str = "bearer"
+    expires_in: Optional[int] = None
 
 # Model for a single parameter value
 class TemplateParameterValue(BaseModel):
     parameter_id: UUID
     value_id: UUID
-    value: str  # The actual value (e.g., "Technical Expert")
+    value: str
+    display_order: Optional[int] = None
 
 # Model for a single parameter
 class TemplateParameter(BaseModel):
     parameter_id: UUID
     name: str  # Parameter name (e.g., "persona")
     display_name: str  # Friendly name for UI
-    value: TemplateParameterValue  # Selected value
+    description: Optional[str] = None
+    is_required: bool = True
+    value: Optional[TemplateParameterValue] = None
 
 # Model for creating a template
 class TemplateCreate(BaseModel):
     name: str
     description: Optional[str] = None
-    template_type: str = "default"
+    template_type: Optional[str] = "default"
     template_image_url: Optional[str] = None
-    parameters: List[TemplateParameter]  # List of selected parameters
+    parameters: Optional[List[TemplateParameter]] = None
 
 # Model for updating a template
 class TemplateUpdate(BaseModel):
@@ -104,33 +143,12 @@ class TemplateUpdate(BaseModel):
     template_image_url: Optional[str] = None
     parameters: Optional[List[TemplateParameter]] = None  # Optional list of updated parameters
 
-# Model for template response
-class TemplateResponse(BaseModel):
-    template_id: UUID
-    name: str
-    description: Optional[str] = None
-    template_type: str
-    template_image_url: Optional[str] = None
-    parameters: List[TemplateParameter]  # List of parameters with selected values
-    created_at: datetime
-    updated_at: datetime
-    is_deleted: bool
-
 # Model for filtering templates
 class TemplateFilter(BaseModel):
-    persona: Optional[str] = None
-    age_group: Optional[str] = None
-    content_type: Optional[str] = None
-    template_type: Optional[str] = None  # Default or custom
-    is_deleted: Optional[bool] = False  # Filter by soft-deleted templates
-
-class ParameterResponse(BaseModel):
-    parameter_id: str
-    name: str
-    display_name: str
-    description: Optional[str]
-    is_required: bool
-    created_at: datetime
+    name: Optional[str] = None
+    template_type: Optional[str] = None
+    parameter_id: Optional[UUID] = None
+    value_id: Optional[UUID] = None
 
 class ParameterFilter(BaseModel):
     parameter_id: UUID
@@ -140,34 +158,6 @@ class AdvancedTemplateFilter(BaseModel):
     parameters: List[ParameterFilter]
     template_type: Optional[str] = None
     is_deleted: Optional[bool] = False
-
-class ParameterValueResponse(BaseModel):
-    value_id: str
-    value: str
-    display_order: int
-    created_at: datetime
-
-class ContentListItem(BaseModel):
-    id: str
-    thread_id: str
-    source_identifier: Optional[str] = None
-    title: Optional[str] = None
-    content: str
-    tags: List[str]
-    createdAt: str
-    updatedAt: str
-    status: str
-    twitter_post: Optional[str]
-    linkedin_post: Optional[str]
-    urls: List[dict]
-    media: List[dict]
-    source_type: Optional[str]  # Add source_type field
-
-class ContentListResponse(BaseModel):
-    items: List[ContentListItem]
-    total: int
-    page: int
-    size: int
 
 class SaveContentRequest(BaseModel):
     # thread_id: UUID
@@ -194,31 +184,20 @@ class GeneratePostRequestModel(BaseModel):
     subreddit: Optional[str] = None
     template_id: Optional[str] = None
 
-class SourceListResponse(BaseModel):
-    items: List[Dict]
-    total: int
-    page: int
-    size: int
-
-class GenerationLimitResponse(BaseModel):
-    tier: str
-    max_generations: int
-    generations_used: int
-
-# Add new models for Reddit endpoints
 class RedditRequest(BaseModel):
     subreddits: Optional[List[str]] = None
     category: Optional[str] = None
     timeframe: Optional[str] = 'day'
     limit: Optional[int] = 10
 
-class RedditResponse(BaseModel):
-    data: Dict[str, Any]
-    status: str
-    error: Optional[str] = None
-
-class RedditSuggetsionsResponse(BaseModel):
+class RedditSuggestionsResponse(BaseModel):
     blog_topics: List[str]
+
+class UserProfileResponse(BaseModel):
+    id: str  # Original user_id from auth
+    profile_id: str  # Profile ID for database relations
+    role: str = "free"
+
 
 # Agent Workflow Endpoint
 def get_workflow() -> AgentWorkflow:
@@ -226,239 +205,128 @@ def get_workflow() -> AgentWorkflow:
     return AgentWorkflow()
 
 # Authentication Dependency
-async def get_current_user_profile(credentials: HTTPAuthorizationCredentials = Security(security)):
-    token = credentials.credentials
-    user = await auth_repository.get_user(token)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-    
-    profile = profile_repository.find_by_id("user_id", user.user.id)
-    if not profile:
-        raise HTTPException(status_code=404, detail="Profile not found")
-    
-    return profile
-
-@app.post("/token", response_model=TokenResponse, tags=["auth"])
-async def generate_token(token_request: TokenRequest):
+async def get_current_user_profile(
+    credentials: HTTPAuthorizationCredentials = Security(security),
+    request: Request=None
+):
     try:
-        redirect_url = os.getenv("VITE_API_URL", "http://localhost:8000")
-        credentials = {
-            "provider": token_request.provider,
-            "options": {
-                "redirect_to": f"{redirect_url}/callback",
-            }
-        }
+        # Get access token from authorization header
+        access_token = credentials.credentials
+        # Get refresh token from cookies
+        refresh_token = request.cookies.get("refresh_token")
+        
+        if not refresh_token:
+            raise HTTPException(status_code=401, detail="Refresh token is required")
+        
+        user = await auth_repository.get_user(access_token, refresh_token)
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid token or expired")
 
-        if token_request.provider == 'google':
-            credentials['options']['scopes'] = ['email', 'profile']
+        # Get associated profile using user_id
+        profile = profile_repository.get_profile_by_user_id(UUID(user.user.id))
+        if not profile:
+            raise HTTPException(status_code=404, detail="Profile not found")
 
-        response = await auth_repository.sign_in_with_oauth(credentials)
-        if not response or not hasattr(response, "url"):
-            raise HTTPException(status_code=401, detail="Failed to initiate OAuth flow")
-
-        return {"oauth_url": response.url}
+        return UserProfileResponse(
+            id=user.user.id,
+            profile_id=str(profile.id),
+            role=profile.role,
+        )
+        
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@app.get("/callback", response_model=CallbackResponse, tags=["auth"])
-async def oauth_callback(code: str, state: Optional[str] = None):
-    try:
-        # Prepare the parameters for exchange_code_for_session
-        params = {
-            "auth_code": code,  # The authorization code from the OAuth provider
-            # Optionally, include code_verifier if using PKCE
-            # "code_verifier": "your_code_verifier",
-            # Optionally, include redirect_to if needed
-            # "redirect_to": "http://localhost:8000/callback",
-        }
-
-        # Exchange the authorization code for a session
-        response = supabase.auth.exchange_code_for_session(params)
-
-        # Check if the response contains a session with an access token
-        if not response or not response.session or not response.session.access_token:
-            raise HTTPException(status_code=401, detail="Failed to exchange code for token")
-
-        if response and response.session:
-            user = response.session.user
-            
-            # For Google Auth, create/update profile
-            if user.app_metadata.get('provider') == 'google':
-                # Get user info from Google
-                user_info = response.session.user.user_metadata
-                
-                # Create/update profile
-                profile_data = {
-                    "user_id": user.id,
-                    "full_name": user_info.get('full_name'),
-                    "avatar_url": user_info.get('avatar_url'),
-                    "role": "free",  # Set default role
-                    "subscription_status": "none"  # Set default subscription
-                }
-                
-                supabase.table('profiles').upsert(profile_data).execute()
-            else:
-                # For email registration, create basic profile
-                profile_data = {
-                    "user_id": user.id,
-                    "role": "free",
-                    "subscription_status": "none"
-                }
-                supabase.table('profiles').upsert(profile_data).execute()
-
-        # Return the access token to the client
-        return {"access_token": response.session.access_token, "token_type": "bearer"}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=401, detail=str(e))
 
 @app.post("/auth/signup", tags=["auth"])
-async def signup(email: str, password: str):
+async def sign_up(email: str = Body(...), password: str = Body(...)):
     try:
-        auth_response = await auth_repository.sign_up(email, password)
-        
-        if auth_response.error:
-            raise HTTPException(status_code=400, detail=str(auth_response.error))
-
-        if auth_response.user:
-            profile_data = {
-                "user_id": auth_response.user.id,
-                "email": email,
-                "role": "free",
-                "subscription_status": "none"
-            }
-            result = profile_repository.create(profile_data)
-            
-            if not result:
-                # Rollback user creation if profile creation fails
-                await auth_repository.delete_user(auth_response.user.id)
-                raise HTTPException(status_code=400, detail="Failed to create profile")
-
-        return auth_response
+        result = await auth_repository.sign_up(email, password)
+        return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/auth/callback", response_model=CallbackResponse, tags=["auth"])
-async def oauth_callback(code: str):
+@app.post("/auth/signin", tags=["auth"])
+async def sign_in(email: str = Body(...), password: str = Body(...)):
     try:
-        response = await auth_repository.exchange_code_for_session({"auth_code": code})
-        
-        if response.error:
-            raise HTTPException(status_code=401, detail=str(response.error))
-
-        if response.user and response.user.app_metadata.get('provider') == 'google':
-            profile_data = {
-                "user_id": response.user.id,
-                "email": response.user.email,
-                "full_name": response.user.user_metadata.get('full_name'),
-                "avatar_url": response.user.user_metadata.get('avatar_url'),
-                "role": "free",
-                "subscription_status": "none"
-            }
-            
-            result = profile_repository.update(
-                id_field="user_id",
-                id_value=response.user.id,
-                data=profile_data
-            )
-            if not result:
-                result = profile_repository.create(profile_data)
-
-        return {
-            "access_token": response.session.access_token,
-            "token_type": "bearer"
-        }
-    except Exception as e:
-        print("OAuth callback error:", str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-
-@app.post("/auth/signin", tags=["auth"]) 
-async def signin(email: str, password: str):
-    try:
-        response = await auth_repository.sign_in(email, password)
-        return response
+        result = await auth_repository.sign_in(email, password)
+        return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/auth/signout", tags=["auth"])
-async def signout(user: dict = Depends(get_current_user_profile)):
+async def sign_out():
     try:
-        response = await auth_repository.sign_out()
-        return {"message": "Signed out successfully"}
+        result = await auth_repository.sign_out()
+        return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 # Profile Endpoints
 @app.post("/profiles/", response_model=Profile, tags=["profiles"])
-def create_profile(profile: ProfileCreate, user: dict = Depends(get_current_user_profile)):
-    """Create a new profile"""
-    profile.user_id = user["id"]  # Ensure profile is linked to authenticated user
-    result = profile_repository.create(profile.dict())
-    if not result:
-        raise HTTPException(status_code=400, detail="Failed to create profile")
-    return result
+async def create_profile(
+    profile_data: Dict[str, Any],
+    current_user: Dict = Depends(get_current_user_profile)
+):
+    try:
+        # Create profile with both id and user_id
+        return profile_repository.create({
+            **profile_data,
+            "id": uuid.uuid4(),  # Generate new profile ID
+            "user_id": current_user.id  # Set user_id from auth
+        })
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/profiles/{profile_id}", response_model=Profile, tags=["profiles"])
-def read_profile(profile_id: UUID, user: dict = Depends(get_current_user_profile)):
-    """Get a profile by ID"""
-    result = profile_repository.find_by_id("id", profile_id)
-    if not result:
-        raise HTTPException(status_code=404, detail="Profile not found")
-    return result
+async def get_profile(
+    profile_id: UUID,
+    current_user: Dict = Depends(get_current_user_profile)
+):
+    try:
+        profile = profile_repository.find_by_id("id", profile_id)
+        if not profile or profile["user_id"] != current_user.id:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        return profile
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.put("/profiles/{profile_id}", response_model=Profile, tags=["profiles"])
-def update_profile(profile_id: UUID, profile: ProfileUpdate, user: dict = Depends(get_current_user_profile)):
-    """Update a profile by ID"""
-    # Check if profile belongs to user
-    if str(profile_id) != str(user["id"]):
-        raise HTTPException(status_code=403, detail="Not authorized to update this profile")
-        
-    result = profile_repository.update(
-        id_field="id",
-        id_value=profile_id,
-        data=profile.dict(exclude_unset=True)
-    )
-    if not result:
-        raise HTTPException(status_code=404, detail="Profile not found")
-    return result
+async def update_profile(
+    profile_id: UUID,
+    profile_data: Dict[str, Any],
+    current_user: Dict = Depends(get_current_user_profile)
+):
+    try:
+        profile = profile_repository.find_by_id("id", profile_id)
+        if not profile or profile["user_id"] != current_user.id:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        return profile_repository.update("id", profile_id, profile_data)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.delete("/profiles/{profile_id}", tags=["profiles"])
-def delete_profile(profile_id: UUID, user: dict = Depends(get_current_user_profile)):
-    """Soft delete a profile"""
-    # Check if profile belongs to user
-    if str(profile_id) != str(user["id"]):
-        raise HTTPException(status_code=403, detail="Not authorized to delete this profile")
-        
-    result = profile_repository.update(
-        id_field="id",
-        id_value=profile_id,
-        data={
-            "is_deleted": True
-        }
-    )
-    if not result:
-        raise HTTPException(status_code=404, detail="Profile not found")
-    return {"message": "Profile deleted"}
+async def delete_profile(
+    profile_id: UUID,
+    current_user: Dict = Depends(get_current_user_profile)
+):
+    try:
+        profile = profile_repository.find_by_id("id", profile_id)
+        if not profile or profile["user_id"] != current_user.id:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        return profile_repository.soft_delete("id", profile_id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/profiles/", response_model=List[Profile], tags=["profiles"])
-def filter_profiles(
-    user_id: Optional[UUID] = None,
-    role: Optional[str] = None,
-    subscription_status: Optional[str] = None,
+async def list_profiles(
     skip: int = 0,
     limit: int = 10,
-    user: dict = Depends(get_current_user_profile)
+    current_user: Dict = Depends(get_current_user_profile)
 ):
-    """Filter profiles based on criteria"""
-    filters = {}
-    if user_id:
-        filters["user_id"] = str(user_id)
-    if role:
-        filters["role"] = role
-    if subscription_status:
-        filters["subscription_status"] = subscription_status
-        
-    results = profile_repository.filter(filters, skip, limit)
-    return results
+    try:
+        return profile_repository.filter({"id": current_user.id}, skip, limit)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 # ContentType Endpoints
 @app.post("/content-types/", response_model=ContentType, tags=["content_types"])
@@ -503,120 +371,52 @@ def filter_content_types(name: Optional[str] = None, skip: int = 0, limit: int =
 
 # Update content endpoints to use profile_id
 @app.post("/content/", response_model=Content, tags=["content"])
-def create_content(content: ContentCreate, profile: dict = Depends(get_current_user_profile)):
-    """Create new content"""
+async def create_content(
+    content_data: Dict[str, Any],
+    current_user: Dict = Depends(get_current_user_profile)
+):
     try:
-        with content_repository.rate_limited_operation(
-            profile_id=profile["id"],
-            action_type='content_creation',
-            limit=20,  # 20 manual content creations per hour
-            window_minutes=60
-        ):
-            content_data = content.dict()
-            content_data['profile_id'] = profile['id']
-            result = content_repository.create(content_data)
-            if not result:
-                raise HTTPException(status_code=400, detail="Failed to create content")
-            return result
-    except RateLimitExceeded as e:
-        raise
+        content_data["profile_id"] = current_user.id
+        return content_repository.create(content_data)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/content/", tags=["content"])
-def filter_content(
-    content_type_id: Optional[UUID] = None, 
-    status: Optional[str] = None, 
-    search_text: Optional[str] = None, 
-    skip: int = 0, 
-    limit: int = 10, 
-    profile: dict = Depends(get_current_user_profile)
+@app.get("/content/", response_model=ContentListResponse, tags=["content"])
+async def list_content(
+    skip: int = 0,
+    limit: int = 10,
+    current_user: Dict = Depends(get_current_user_profile)
 ):
-    """List/filter content"""
-    filters = {
-        "profile_id": profile["id"],
-        "is_deleted": False
-    }
-    if content_type_id:
-        filters["content_type_id"] = str(content_type_id)
-    if status:
-        filters["status"] = status
-        
-    result = content_repository.filter_content(profile["id"], {
-        "content_type_id": content_type_id,
-        "status": status,
-        "title_contains": search_text
-    }, skip, limit)
-    
-    return result
+    try:
+        result = content_repository.list_content(UUID(current_user["profile_id"]), skip, limit)
+        return format_content_list_response(
+            items=result,
+            total=len(result),
+            page=skip // limit + 1,
+            size=limit
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/content/all", response_model=List[Dict], tags=["content"])
 def get_all_content(skip: int = 0, limit: int = 10, user: dict = Depends(get_current_user_profile)):
-    query = (
-        supabase.table("content")
-        .select(
-            """
-            content_id, title, body, status, created_at, updated_at, published_at,
-            content_types (content_type_id, name),
-            profiles (id, full_name, avatar_url, role),
-            content_sources (source_id),
-            url_references (url_reference_id, url, description),
-            media (media_id, media_url, media_type),
-            content_tags (tag_id),
-            tags (tag_id, name),
-            metadata (metadata_id, key, value)
-            """
-        )
-        .eq('profile_id', user['id'])  # Add filter by profile_id
-        .order("created_at", desc=True)
-        .range(skip, skip + limit - 1)
-    )
-    response = query.execute()
-    return response.data
-
-@app.post("/content/generate", tags=["agents"])
-async def generate_generic_blog(
-    payload: GeneratePostRequestModel,
-    workflow: AgentWorkflow = Depends(get_workflow),
-    user: dict = Depends(get_current_user_profile),
-):
-    """Initiate the workflow with the provided data."""
-    logger.info(f"Starting content generation for user {user['id']} with payload type: {type(payload).__name__}")
     try:
-        thread_id = payload.thread_id or str(uuid.uuid4())
-        logger.debug(f"Using thread_id: {thread_id}")
-
-        # Get template and parameters if template_id is provided
-        if (payload.template_id):
-            template_data = read_template(UUID(payload.template_id), user)
-            payload_dict = payload.model_dump()
-            payload_dict["template"] = template_data
-
-        # Use repository's rate limiting and quota checking
-        period_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        
-        with content_repository.quota_limited_operation(
-            profile_id=user['id'],
-            quota_type='content_generation',
-            period_start=period_start
-        ):
-            with content_repository.rate_limited_operation(
-                profile_id=user['id'],
-                action_type='content_generation',
-                limit=5,  # 5 generations per hour
-                window_minutes=60
-            ):
-                # Proceed with generation
-                logger.debug("Starting workflow execution")
-                result = workflow.run_generic_workflow(payload.model_dump(), thread_id, user)
-                logger.debug("Workflow execution completed")
-                return result
-
-    except (RateLimitExceeded, QuotaExceeded) as e:
-        logger.warning(f"Limit exceeded for user {user['id']}: {str(e)}")
-        raise
+        return content_repository.list_content(UUID(user["profile_id"]), skip, limit)
     except Exception as e:
-        logger.error(f"Unexpected error in generate_generic_blog: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/content/generate", tags=["content"])
+async def generate_content(
+    request: GeneratePostRequestModel,
+    current_user: Dict = Depends(get_current_user_profile),
+    workflow: AgentWorkflow = Depends(get_workflow)
+):
+    try:
+        result = await workflow.run(current_user["profile_id"], request.dict())
+        return result
+    except (RateLimitExceeded, QuotaExceeded) as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 async def check_generation_limit(profile_id: UUID) -> Dict:
@@ -644,138 +444,43 @@ async def increment_generation_count(profile_id: UUID):
 @app.get("/content/list", response_model=ContentListResponse)
 async def list_content(skip: int = 0, limit: int = 10, profile: dict = Depends(get_current_user_profile)):
     results = content_repository.list_content(profile["id"], skip, limit)
-    
-    items = [
-        ContentListItem(
-            id=item["content_id"],
-            title=item["title"] if item["content_types"]["name"] == "blog" else "",
-            content=item["body"] if item["content_types"]["name"] == "blog" else "",
-            tags=[tag["tags"]["name"] for tag in item.get("content_tags", []) if tag.get("tags")],
-            createdAt=item["created_at"],
-            updatedAt=item["updated_at"],
-            status=item["status"],
-            twitter_post=item["body"] if item["content_types"]["name"] == "twitter_post" else "",
-            linkedin_post=item["body"] if item["content_types"]["name"] == "linkedin_post" else "",
-            urls=[{
-                "url": ref["url"],
-                "type": ref.get("type"),
-                "domain": ref.get("domain")
-            } for source in item.get("content_sources", [])
-                if source.get("sources") and source["sources"].get("url_references")
-                for ref in source["sources"]["url_references"]
-                if item["content_types"]["name"] == "blog"],
-            media=[{
-                "url": media["media_url"],
-                "type": media["media_type"]
-            } for source in item.get("content_sources", [])
-                if source.get("sources") and source["sources"].get("media")
-                for media in source["sources"]["media"]
-                if item["content_types"]["name"] == "blog"],
-            source_type=next((source["sources"]["source_types"]["name"]
-                for source in item.get("content_sources", [])
-                if source.get("sources") and source["sources"].get("source_types")), None)
-        )
-        for item in results
-    ]
-
-    return ContentListResponse(
-        items=items,
-        total=len(results),
-        page=skip // limit + 1,
-        size=limit
+    return format_content_list_response(
+        items=results["items"],
+        total=results["total"], 
+        page=results["page"],
+        size=results["size"]
     )
 
 @app.get("/content/filter", response_model=ContentListResponse)
 async def filter_content(
     skip: int = 0,
     limit: int = 10,
-    title_contains: Optional[str] = Query(None, description="Filter by title containing a string"),
-    post_type: Optional[str] = Query(None, description="Filter by post type (e.g., blog, twitter_post)"),
-    status: Optional[str] = Query(None, description="Filter by status (e.g., published, draft)"),
-    domain: Optional[str] = Query(None, description="Filter by domain in URL references"),
-    tag_name: Optional[str] = Query(None, description="Filter by tag name"),
-    source_type: Optional[str] = Query(None, description="Filter by source type (e.g., news, social_media)"),
-    created_after: Optional[datetime] = Query(None, description="Filter by content created after a date"),
-    created_before: Optional[datetime] = Query(None, description="Filter by content created before a date"),
-    updated_after: Optional[datetime] = Query(None, description="Filter by content updated after a date"),
-    updated_before: Optional[datetime] = Query(None, description="Filter by content updated before a date"),
-    media_type: Optional[str] = Query(None, description="Filter by media type (e.g., image, video)"),
-    url_type: Optional[str] = Query(None, description="Filter by URL type (e.g., internal, external)"),
-    user: dict = Depends(get_current_user_profile)
+    filters: Dict[str, Any] = None,
+    current_user: Dict = Depends(get_current_user_profile)
 ):
-    filters = {
-        "title_contains": title_contains,
-        "post_type": post_type,
-        "status": status,
-        "domain": domain,
-        "tag_name": tag_name,
-        "source_type": source_type,
-        "created_after": created_after,
-        "created_before": created_before,
-        "updated_after": updated_after,
-        "updated_before": updated_before,
-        "media_type": media_type,
-        "url_type": url_type
-    }
-    
-    results = content_repository.filter_content(user["id"], filters, skip, limit)
-    
-    items = [
-        ContentListItem(
-            id=item["content_id"],
-            thread_id=item["thread_id"],
-            source_identifier=next(
-                (source["source"]["source_identifier"]
-                for source in item.get("content_sources", [])
-                if source.get("source") and source["source"].get("source_identifier")),
-                ""
-            ),
-            title=item.get("title", "") if item.get("content_types", {}).get("name") == "blog" else "",
-            content=item.get("body", "") if item.get("content_types", {}).get("name") == "blog" else "",
-            tags=[tag["tags"]["name"] for tag in item.get("content_tags", []) if tag.get("tags")],
-            createdAt=item["created_at"],
-            updatedAt=item["updated_at"],
-            status=item["status"],
-            twitter_post=item.get("body", "") if item.get("content_types", {}).get("name") == "twitter_post" else "",
-            linkedin_post=item.get("body", "") if item.get("content_types", {}).get("name") == "linkedin_post" else "",
-            urls=[{
-                "url": ref["url"],
-                "type": ref.get("type"),
-                "domain": ref.get("domain")
-            } for source in item.get("content_sources", [])
-                if source.get("source") and source["source"].get("url_references")
-                for ref in source["source"]["url_references"]
-                if item.get("content_types", {}).get("name") == "blog"],
-            media=[{
-                "url": media["media_url"],
-                "type": media["media_type"]
-            } for source in item.get("content_sources", [])
-                if source.get("source") and source["source"].get("media")
-                for media in source["source"]["media"]
-                if item.get("content_types", {}).get("name") == "blog"],
-            source_type=next((source["source"]["source_types"]["name"]
-                for source in item.get("content_sources", [])
-                if source.get("source") and source["source"].get("source_types")), None)
+    try:
+        result = content_repository.filter_content(UUID(current_user.profile_id), filters or {}, skip, limit)
+        return format_content_list_response(
+            items=result["items"],
+            total=result["total"],
+            page=result["page"],
+            size=result["size"]
         )
-        for item in results
-    ]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    return ContentListResponse(
-        items=items,
-        total=len(results),
-        page=skip // limit + 1,
-        size=limit
-    )
-
-@app.get("/content/{content_id}", response_model=Content, tags=["content"])
-def read_content(content_id: UUID, user: dict = Depends(get_current_user_profile)):
-    """Get content by ID"""
-    result = content_repository.find_by_id("content_id", content_id)
-    if not result:
-        raise HTTPException(status_code=404, detail="Content not found")
-    if result["profile_id"] != str(user["id"]):
-        raise HTTPException(status_code=403, detail="Not authorized to access this content")
-    return result
+@app.get("/content/{content_id}", response_model=ContentListItem, tags=["content"])
+async def get_content(
+    content_id: UUID,
+    current_user: Dict = Depends(get_current_user_profile)
+):
+    try:
+        content = content_repository.find_by_id("content_id", content_id)
+        if not content or str(content.profile_id) != current_user.id:
+            raise HTTPException(status_code=404, detail="Content not found")
+        return format_content_list_item(content)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.put("/content/{content_id}", response_model=Content, tags=["content"]) 
 def update_content(content_id: UUID, content: ContentUpdate, profile: dict = Depends(get_current_user_profile)):
@@ -792,64 +497,64 @@ def update_content(content_id: UUID, content: ContentUpdate, profile: dict = Dep
     return result
 
 @app.delete("/content/thread/{thread_id}", tags=["content"])
-def delete_content(thread_id: UUID, profile: dict = Depends(get_current_user_profile)):
-    """Soft delete content"""
-    content = content_repository.find_by_id("thread_id", thread_id)
-    if not content:
-        raise HTTPException(status_code=404, detail="Content not found")
-    if content["profile_id"] != str(profile["id"]):
-        raise HTTPException(status_code=403, detail="Not authorized to delete this content")
-        
-    result = content_repository.soft_delete("thread_id", thread_id)
-    if not result:
-        raise HTTPException(status_code=400, detail="Failed to delete content")
-    return {"message": "Content deleted"}
-
-@app.put("/content/thread/{thread_id}/save", tags=["content"])
-async def save_thread_content(
-    thread_id: UUID, 
-    payload: SaveContentRequest, 
-    user: dict = Depends(get_current_user_profile)
+async def delete_thread_content(
+    thread_id: UUID,
+    current_user: Dict = Depends(get_current_user_profile)
 ):
-    """Save all content types for a thread in a single transaction"""
     try:
-        with content_repository.rate_limited_operation(
-            profile_id=user["id"],
-            action_type='content_save',
-            limit=60,  # 60 saves per hour
-            window_minutes=60
-        ):
-            # Get content type mapping
-            type_map = content_type_repository.get_content_type_map(["blog", "twitter", "linkedin"])
-            if not type_map:
-                raise HTTPException(status_code=400, detail="Failed to get content types")
-                
-            result = content_repository.save_thread_content(thread_id, user["id"], payload.dict(), type_map)
-            return {"message": "Content saved successfully", "content": result}
-    except RateLimitExceeded as e:
-        raise
+        # Delete all content associated with thread
+        content = content_repository.find_by_id("thread_id", thread_id)
+        if not content or str(content["profile_id"]) != current_user.id:
+            raise HTTPException(status_code=404, detail="Content not found")
+        return content_repository.soft_delete("thread_id", thread_id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.put("/content/thread/{thread_id}/save", response_model=ContentListItem, tags=["content"])
+async def save_content(
+    thread_id: UUID,
+    content: SaveContentRequest,
+    current_user: Dict = Depends(get_current_user_profile)
+):
+    try:
+        result = content_repository.update_by_thread(
+            thread_id,
+            UUID(current_user["profile_id"]),
+            content.dict(exclude_unset=True)
+        )
+        if not result:
+            raise HTTPException(status_code=404, detail="Content not found")
+        return ContentListItem(**result)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.put("/content/thread/{thread_id}/schedule", tags=["content"])
-async def schedule_thread_content(thread_id: UUID, payload: ScheduleContentRequest):
+async def schedule_thread_content(
+    thread_id: UUID, 
+    payload: ScheduleContentRequest,
+    current_user: Dict = Depends(get_current_user_profile)
+):
     """Schedule content for publishing"""
     try:
-        async with supabase.pool.acquire() as connection:
-            async with connection.transaction():
-                # Get content type for the platform
-                content_type = supabase.table("content_types").select("*").eq("name", f"{payload.platform}_post").execute()
-                
-                if not content_type.data:
-                    raise HTTPException(status_code=400, detail=f"Invalid platform: {payload.platform}")
+        content_type_id = content_type_repository.get_content_type_id_by_name(f"{payload.platform}_post")
+        if not content_type_id:
+            raise HTTPException(status_code=400, detail=f"Invalid platform: {payload.platform}")
 
-                # Update the specific content type for this thread
-                response = supabase.table("content").update({
-                    "status": payload.status,
-                    "scheduled_at": payload.schedule_date
-                }).eq("thread_id", thread_id).eq("content_type_id", content_type.data[0]["content_type_id"]).execute()
+        content_data = {
+            "status": payload.status,
+            "scheduled_at": payload.schedule_date
+        }
 
-                return {"message": "Content scheduled successfully"}
+        result = content_repository.update(
+            id_field="thread_id",
+            id_value=thread_id,
+            data=content_data
+        )
+
+        if not result:
+            raise HTTPException(status_code=404, detail="Content not found")
+
+        return {"message": "Content scheduled successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -931,7 +636,7 @@ async def get_content_by_thread(
                 raise HTTPException(status_code=400, detail=f"Invalid post type: {post_type}")
             content_type_id = type_id
 
-        result = content_repository.get_content_by_thread(thread_id, user["id"], content_type_id)
+        result = content_repository.get_content_by_thread(thread_id, UUID(user.profile_id), content_type_id)
 
         if not result:
             return ContentListItem(
@@ -950,36 +655,9 @@ async def get_content_by_thread(
                 source_type=None
             )
 
-        content_type = result.get("content_type", {}).get("name")
-        source_info = next(iter(result.get("content_sources", [])), {})
-        source = source_info.get("source", {})
-
-        return ContentListItem(
-            id=result["content_id"],
-            thread_id=str(thread_id),
-            source_identifier=source.get("source_identifier"),
-            title=result.get("title", "") if content_type == "blog" else "",
-            content=result.get("body", ""),
-            tags=[tag["tag"]["name"] for tag in result.get("content_tags", []) if tag.get("tag")],
-            createdAt=result["created_at"],
-            updatedAt=result["updated_at"],
-            status=result["status"],
-            twitter_post=result.get("body", "") if content_type == "twitter_post" else "",
-            linkedin_post=result.get("body", "") if content_type == "linkedin_post" else "",
-            urls=[{
-                "url": ref["url"],
-                "type": ref.get("type"),
-                "domain": ref.get("domain")
-            } for ref in source.get("url_references", [])],
-            media=[{
-                "url": media["media_url"],
-                "type": media["media_type"]
-            } for media in source.get("media", [])],
-            source_type=source.get("source_type", {}).get("name")
-        )
+        return format_content_list_item(result)
     except Exception as e:
-        logger.error(f"Error getting content by thread: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error retrieving content")
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/reddit/trending", response_model=RedditResponse, tags=["reddit"])
 async def get_trending_reddit_topics(
@@ -995,20 +673,9 @@ async def get_trending_reddit_topics(
             limit=limit,
             subreddits=subreddit_list
         )
-
-        # Use llm to identify the topics for blog posts
-
-        
-        return RedditResponse(
-            data=trending_data,
-            status="success"
-        )
+        return format_reddit_response(data=trending_data)
     except Exception as e:
-        return RedditResponse(
-            data={},
-            status="error",
-            error=str(e)
-        )
+        return format_reddit_response(data={}, error=str(e))
 
 @app.get("/reddit/discussions", response_model=RedditResponse, tags=["reddit"])
 async def get_trending_discussions(
@@ -1035,9 +702,9 @@ async def get_trending_discussions(
             data={},
             status="error",
             error=str(e)
-        )
+)
 
-@app.get("/reddit/topic-suggestions", response_model=RedditSuggetsionsResponse, tags=["reddit"])
+@app.get("/reddit/topic-suggestions", response_model=RedditSuggestionsResponse, tags=["reddit"])
 async def get_topic_suggetsions(
     limit: int = Query(15, description="Number of posts to fetch per subreddit"),
     subreddits: Optional[str] = Query(None, description="Comma-separated list of subreddits"),
@@ -1081,7 +748,7 @@ async def get_active_subreddits(
             data={},
             status="error",
             error=str(e)
-        )
+)
 
 @app.post("/reddit/extract", response_model=RedditResponse, tags=["reddit"])
 async def extract_reddit_content(
@@ -1106,7 +773,7 @@ async def extract_reddit_content(
             data={},
             status="error",
             error=str(e)
-        )
+)
 
 @app.post("/reddit/batch-summary", response_model=RedditResponse, tags=["reddit"])
 async def create_reddit_summary(
@@ -1127,63 +794,113 @@ async def create_reddit_summary(
             data={},
             status="error",
             error=str(e)
-        )
+)
 
 #Templates endpoints
 @app.post("/templates/", response_model=TemplateResponse, tags=["templates"])
-def create_template(template: TemplateCreate, profile: dict = Depends(get_current_user_profile)):
-    """Create a new template."""
+async def create_template(
+    template: TemplateCreate,
+    current_user: Dict = Depends(get_current_user_profile)
+):
     try:
-        with template_repository.rate_limited_operation(
-            profile_id=profile["id"],
-            action_type='template_creation',
-            limit=10,  # 10 templates per hour
-            window_minutes=60
-        ):
-            template_data = {
-                "name": template.name,
-                "description": template.description,
-                "template_type": template.template_type,
-                "template_image_url": template.template_image_url,
-                "profile_id": profile["id"],
-                "is_deleted": False
-            }
-            result = template_repository.create_template_with_parameters(template_data, template.parameters)
-            if not result:
-                raise HTTPException(status_code=400, detail="Failed to create template")
-            return read_template(result["template_id"], profile)
-    except RateLimitExceeded as e:
-        raise
+        template_data = template.dict()
+        template_data["profile_id"] = current_user.id
+        parameters = template_data.pop("parameters", [])
+        return template_repository.create_template_with_parameters(template_data, parameters)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/templates/{template_id}", response_model=TemplateResponse, tags=["templates"])
-def read_template(template_id: UUID, profile: dict = Depends(get_current_user_profile)):
-    """Get a template by ID."""
+async def get_template(
+    template_id: UUID,
+    current_user: Dict = Depends(get_current_user_profile)
+):
     try:
-        result = template_repository.get_template_with_parameters(template_id, profile["id"])
-        if not result:
+        template = template_repository.get_template_with_parameters(template_id, UUID(current_user["profile_id"]))
+        if not template:
             raise HTTPException(status_code=404, detail="Template not found")
-        return result
+        return format_template_response(template)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.put("/templates/{template_id}", response_model=TemplateResponse, tags=["templates"])
-def update_template(template_id: UUID, template: TemplateUpdate, profile: dict = Depends(get_current_user_profile)):
-    """Update a template by ID."""
+async def update_template(
+    template_id: UUID,
+    template: TemplateUpdate,
+    current_user: Dict = Depends(get_current_user_profile)
+):
     try:
-        update_data = template.dict(exclude_unset=True)
-        update_data["updated_at"] = datetime.now().isoformat()
-        
-        result = template_repository.update_template_with_parameters(
-            template_id=template_id,
-            profile_id=profile["id"],
-            template_data=update_data,
-            parameters=template.parameters
+        template_data = template.dict(exclude_unset=True)
+        parameters = template_data.pop("parameters", None)
+        updated = template_repository.update_template_with_parameters(
+            template_id,
+            UUID(current_user.id),
+            template_data,
+            parameters
         )
-        if not result:
+        if not updated:
             raise HTTPException(status_code=404, detail="Template not found")
-        return read_template(template_id, profile)
+        return updated
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/templates/", response_model=List[TemplateResponse], tags=["templates"]) 
+def list_templates(
+    skip: int = 0, 
+    limit: int = 10, 
+    template_type: Optional[str] = None,
+    include_deleted: bool = False,
+    profile: dict = Depends(get_current_user_profile)
+):
+    """List all templates for the authenticated user."""
+    try:
+        templates = template_repository.list_templates_for_profile(
+            profile_id=UUID(profile["id"]),
+            skip=skip,
+            limit=limit,
+            template_type=template_type,
+            include_deleted=include_deleted
+        )
+        return [format_template_response(template) for template in templates]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/templates/{template_id}/duplicate", response_model=TemplateResponse, tags=["templates"])
+async def duplicate_template(
+    template_id: UUID,
+    new_name: str = Body(...),
+    current_user: Dict = Depends(get_current_user_profile)
+):
+    try:
+        duplicated = template_repository.duplicate_template(
+            template_id,
+            UUID(current_user.id),
+            new_name
+        )
+        if not duplicated:
+            raise HTTPException(status_code=404, detail="Template not found")
+        return duplicated
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/templates/filter", response_model=List[TemplateResponse], tags=["templates"])
+def filter_templates(
+    filters: TemplateFilter,
+    skip: int = 0,
+    limit: int = 10,
+    include_deleted: bool = False,
+    profile: dict = Depends(get_current_user_profile)
+):
+    """Filter templates based on parameters."""
+    try:
+        return template_repository.filter_templates(
+            UUID(profile["id"]),
+            filters.dict(exclude_unset=True),
+            filters.template_type,
+            include_deleted,
+            skip,
+            limit
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1207,22 +924,20 @@ def delete_template(template_id: UUID, profile: dict = Depends(get_current_user_
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/templates/", response_model=List[TemplateResponse], tags=["templates"])
-def list_templates(
-    skip: int = 0, 
-    limit: int = 10, 
-    template_type: Optional[str] = None, 
-    profile: dict = Depends(get_current_user_profile)
+async def list_templates(
+    skip: int = 0,
+    limit: int = 10,
+    template_type: Optional[str] = None,
+    current_user: Dict = Depends(get_current_user_profile)
 ):
-    """List all templates for the authenticated user."""
     try:
-        results = template_repository.list_templates_for_profile(
-            profile_id=profile["id"],
-            skip=skip,
-            limit=limit,
-            template_type=template_type,
-            include_deleted=False
+        templates = template_repository.list_templates_for_profile(
+            UUID(current_user["profile_id"]),
+            skip,
+            limit,
+            template_type
         )
-        return [read_template(UUID(t["template_id"]), profile) for t in results]
+        return [TemplateResponse(**template) for template in templates]
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1242,7 +957,7 @@ def filter_templates(
             template_type=filter.template_type,
             include_deleted=filter.is_deleted or False
         )
-        return [read_template(UUID(t["template_id"]), profile) for t in results]
+        return [template_repository.get_template_with_parameters(UUID(t["template_id"]), UUID(profile["id"])) for t in results]
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1263,7 +978,7 @@ def advanced_filter_templates(
             skip=skip,
             limit=limit
         )
-        return [read_template(UUID(t["template_id"]), profile) for t in results]
+        return [template_repository.get_template_with_parameters(UUID(t["template_id"]), UUID(profile["id"])) for t in results]
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1341,16 +1056,13 @@ def get_parameter(
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/parameters/{parameter_id}/values", response_model=List[ParameterValueResponse], tags=["parameters"])
-def get_parameter_values(
-    parameter_id: UUID, 
-    profile: dict = Depends(get_current_user_profile)
+async def get_parameter_values(
+    parameter_id: UUID,
+    current_user: Dict = Depends(get_current_user_profile)
 ):
-    """Get allowed values for a parameter."""
     try:
-        parameter = parameter_repository.get_parameter_with_values(parameter_id)
-        if not parameter:
-            raise HTTPException(status_code=404, detail="Parameter not found")
-        return parameter.get("parameter_values", [])
+        values = parameter_repository.get_parameter_values(parameter_id)
+        return [ParameterValueResponse(**value) for value in values]
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1485,7 +1197,7 @@ def duplicate_template(
         result = template_repository.duplicate_template(template_id, profile["id"], new_name)
         if not result:
             raise HTTPException(status_code=404, detail="Template not found")
-        return read_template(result["template_id"], profile)
+        return template_repository.get_template_with_parameters(result["template_id"], UUID(profile["id"]))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1506,6 +1218,54 @@ def count_templates(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.get("/sources/list", response_model=SourceListResponse, tags=["sources"])
+async def list_sources(
+    skip: int = 0,
+    limit: int = 10,
+    type: Optional[str] = None,
+    source_identifier: Optional[str] = None,
+    current_user: Dict = Depends(get_current_user_profile)
+):
+    try:
+        result = source_repository.list_sources_with_related(
+            UUID(current_user.id),
+            type,
+            source_identifier,
+            skip,
+            limit
+        )
+        return format_source_list_response(
+            items=result,
+            total=len(result),
+            page=skip // limit + 1,
+            size=limit
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/sources/", response_model=Source, tags=["sources"])
+async def create_source(
+    source_data: Dict[str, Any],
+    current_user: Dict = Depends(get_current_user_profile)
+):
+    try:
+        return source_repository.create_source(source_data, UUID(current_user.id))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.delete("/sources/{source_id}", tags=["sources"])
+async def delete_source(
+    source_id: UUID,
+    current_user: Dict = Depends(get_current_user_profile)
+):
+    try:
+        result = source_repository.soft_delete(source_id, UUID(current_user.id))
+        if not result:
+            raise HTTPException(status_code=404, detail="Source not found")
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     return JSONResponse(
@@ -1519,6 +1279,62 @@ async def quota_exceeded_handler(request: Request, exc: QuotaExceeded):
         status_code=402,
         content={"detail": str(exc)}
     )
+
+@app.get("/parameters/{parameter_id}", response_model=ParameterResponse, tags=["parameters"])
+async def get_parameter(parameter_id: UUID):
+    try:
+        parameter = parameter_repository.get_parameter_with_values(parameter_id)
+        if not parameter:
+            raise HTTPException(status_code=404, detail="Parameter not found")
+        return format_parameter_response(parameter)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/parameters/", response_model=List[ParameterResponse], tags=["parameters"])
+async def list_parameters(skip: int = 0, limit: int = 100):
+    try:
+        parameters = parameter_repository.list_parameters_with_values(skip, limit)
+        return [format_parameter_response(param) for param in parameters]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/parameters/{parameter_id}/values", tags=["parameters"])
+async def create_parameter_value(
+    parameter_id: UUID,
+    value: str = Body(...),
+    display_order: int = Body(0)
+):
+    try:
+        return parameter_repository.create_parameter_value(parameter_id, value, display_order)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/parameters/{parameter_id}/values/{value_id}", tags=["parameters"])
+async def update_parameter_value(
+    parameter_id: UUID,
+    value_id: UUID,
+    update_data: Dict[str, Any]
+):
+    try:
+        result = parameter_repository.update_parameter_value(value_id, parameter_id, update_data)
+        if not result:
+            raise HTTPException(status_code=404, detail="Parameter value not found")
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/parameters/{parameter_id}/values/{value_id}", tags=["parameters"])
+async def delete_parameter_value(parameter_id: UUID, value_id: UUID):
+    try:
+        if not parameter_repository.delete_parameter_value(value_id, parameter_id):
+            raise HTTPException(status_code=404, detail="Parameter value not found")
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
     uvicorn.run("src.backend.api:app", host="0.0.0.0", port=8000, reload=False)

@@ -14,7 +14,7 @@ import ast
 import magic
 import time
 from bs4 import BeautifulSoup 
-from src.backend.db.supabaseclient import supabase_client
+from src.backend.db.connection import DatabaseConnectionManager
 from src.backend.utils.logger import setup_logger
 
 # Replace existing logging setup with new logger
@@ -29,7 +29,7 @@ class TweetMetadataCollector:
             output_base_dir (str): Base directory for storing collected data
         """
 
-        self.supabase = supabase_client()
+        self.db = DatabaseConnectionManager()
         # Create base output directories
         self.base_dir = Path(output_base_dir)
         self.dirs= {
@@ -832,7 +832,7 @@ class TweetMetadataCollector:
         """
         # Function to get source_type_id by name
         def get_source_type_id(source_type_name):
-            result = self.supabase.table('source_types').select('source_type_id').eq('name', source_type_name).execute()
+            result = self.db.table('source_types').select('source_type_id').eq('name', source_type_name).execute()
             if result.data:
                 return result.data[0]['source_type_id']
             else:
@@ -847,7 +847,7 @@ class TweetMetadataCollector:
             for tweet in processed_tweets:
                 # Insert into sources table
                 source_id = str(uuid.uuid4())
-                self.supabase.table('sources').insert({
+                self.db.table('sources').insert({
                     "profile_id":"56f6f71f-2381-435a-b89f-ec08d6068876",
                     "source_id": source_id,
                     "source_type_id": source_type_id,  # Use source_type_id instead of type
@@ -858,7 +858,7 @@ class TweetMetadataCollector:
                 }).execute()
 
                 # Insert into metadata table (full_text as metadata)
-                self.supabase.table('source_metadata').insert({
+                self.db.table('source_metadata').insert({
                     "metadata_id": str(uuid.uuid4()),
                     "source_id": source_id,
                     "key": "full_text",
@@ -868,7 +868,7 @@ class TweetMetadataCollector:
 
                 # Insert into url_references table
                 for url in tweet["urls"]:
-                    self.supabase.table('url_references').insert({
+                    self.db.table('url_references').insert({
                         "url_reference_id": str(uuid.uuid4()),
                         "source_id": source_id,
                         "url": url["original_url"],
@@ -881,7 +881,7 @@ class TweetMetadataCollector:
 
                 # Insert into media table
                 for media in tweet["media"]:
-                    self.supabase.table('media').insert({
+                    self.db.table('media').insert({
                         "media_id": str(uuid.uuid4()),
                         "source_id": source_id,
                         "media_url": media["original_url"],
