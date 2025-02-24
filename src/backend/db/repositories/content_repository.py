@@ -102,8 +102,11 @@ class ContentRepository(SQLAlchemyRepository[Content]):
             query = (
                 session.query(Content)
                 .join(Content.content_type)
-                .outerjoin(Content.sources)
-                .outerjoin(Content.tags)
+                .join(Content.tags)
+                .join(Content.sources)
+                .join(Source.source_type)
+                .outerjoin(Source.url_references)
+                .outerjoin(Source.media)
                 .filter(Content.profile_id == profile_id)
                 .filter(Content.is_deleted.is_(False))
             )
@@ -124,11 +127,30 @@ class ContentRepository(SQLAlchemyRepository[Content]):
                     )
                 )
             
+            if "domain" in filters:
+                domain_term = f"%{filters['domain']}%"
+                query = query.filter(URLReference.domain.ilike(domain_term))
+                
+            if "source_type" in filters:
+                query = query.filter(Source.source_type.has(name=filters["source_type"]))
+                
+            if "media_type" in filters:
+                query = query.filter(Media.media_type == filters["media_type"])
+                
+            if "url_type" in filters:
+                query = query.filter(URLReference.type == filters["url_type"])
+
             if "date_from" in filters:
                 query = query.filter(Content.created_at >= filters["date_from"])
             
             if "date_to" in filters:
                 query = query.filter(Content.created_at <= filters["date_to"])
+                
+            if "updated_after" in filters:
+                query = query.filter(Content.updated_at >= filters["updated_after"])
+                
+            if "updated_before" in filters:
+                query = query.filter(Content.updated_at <= filters["updated_before"])
             
             if "tags" in filters and filters["tags"]:
                 if isinstance(filters["tags"], list):
@@ -144,8 +166,7 @@ class ContentRepository(SQLAlchemyRepository[Content]):
                 joinedload(Content.sources).joinedload(Source.url_references),
                 joinedload(Content.sources).joinedload(Source.media)
             )
-            
-            # Order by created date descending
+                # Order by created date descending
             query = query.order_by(desc(Content.created_at))
             
             # Get total count

@@ -13,47 +13,55 @@ from .db.datamodel import (
 
 def format_content_list_item(content: Any) -> ContentListItem:
     """Format a single content item from repository to API response format"""
-    # Handle nested objects properly
-    content_type = getattr(content.content_type, 'name', None) if hasattr(content, 'content_type') else None
+    # Get content type
+    content_type = content.content_type.name if hasattr(content, 'content_type') else None
     
-    # Get first source if exists
-    content_sources = getattr(content, 'content_sources', [])
-    source = content_sources[0].source if content_sources else None
-    
-    # Get source type if source exists
-    source_type = getattr(source.source_type, 'name', None) if source and hasattr(source, 'source_type') else None
+    # Get source identifier from first content source
+    source_identifier = next(
+        (source.source_identifier
+        for source in getattr(content, 'sources', [])
+        if source and hasattr(source, 'source_identifier')),
+        ""
+    )
     
     # Format tags
-    tags = []
-    if hasattr(content, 'content_tags'):
-        for content_tag in content.content_tags:
-            if hasattr(content_tag, 'tag') and hasattr(content_tag.tag, 'name'):
-                tags.append(content_tag.tag.name)
+    tags = [tag.name for tag in getattr(content, 'tags', []) 
+            if hasattr(tag, 'name')]
     
-    # Format URLs from source
+    # Format URLs from source (only for blog content)
     urls = []
-    if source and hasattr(source, 'url_references'):
-        for ref in source.url_references:
-            urls.append({
-                "url": getattr(ref, 'url', ''),
-                "type": getattr(ref, 'type', None),
-                "domain": getattr(ref, 'domain', None)
-            })
+    if content_type == "blog":
+        for source in getattr(content, 'sources', []):
+            if hasattr(source, 'url_references'):
+                urls.extend([{
+                    "url": getattr(ref, 'url', ''),
+                    "type": getattr(ref, 'type', None),
+                    "domain": getattr(ref, 'domain', None)
+                } for ref in source.url_references])
     
-    # Format media from source
+    # Format media from source (only for blog content)
     media = []
-    if source and hasattr(source, 'media'):
-        for m in source.media:
-            media.append({
-                "url": getattr(m, 'media_url', ''),
-                "type": getattr(m, 'media_type', '')
-            })
+    if content_type == "blog":
+        for source in getattr(content, 'sources', []):
+            if hasattr(source, 'media'):
+                media.extend([{
+                    "url": getattr(m, 'media_url', ''),
+                    "type": getattr(m, 'media_type', '')
+                } for m in source.media])
+
+    # Get source type
+    source_type = next(
+        (source.source_type.name
+        for source in getattr(content, 'sources', [])
+        if source and hasattr(source, 'source_type')),
+        None
+    )
 
     return ContentListItem(
         id=str(getattr(content, 'content_id', '')),
         thread_id=str(getattr(content, 'thread_id', '')),
-        source_identifier=getattr(source, 'source_identifier', None) if source else None,
-        title=getattr(content, 'title', '') if content_type == "blog" else "",
+        source_identifier=source_identifier,
+        title=getattr(content, 'title', ''),
         content=getattr(content, 'body', ''),
         tags=tags,
         createdAt=str(getattr(content, 'created_at', datetime.now())),

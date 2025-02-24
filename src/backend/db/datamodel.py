@@ -490,3 +490,111 @@ class RedditResponse(BaseModel):
     data: Dict[str, Any]
     status: str
     error: Optional[str] = None
+
+
+# Token Generation Models
+class TokenRequest(BaseModel):
+    grant_type: str
+    code: Optional[str] = None
+    refresh_token: Optional[str] = None
+    provider: Optional[str] = None
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: Optional[str] = None
+    token_type: str = "bearer"
+    expires_in: Optional[int] = None
+    provider: Optional[str] = None
+
+class CallbackResponse(BaseModel):
+    access_token: str
+    refresh_token: Optional[str] = None
+    token_type: str = "bearer"
+    expires_in: Optional[int] = None
+
+# Model for a single parameter value
+class TemplateParameterValue(BaseModel):
+    parameter_id: UUID
+    value_id: UUID
+    value: str
+    display_order: Optional[int] = None
+
+# Model for a single parameter
+class TemplateParameter(BaseModel):
+    parameter_id: UUID
+    name: str  # Parameter name (e.g., "persona")
+    display_name: str  # Friendly name for UI
+    description: Optional[str] = None
+    is_required: bool = True
+    value: Optional[TemplateParameterValue] = None
+
+# Model for creating a template
+class TemplateCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    template_type: Optional[str] = "default"
+    template_image_url: Optional[str] = None
+    parameters: Optional[List[TemplateParameter]] = None
+
+# Model for updating a template
+class TemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    template_type: Optional[str] = None
+    template_image_url: Optional[str] = None
+    parameters: Optional[List[TemplateParameter]] = None  # Optional list of updated parameters
+
+# Model for filtering templates
+class TemplateFilter(BaseModel):
+    name: Optional[str] = None
+    template_type: Optional[str] = None
+    parameter_id: Optional[UUID] = None
+    value_id: Optional[UUID] = None
+
+class ParameterFilter(BaseModel):
+    parameter_id: UUID
+    value_id: UUID
+
+class AdvancedTemplateFilter(BaseModel):
+    parameters: List[ParameterFilter]
+    template_type: Optional[str] = None
+    is_deleted: Optional[bool] = False
+
+class SaveContentRequest(BaseModel):
+    # thread_id: UUID
+    title: Optional[str] = None
+    content: Optional[str] = None
+    twitter_post: Optional[str] = None
+    linkedin_post: Optional[str] = None
+    status: str = "Draft"
+
+class ScheduleContentRequest(BaseModel):
+    thread_id: UUID
+    status: str = "scheduled"
+    schedule_date: datetime
+    platform: str
+
+class GeneratePostRequestModel(BaseModel):
+    thread_id: str = None
+    post_types: List[str]
+    tweet_id: Optional[str] = None
+    url: Optional[str] = None
+    topic: Optional[str] = None
+    feedback: Optional[str] = None  # Add this field
+    reddit_query: Optional[str] = None
+    subreddit: Optional[str] = None
+    template_id: Optional[str] = None
+
+class RedditRequest(BaseModel):
+    subreddits: Optional[List[str]] = None
+    category: Optional[str] = None
+    timeframe: Optional[str] = 'day'
+    limit: Optional[int] = 10
+
+class RedditSuggestionsResponse(BaseModel):
+    blog_topics: List[str]
+
+class UserProfileResponse(BaseModel):
+    id: str  # Original user_id from auth
+    profile_id: str  # Profile ID for database relations
+    role: str = "free"
