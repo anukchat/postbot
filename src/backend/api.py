@@ -323,7 +323,7 @@ async def get_content(
 ):
     try:
         content = content_repository.find_by_id("content_id", content_id)
-        if not content or str(content.profile_id) != current_user.id:
+        if not content or str(content.profile_id) != current_user.profile_id:
             raise HTTPException(status_code=404, detail="Content not found")
         return format_content_list_item(content)
     except Exception as e:

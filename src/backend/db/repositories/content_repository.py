@@ -99,12 +99,12 @@ class ContentRepository(SQLAlchemyRepository[Content]):
     def filter_content(self, profile_id: UUID, filters: Dict, skip: int = 0, limit: int = 10):
         """Filter content with complex criteria"""
         with self.db.session() as session:
-            query = (
+            subquery = (
                 session.query(Content)
-                .join(Content.content_type)
-                .join(Content.tags)
-                .join(Content.sources)
-                .join(Source.source_type)
+                .outerjoin(Content.content_type)
+                .outerjoin(Content.tags)
+                .outerjoin(Content.sources)
+                .outerjoin(Source.source_type)
                 .outerjoin(Source.url_references)
                 .outerjoin(Source.media)
                 .filter(Content.profile_id == profile_id)
@@ -113,14 +113,14 @@ class ContentRepository(SQLAlchemyRepository[Content]):
             
             # Apply filters
             if "content_type" in filters:
-                query = query.filter(ContentType.name == filters["content_type"])
+                subquery = subquery.filter(ContentType.name == filters["content_type"])
             
             if "status" in filters:
-                query = query.filter(Content.status == filters["status"])
+                subquery = subquery.filter(Content.status == filters["status"])
             
             if "search" in filters:
                 search_term = f"%{filters['search']}%"
-                query = query.filter(
+                subquery = subquery.filter(
                     or_(
                         Content.title.ilike(search_term),
                         Content.body.ilike(search_term)
@@ -129,48 +129,54 @@ class ContentRepository(SQLAlchemyRepository[Content]):
             
             if "domain" in filters:
                 domain_term = f"%{filters['domain']}%"
-                query = query.filter(URLReference.domain.ilike(domain_term))
+                subquery = subquery.filter(URLReference.domain.ilike(domain_term))
                 
             if "source_type" in filters:
-                query = query.filter(Source.source_type.has(name=filters["source_type"]))
+                subquery = subquery.filter(Source.source_type.has(name=filters["source_type"]))
                 
             if "media_type" in filters:
-                query = query.filter(Media.media_type == filters["media_type"])
+                subquery = subquery.filter(Media.media_type == filters["media_type"])
                 
             if "url_type" in filters:
-                query = query.filter(URLReference.type == filters["url_type"])
+                subquery = subquery.filter(URLReference.type == filters["url_type"])
 
             if "date_from" in filters:
-                query = query.filter(Content.created_at >= filters["date_from"])
+                subquery = subquery.filter(Content.created_at >= filters["date_from"])
             
             if "date_to" in filters:
-                query = query.filter(Content.created_at <= filters["date_to"])
+                subquery = subquery.filter(Content.created_at <= filters["date_to"])
                 
             if "updated_after" in filters:
-                query = query.filter(Content.updated_at >= filters["updated_after"])
+                subquery = subquery.filter(Content.updated_at >= filters["updated_after"])
                 
             if "updated_before" in filters:
-                query = query.filter(Content.updated_at <= filters["updated_before"])
+                subquery = subquery.filter(Content.updated_at <= filters["updated_before"])
             
             if "tags" in filters and filters["tags"]:
                 if isinstance(filters["tags"], list):
-                    query = query.filter(Tag.name.in_(filters["tags"]))
+                    subquery = subquery.filter(Tag.name.in_(filters["tags"]))
                 else:
-                    query = query.filter(Tag.name == filters["tags"])
+                    subquery = subquery.filter(Tag.name == filters["tags"])
             
+            subquery = subquery.distinct()
+            
+            content_ids = subquery.with_entities(Content.content_id).distinct()
+
             # Add options for eager loading
-            query = query.options(
+            query = (session.query(Content)
+            .filter(Content.content_id.in_(content_ids))
+            .options(
                 joinedload(Content.content_type),
                 joinedload(Content.tags),
                 joinedload(Content.sources).joinedload(Source.source_type),
                 joinedload(Content.sources).joinedload(Source.url_references),
                 joinedload(Content.sources).joinedload(Source.media)
             )
+            .order_by(desc(Content.created_at))
+            )
+
                 # Order by created date descending
-            query = query.order_by(desc(Content.created_at))
-            
-            # Get total count
-            total = query.count()
+            total = subquery.count()
             
             # Get paginated results
             contents = query.offset(skip).limit(limit).all()
