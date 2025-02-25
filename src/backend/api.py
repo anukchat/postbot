@@ -1,8 +1,8 @@
 import os
 import uuid
-from fastapi import FastAPI, HTTPException, Depends, Query, Security, Body, Request
+from fastapi import FastAPI, HTTPException, Depends, Query, Security, Body, Request, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from src.backend.db.connection import DatabaseConnectionManager
+from src.backend.db.connection import DatabaseConnectionManager, session_context
 from src.backend.db.datamodel import *
 from typing import List, Optional
 import uvicorn
@@ -66,6 +66,32 @@ app.add_middleware(
 
 db_manager = DatabaseConnectionManager()
 security = HTTPBearer()
+
+@app.middleware("http")
+async def db_session_middleware(request: Request, call_next):
+    """Middleware to handle database session per request"""
+    session = None
+    try:
+        session = db_manager.get_session()
+        response = await call_next(request)
+        if session:
+            try:
+                session.commit()
+            except:
+                session.rollback()
+                raise
+        return response
+    except Exception as e:
+        if session:
+            session.rollback()
+        raise e
+    finally:
+        if session:
+            session.close()
+            try:
+                session_context.set(None)
+            except:
+                pass
 
 # Setup logger
 logger = setup_logger(__name__)
@@ -306,13 +332,14 @@ async def filter_content(
     current_user: Dict = Depends(get_current_user_profile)
 ):
     try:
-        result = content_repository.filter_content(UUID(current_user.profile_id), filters or {}, skip, limit)
-        return format_content_list_response(
-            items=result["items"],
-            total=result["total"],
-            page=result["page"],
-            size=result["size"]
-        )
+        with db_manager.keep_session() as session:
+            result = content_repository.filter_content(UUID(current_user.profile_id), filters or {}, skip, limit)
+            return format_content_list_response(
+                items=result["items"],
+                total=result["total"],
+                page=result["page"],
+                size=result["size"]
+            )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -322,10 +349,11 @@ async def get_content(
     current_user: Dict = Depends(get_current_user_profile)
 ):
     try:
-        content = content_repository.find_by_id("content_id", content_id)
-        if not content or str(content.profile_id) != current_user.profile_id:
-            raise HTTPException(status_code=404, detail="Content not found")
-        return format_content_list_item(content)
+        with db_manager.keep_session() as session:
+            content = content_repository.find_by_id("content_id", content_id)
+            if not content or str(content.profile_id) != current_user.profile_id:
+                raise HTTPException(status_code=404, detail="Content not found")
+            return format_content_list_item(content)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -663,10 +691,11 @@ async def get_template(
     current_user: Dict = Depends(get_current_user_profile)
 ):
     try:
-        template = template_repository.get_template_with_parameters(template_id, UUID(current_user["profile_id"]))
-        if not template:
-            raise HTTPException(status_code=404, detail="Template not found")
-        return format_template_response(template)
+        with db_manager.keep_session() as session:
+            template = template_repository.get_template_with_parameters(template_id, UUID(current_user["profile_id"]))
+            if not template:
+                raise HTTPException(status_code=404, detail="Template not found")
+            return format_template_response(template)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1074,19 +1103,20 @@ async def list_sources(
     current_user: Dict = Depends(get_current_user_profile)
 ):
     try:
-        result = source_repository.list_sources_with_related(
-            UUID(current_user.id),
-            type,
-            source_identifier,
-            skip,
-            limit
-        )
-        return format_source_list_response(
-            items=result,
-            total=len(result),
-            page=skip // limit + 1,
-            size=limit
-        )
+        with db_manager.keep_session() as session:
+            result = source_repository.list_sources_with_related(
+                UUID(current_user.id),
+                type,
+                source_identifier,
+                skip,
+                limit
+            )
+            return format_source_list_response(
+                items=result,
+                total=len(result),
+                page=skip // limit + 1,
+                size=limit
+            )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

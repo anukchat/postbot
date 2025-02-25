@@ -11,7 +11,8 @@ class ContentTypeRepository(SQLAlchemyRepository[ContentType]):
 
     def get_content_type_id_by_name(self, name: str) -> Optional[UUID]:
         """Get content type ID by name"""
-        with self.db.session() as session:
+        session = self.db.get_session()
+        try:
             content_type = (
                 session.query(ContentType)
                 .filter(
@@ -20,12 +21,17 @@ class ContentTypeRepository(SQLAlchemyRepository[ContentType]):
                 )
                 .first()
             )
+            session.commit()
             return content_type.content_type_id if content_type else None
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def list_content_types(self, skip: int = 0, limit: int = 10) -> List[ContentType]:
         """List all content types"""
-        with self.db.session() as session:
-            return (
+        session = self.db.get_session()
+        try:
+            content_types = (
                 session.query(ContentType)
                 .filter(ContentType.is_deleted.is_(False))
                 .order_by(desc(ContentType.created_at))
@@ -33,11 +39,17 @@ class ContentTypeRepository(SQLAlchemyRepository[ContentType]):
                 .limit(limit)
                 .all()
             )
+            session.commit()
+            return content_types
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def find_by_names(self, names: List[str]) -> List[ContentType]:
         """Find content types by names"""
-        with self.db.session() as session:
-            return (
+        session = self.db.get_session()
+        try:
+            content_types = (
                 session.query(ContentType)
                 .filter(
                     ContentType.name.in_(names),
@@ -45,3 +57,8 @@ class ContentTypeRepository(SQLAlchemyRepository[ContentType]):
                 )
                 .all()
             )
+            session.commit()
+            return content_types
+        except Exception as e:
+            session.rollback()
+            raise e

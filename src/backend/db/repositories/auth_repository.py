@@ -16,6 +16,7 @@ class AuthRepository(SQLAlchemyRepository[Profile]):
 
     async def sign_up(self, email: str, password: str) -> Dict[str, Any]:
         """Sign up a new user"""
+        session = self.db.get_session()
         try:
             # Create user in Supabase Auth
             response = self.supabase.auth.sign_up({
@@ -25,18 +26,19 @@ class AuthRepository(SQLAlchemyRepository[Profile]):
             
             if response.user:
                 # Create profile in database
-                with self.db.transaction() as session:
-                    profile = Profile(
-                        user_id=response.user.id,
-                        role='free',
-                        generation_limit=10,
-                        generations_used=0
-                    )
-                    session.add(profile)
-                    session.flush()
+                profile = Profile(
+                    user_id=response.user.id,
+                    role='free',
+                    generation_limit=10,
+                    generations_used=0
+                )
+                session.add(profile)
+                session.flush()
+                session.commit()
             
             return response
         except Exception as e:
+            session.rollback()
             raise ValueError(f"Sign up failed: {str(e)}")
 
     async def sign_in(self, email: str, password: str) -> Dict[str, Any]:

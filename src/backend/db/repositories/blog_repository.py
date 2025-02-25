@@ -5,6 +5,7 @@ from sqlalchemy import desc, and_, or_
 from sqlalchemy.orm import joinedload
 from ..models import Content, ContentType, Source, Tag, URLReference, Media
 from ..sqlalchemy_repository import SQLAlchemyRepository
+from ..connection import db_retry
 
 class BlogRepository(SQLAlchemyRepository[Content]):
     def __init__(self):
@@ -31,9 +32,12 @@ class BlogRepository(SQLAlchemyRepository[Content]):
             } for source in content.sources]
         }
 
-    def store_blog_content(self, result: Dict[str, Any], thread_id: UUID, source_id: UUID, payload: Dict[str, Any], user: Dict[str, Any]) -> None:
+    @db_retry
+    def store_blog_content(self, result: Dict[str, Any], thread_id: UUID, source_id: UUID, 
+                          payload: Dict[str, Any], user: Dict[str, Any]) -> None:
         """Store blog content with related data"""
-        with self.db.transaction() as session:
+        session = self.db.get_session()
+        try:
             # Get content type for blog
             content_type = (
                 session.query(ContentType)
@@ -48,12 +52,11 @@ class BlogRepository(SQLAlchemyRepository[Content]):
             tag_repo = TagRepository()
             tags = tag_repo.get_or_create_tags(session, result.get('tags', []))
 
-            # Get source
-            source = session.query(Source).get(source_id)
+            # Get source using base repository method
+            source = self.find_by_id("source_id", source_id)
             if not source:
                 raise ValueError(f"Source {source_id} not found")
 
-            # Create blog content
             blog_data = {
                 'thread_id': thread_id,
                 'profile_id': user['profile_id'],
@@ -68,14 +71,23 @@ class BlogRepository(SQLAlchemyRepository[Content]):
                 }
             }
 
-            blog = self.create(session, blog_data)
+            blog = super().create(blog_data)
             blog.tags = tags
             blog.sources.append(source)
             session.flush()
+            
+            return self._format_blog_response(blog)
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
 
+    @db_retry
     def fetch_urls_and_media(self, tweet_id: str) -> Dict[str, Any]:
         """Fetch URLs and media for a tweet source"""
-        with self.db.session() as session:
+        session = self.db.get_session()
+        try:
             source = (
                 session.query(Source)
                 .options(
@@ -95,74 +107,50 @@ class BlogRepository(SQLAlchemyRepository[Content]):
             
             return {
                 "source_id": str(source.source_id),
-                "url_references": [
-                    {
-                        "url": ref.url,
-                        "type": ref.type,
-                        "domain": ref.domain
-                    } for ref in source.url_references
-                ],
-                "media": [
-                    {
-                        "url": media.media_url,
-                        "type": media.media_type
-                    } for media in source.media
-                ]
+                "url_references": [ref.to_dict() for ref in source.url_references],
+                "media": [media.to_dict() for media in source.media]
             }
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
 
+    @db_retry
     def get_blog_by_thread(self, thread_id: UUID, profile_id: UUID) -> Optional[Dict[str, Any]]:
         """Get blog content by thread ID"""
-        with self.db.session() as session:
-            blog = (
-                session.query(Content)
-                .options(
-                    joinedload(Content.tags),
-                    joinedload(Content.sources).joinedload(Source.source_type),
-                    joinedload(Content.sources).joinedload(Source.url_references),
-                    joinedload(Content.sources).joinedload(Source.media)
-                )
-                .join(Content.content_type)
-                .filter(
-                    Content.thread_id == thread_id,
-                    Content.profile_id == profile_id,
-                    ContentType.name == 'blog',
-                    Content.is_deleted.is_(False)
-                )
-                .first()
-            )
+        session = self.db.get_session()
+        try:
+            filters = {
+                'thread_id': thread_id,
+                'profile_id': profile_id,
+                'is_deleted': False
+            }
+            blogs = super().filter(filters, limit=1)
+            blog = blogs[0] if blogs else None
             
             return self._format_blog_response(blog) if blog else None
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
 
-    def list_blogs(self, profile_id: UUID, skip: int = 0, limit: int = 10, status: Optional[str] = None) -> Dict[str, Any]:
+    @db_retry
+    def list_blogs(self, profile_id: UUID, skip: int = 0, limit: int = 10, 
+                   status: Optional[str] = None) -> Dict[str, Any]:
         """List blogs with pagination and optional status filter"""
-        with self.db.session() as session:
-            query = (
-                session.query(Content)
-                .options(
-                    joinedload(Content.tags),
-                    joinedload(Content.sources).joinedload(Source.source_type),
-                    joinedload(Content.sources).joinedload(Source.url_references),
-                    joinedload(Content.sources).joinedload(Source.media)
-                )
-                .join(Content.content_type)
-                .filter(
-                    Content.profile_id == profile_id,
-                    ContentType.name == 'blog',
-                    Content.is_deleted.is_(False)
-                )
-            )
-
+        session = self.db.get_session()
+        try:
+            filters = {
+                'profile_id': profile_id,
+                'is_deleted': False
+            }
             if status:
-                query = query.filter(Content.status == status)
+                filters['status'] = status
 
-            total = query.count()
-            blogs = (
-                query
-                .order_by(desc(Content.created_at))
-                .offset(skip)
-                .limit(limit)
-                .all()
-            )
+            blogs = super().filter(filters, skip=skip, limit=limit)
+            total = super().count(filters)
 
             return {
                 "items": [self._format_blog_response(blog) for blog in blogs],
@@ -170,17 +158,23 @@ class BlogRepository(SQLAlchemyRepository[Content]):
                 "page": skip // limit + 1,
                 "size": limit
             }
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
 
-    def search_blogs(self, profile_id: UUID, query: str, skip: int = 0, limit: int = 10) -> Dict[str, Any]:
+    @db_retry
+    def search_blogs(self, profile_id: UUID, query: str, skip: int = 0, 
+                     limit: int = 10) -> Dict[str, Any]:
         """Search blogs by title or content"""
-        with self.db.session() as session:
+        session = self.db.get_session()
+        try:
             search_query = (
                 session.query(Content)
                 .options(
                     joinedload(Content.tags),
-                    joinedload(Content.sources).joinedload(Source.source_type),
-                    joinedload(Content.sources).joinedload(Source.url_references),
-                    joinedload(Content.sources).joinedload(Source.media)
+                    joinedload(Content.sources)
                 )
                 .join(Content.content_type)
                 .filter(
@@ -209,33 +203,39 @@ class BlogRepository(SQLAlchemyRepository[Content]):
                 "page": skip // limit + 1,
                 "size": limit
             }
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
 
+    @db_retry
     def update_blog(self, thread_id: UUID, profile_id: UUID, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Update blog content"""
-        with self.db.transaction() as session:
-            blog = (
-                session.query(Content)
-                .options(
-                    joinedload(Content.tags),
-                    joinedload(Content.sources)
-                )
-                .join(Content.content_type)
-                .filter(
-                    Content.thread_id == thread_id,
-                    Content.profile_id == profile_id,
-                    ContentType.name == 'blog',
-                    Content.is_deleted.is_(False)
-                )
-                .first()
-            )
+        session = self.db.get_session()
+        try:
+            filters = {
+                'thread_id': thread_id,
+                'profile_id': profile_id,
+                'is_deleted': False
+            }
+            blogs = super().filter(filters, limit=1)
+            blog = blogs[0] if blogs else None
 
             if not blog:
                 return None
 
-            # Update basic fields
-            for key in ['title', 'body', 'status']:
-                if key in data:
-                    setattr(blog, key, data[key])
+            update_data = {
+                key: data[key] 
+                for key in ['title', 'body', 'status'] 
+                if key in data
+            }
+            
+            if 'metadata' in data:
+                update_data['content_metadata'] = {
+                    **(blog.content_metadata or {}),
+                    **data['metadata']
+                }
 
             # Update tags if provided
             if 'tags' in data:
@@ -243,11 +243,11 @@ class BlogRepository(SQLAlchemyRepository[Content]):
                 tag_repo = TagRepository()
                 blog.tags = tag_repo.get_or_create_tags(session, data['tags'])
 
-            # Update metadata if provided
-            if 'metadata' in data:
-                blog.content_metadata = {**(blog.content_metadata or {}), **data['metadata']}
-
-            blog.updated_at = datetime.now()
-            session.flush()
-
-            return self._format_blog_response(blog)
+            blog = super().update("thread_id", thread_id, update_data)
+            return self._format_blog_response(blog) if blog else None
+            
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()

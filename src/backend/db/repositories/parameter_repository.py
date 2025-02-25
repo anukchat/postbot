@@ -14,41 +14,44 @@ class ParameterRepository(SQLAlchemyRepository[Parameter]):
 
     def get_parameter_with_values(self, parameter_id: UUID) -> Optional[Parameter]:
         """Get a parameter with its values"""
+        session = self.db.get_session()
         try:
-            with self.db.session() as session:
-                parameter = session.query(Parameter)\
-                    .options(joinedload(Parameter.values))\
-                    .filter(Parameter.parameter_id == parameter_id)\
-                    .first()
+            parameter = session.query(Parameter)\
+                .options(joinedload(Parameter.values))\
+                .filter(Parameter.parameter_id == parameter_id)\
+                .first()
+            
+            session.commit()    
+            if not parameter:
+                return None
                 
-                if not parameter:
-                    return None
-                    
-                return {
-                    "parameter_id": parameter.parameter_id,
-                    "name": parameter.name,
-                    "display_name": parameter.display_name,
-                    "description": parameter.description,
-                    "is_required": parameter.is_required,
-                    "created_at": parameter.created_at,
-                    "values": [
-                        {
-                            "value_id": value.value_id,
-                            "value": value.value,
-                            "display_order": value.display_order,
-                            "created_at": value.created_at
-                        }
-                        for value in parameter.values
-                    ]
-                }
+            return {
+                "parameter_id": parameter.parameter_id,
+                "name": parameter.name,
+                "display_name": parameter.display_name,
+                "description": parameter.description,
+                "is_required": parameter.is_required,
+                "created_at": parameter.created_at,
+                "values": [
+                    {
+                        "value_id": value.value_id,
+                        "value": value.value,
+                        "display_order": value.display_order,
+                        "created_at": value.created_at
+                    }
+                    for value in parameter.values
+                ]
+            }
         except Exception as e:
+            session.rollback()
             logger.error(f"Error getting parameter with values: {str(e)}")
-            return None
+            raise e
 
     def list_parameters_with_values(self, skip: int = 0, limit: int = 100) -> List[Parameter]:
         """List all parameters with their values"""
-        with self.db.session() as session:
-            return (
+        session = self.db.get_session()
+        try:
+            parameters = (
                 session.query(Parameter)
                 .options(joinedload(Parameter.values))
                 .order_by(desc(Parameter.created_at))
@@ -56,10 +59,16 @@ class ParameterRepository(SQLAlchemyRepository[Parameter]):
                 .limit(limit)
                 .all()
             )
+            session.commit()
+            return parameters
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def create_parameter_value(self, parameter_id: UUID, value: str, display_order: int = 0) -> Optional[ParameterValue]:
         """Create a new parameter value"""
-        with self.db.transaction() as session:
+        session = self.db.get_session()
+        try:
             # First check if parameter exists
             parameter = session.query(Parameter).get(parameter_id)
             if not parameter:
@@ -72,12 +81,16 @@ class ParameterRepository(SQLAlchemyRepository[Parameter]):
                 display_order=display_order
             )
             session.add(param_value)
-            session.flush()
+            session.commit()
             return param_value
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def update_parameter_value(self, value_id: UUID, parameter_id: UUID, data: Dict[str, Any]) -> Optional[ParameterValue]:
         """Update a parameter value"""
-        with self.db.transaction() as session:
+        session = self.db.get_session()
+        try:
             value = (
                 session.query(ParameterValue)
                 .filter(
@@ -94,12 +107,16 @@ class ParameterRepository(SQLAlchemyRepository[Parameter]):
                 if hasattr(value, key):
                     setattr(value, key, val)
             
-            session.flush()
+            session.commit()
             return value
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def delete_parameter_value(self, value_id: UUID, parameter_id: UUID) -> bool:
         """Delete a parameter value"""
-        with self.db.transaction() as session:
+        session = self.db.get_session()
+        try:
             value = (
                 session.query(ParameterValue)
                 .filter(
@@ -111,37 +128,64 @@ class ParameterRepository(SQLAlchemyRepository[Parameter]):
             
             if value:
                 session.delete(value)
-                session.flush()
+                session.commit()
                 return True
             return False
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def get_parameter_values(self, parameter_id: UUID) -> List[ParameterValue]:
         """Get all values for a parameter"""
-        with self.db.session() as session:
-            return (
+        session = self.db.get_session()
+        try:
+            values = (
                 session.query(ParameterValue)
                 .filter(ParameterValue.parameter_id == parameter_id)
                 .order_by(ParameterValue.display_order)
                 .all()
             )
+            session.commit()
+            return values
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def create_parameter(self, data: Dict[str, Any]) -> Parameter:
         """Create a new parameter"""
-        with self.db.transaction() as session:
-            return self.create(session, data)
+        session = self.db.get_session()
+        try:
+            parameter = self.create(session, data)
+            session.commit()
+            return parameter
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def update_parameter(self, parameter_id: UUID, data: Dict[str, Any]) -> Optional[Parameter]:
         """Update a parameter"""
-        with self.db.transaction() as session:
-            return self.update(session, "parameter_id", parameter_id, data)
+        session = self.db.get_session()
+        try:
+            parameter = self.update(session, "parameter_id", parameter_id, data)
+            session.commit()
+            return parameter
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def delete_parameter(self, parameter_id: UUID) -> bool:
         """Delete a parameter and its values"""
-        with self.db.transaction() as session:
+        session = self.db.get_session()
+        try:
             # First delete all associated values
             session.query(ParameterValue).filter(
                 ParameterValue.parameter_id == parameter_id
             ).delete()
             
             # Then delete the parameter
-            return self.delete(session, "parameter_id", parameter_id)
+            result = self.delete(session, "parameter_id", parameter_id)
+            session.commit()
+            return result
+        except Exception as e:
+            session.rollback()
+            raise e

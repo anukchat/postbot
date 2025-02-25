@@ -12,65 +12,66 @@ class ContentRepository(SQLAlchemyRepository[Content]):
 
     def list_content(self, profile_id: UUID, skip: int = 0, limit: int = 10):
         """List all content for a profile with formatting"""
+        session = self.db.get_session()
         try:
-            with self.db.session() as session:
-                query = session.query(Content)\
-                    .options(
-                        joinedload(Content.content_type),
-                        joinedload(Content.content_tags).joinedload(Content.tags),
-                        joinedload(Content.sources).joinedload(Source.source_type),
-                        joinedload(Content.sources).joinedload(Source.url_references),
-                        joinedload(Content.sources).joinedload(Source.media)
-                    )\
-                    .filter(Content.profile_id == profile_id)\
-                    .filter(Content.is_deleted == False)\
-                    .order_by(desc(Content.created_at))
+            query = session.query(Content)\
+                .options(
+                    joinedload(Content.content_type),
+                    joinedload(Content.content_tags).joinedload(Content.tags),
+                    joinedload(Content.sources).joinedload(Source.source_type),
+                    joinedload(Content.sources).joinedload(Source.url_references),
+                    joinedload(Content.sources).joinedload(Source.media)
+                )\
+                .filter(Content.profile_id == profile_id)\
+                .filter(Content.is_deleted == False)\
+                .order_by(desc(Content.created_at))
 
-                # Get total count
-                total = query.count()
+            # Get total count
+            total = query.count()
 
-                # Get paginated results
-                items = query.offset(skip).limit(limit).all()
-                
-                return {
-                    "items": items,
-                    "total": total,
-                    "page": skip // limit + 1,
-                    "size": limit
-                }
-
+            # Get paginated results
+            items = query.offset(skip).limit(limit).all()
+            session.commit()
+            
+            return {
+                "items": items,
+                "total": total,
+                "page": skip // limit + 1,
+                "size": limit
+            }
         except Exception as e:
+            session.rollback()
             raise e
 
     def get_content_by_thread(self, thread_id: UUID, profile_id: UUID, content_type_id: Optional[UUID] = None):
         """Get content by thread ID with optional content type filter"""
+        session = self.db.get_session()
         try:
-            with self.db.session() as session:
-                query = session.query(Content)\
-                    .options(
-                        joinedload(Content.content_type),
-                        joinedload(Content.content_tags).joinedload(Content.tags),
-                        joinedload(Content.sources).joinedload(Source.source_type),
-                        joinedload(Content.sources).joinedload(Source.url_references),
-                        joinedload(Content.sources).joinedload(Source.media)
-                    )\
-                    .filter(Content.thread_id == thread_id)\
-                    .filter(Content.profile_id == profile_id)
+            query = session.query(Content)\
+                .options(
+                    joinedload(Content.content_type),
+                    joinedload(Content.content_tags).joinedload(Content.tags),
+                    joinedload(Content.sources).joinedload(Source.source_type),
+                    joinedload(Content.sources).joinedload(Source.url_references),
+                    joinedload(Content.sources).joinedload(Source.media)
+                )\
+                .filter(Content.thread_id == thread_id)\
+                .filter(Content.profile_id == profile_id)
 
-                if content_type_id:
-                    query = query.filter(Content.content_type_id == content_type_id)
+            if content_type_id:
+                query = query.filter(Content.content_type_id == content_type_id)
 
-                content = query.first()
-                if not content:
-                    return None
-
-                return content
+            content = query.first()
+            session.commit()
+            return content
         except Exception as e:
+            session.rollback()
             raise e
 
     def update_by_thread(self, thread_id: UUID, profile_id: UUID, data: Dict):
         """Update content by thread ID"""
-        with self.db.transaction() as session:
+        session = self.db.get_session()
+        try:
             content = (
                 session.query(Content)
                 .options(
@@ -92,13 +93,17 @@ class ContentRepository(SQLAlchemyRepository[Content]):
                 for key, value in data.items():
                     if hasattr(content, key):
                         setattr(content, key, value)
-                session.flush()
+                session.commit()
                 return content
             return None
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def filter_content(self, profile_id: UUID, filters: Dict, skip: int = 0, limit: int = 10):
         """Filter content with complex criteria"""
-        with self.db.session() as session:
+        session = self.db.get_session()
+        try:
             subquery = (
                 session.query(Content)
                 .outerjoin(Content.content_type)
@@ -175,11 +180,9 @@ class ContentRepository(SQLAlchemyRepository[Content]):
             .order_by(desc(Content.created_at))
             )
 
-                # Order by created date descending
             total = subquery.count()
-            
-            # Get paginated results
             contents = query.offset(skip).limit(limit).all()
+            session.commit()
             
             return {
                 "items": contents,
@@ -187,3 +190,6 @@ class ContentRepository(SQLAlchemyRepository[Content]):
                 "page": skip // limit + 1,
                 "size": limit
             }
+        except Exception as e:
+            session.rollback()
+            raise e

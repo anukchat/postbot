@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional, Any
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.orm import joinedload
 from sqlalchemy import desc, func
 from ..models import Profile, RateLimit, Quota, QuotaUsage
@@ -12,17 +12,22 @@ class ProfileRepository(SQLAlchemyRepository[Profile]):
 
     def get_profile_by_user_id(self, user_id: UUID) -> Optional[Profile]:
         """Get profile by user ID"""
-        with self.db.session() as session:
+        session = self.db.get_session()
+        try:
             profile = session.query(Profile).filter(Profile.user_id == user_id).first()
             if profile:
-                # Refresh the instance to ensure all attributes are loaded
                 session.refresh(profile)
+                session.commit()
                 return profile
             return None
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def get_with_generation_limits(self, profile_id: UUID) -> Optional[Dict]:
         """Get profile with generation limits info"""
-        with self.db.session() as session:
+        session = self.db.get_session()
+        try:
             profile = (
                 session.query(Profile)
                 .filter(
@@ -32,6 +37,7 @@ class ProfileRepository(SQLAlchemyRepository[Profile]):
                 .first()
             )
             
+            session.commit()
             if profile:
                 return {
                     "role": profile.role,
@@ -39,44 +45,60 @@ class ProfileRepository(SQLAlchemyRepository[Profile]):
                     "generations_used": profile.generations_used
                 }
             return None
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def increment_generation_count(self, profile_id: UUID) -> bool:
         """Increment the generation count for a profile"""
-        with self.db.transaction() as session:
+        session = self.db.get_session()
+        try:
             profile = session.query(Profile).get(profile_id)
             if profile:
                 profile.generations_used += 1
-                session.flush()
+                session.commit()
                 return True
             return False
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def reset_generation_count(self, profile_id: UUID) -> bool:
         """Reset the generation count for a profile"""
-        with self.db.transaction() as session:
+        session = self.db.get_session()
+        try:
             profile = session.query(Profile).get(profile_id)
             if profile:
                 profile.generations_used = 0
-                session.flush()
+                session.commit()
                 return True
             return False
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def update_role(self, profile_id: UUID, new_role: str, new_limit: Optional[int] = None) -> bool:
         """Update profile role and optionally the generation limit"""
-        with self.db.transaction() as session:
+        session = self.db.get_session()
+        try:
             profile = session.query(Profile).get(profile_id)
             if profile:
                 profile.role = new_role
                 if new_limit is not None:
                     profile.generation_limit = new_limit
-                session.flush()
+                session.commit()
                 return True
             return False
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def get_rate_limits(self, profile_id: UUID, action_type: str, window_minutes: int) -> int:
         """Get rate limit count for a specific action"""
-        with self.db.session() as session:
-            window_start = datetime.now() - datetime.timedelta(minutes=window_minutes)
-            return (
+        session = self.db.get_session()
+        try:
+            window_start = datetime.now() - timedelta(minutes=window_minutes)
+            count = (
                 session.query(func.count(RateLimit.rate_limit_id))
                 .filter(
                     RateLimit.profile_id == profile_id,
@@ -85,10 +107,16 @@ class ProfileRepository(SQLAlchemyRepository[Profile]):
                 )
                 .scalar()
             )
+            session.commit()
+            return count
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def get_quota_usage(self, profile_id: UUID, quota_type: str, period_start: datetime) -> Dict[str, int]:
         """Get quota usage and limit"""
-        with self.db.session() as session:
+        session = self.db.get_session()
+        try:
             # Get quota limit
             quota = (
                 session.query(Quota)
@@ -110,7 +138,11 @@ class ProfileRepository(SQLAlchemyRepository[Profile]):
                 .scalar()
             )
             
+            session.commit()
             return {
                 "limit": quota.limit if quota else 0,
                 "used": usage_count
             }
+        except Exception as e:
+            session.rollback()
+            raise e

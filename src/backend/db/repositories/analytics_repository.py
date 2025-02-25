@@ -12,8 +12,9 @@ class AnalyticsRepository(SQLAlchemyRepository[Content]):
 
     def record_content_view(self, content_id: UUID, viewer_id: Optional[UUID] = None) -> Dict[str, Any]:
         """Record a content view"""
-        with self.db.transaction() as session:
-            content = self.find_by_id(session, "content_id", content_id)
+        session = self.db.get_session()
+        try:
+            content = self.find_by_id("content_id", content_id)
             if not content:
                 raise ValueError("Content not found")
             
@@ -31,15 +32,19 @@ class AnalyticsRepository(SQLAlchemyRepository[Content]):
             
             content.content_metadata['analytics'].append(view_data)
             content.updated_at = datetime.now()
-            session.flush()
+            session.commit()
             
             return view_data
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def record_content_interaction(self, content_id: UUID, event_type: str, 
                                 metadata: Dict[str, Any], viewer_id: Optional[UUID] = None) -> Dict[str, Any]:
         """Record a content interaction (like, share, comment)"""
-        with self.db.transaction() as session:
-            content = self.find_by_id(session, "content_id", content_id)
+        session = self.db.get_session()
+        try:
+            content = self.find_by_id("content_id", content_id)
             if not content:
                 raise ValueError("Content not found")
             
@@ -58,14 +63,18 @@ class AnalyticsRepository(SQLAlchemyRepository[Content]):
             
             content.content_metadata['analytics'].append(interaction_data)
             content.updated_at = datetime.now()
-            session.flush()
+            session.commit()
             
             return interaction_data
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def get_content_analytics(self, content_id: UUID, days: int = 30) -> Dict[str, Any]:
         """Get analytics for a specific content item"""
-        with self.db.session() as session:
-            content = self.find_by_id(session, "content_id", content_id)
+        session = self.db.get_session()
+        try:
+            content = self.find_by_id("content_id", content_id)
             if not content or not content.content_metadata or 'analytics' not in content.content_metadata:
                 return {
                     'daily_data': [],
@@ -120,6 +129,7 @@ class AnalyticsRepository(SQLAlchemyRepository[Content]):
             total_likes = sum(1 for e in recent_events if e['event_type'] == 'like')
             total_shares = sum(1 for e in recent_events if e['event_type'] == 'share')
             
+            session.commit()
             return {
                 'daily_data': formatted_daily_data,
                 'total_events': total_events,
@@ -127,10 +137,14 @@ class AnalyticsRepository(SQLAlchemyRepository[Content]):
                 'total_likes': total_likes,
                 'total_shares': total_shares
             }
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def get_profile_analytics(self, profile_id: UUID, days: int = 30) -> Dict[str, Any]:
         """Get analytics across all content for a profile"""
-        with self.db.session() as session:
+        session = self.db.get_session()
+        try:
             since = datetime.now() - timedelta(days=days)
             
             # Get all content for profile
@@ -205,6 +219,7 @@ class AnalyticsRepository(SQLAlchemyRepository[Content]):
                 total_views / days if total_views > 0 else 0
             )
             
+            session.commit()
             return {
                 'daily_data': formatted_daily_data,
                 'total_events': total_events,
@@ -213,10 +228,14 @@ class AnalyticsRepository(SQLAlchemyRepository[Content]):
                 'total_shares': total_shares,
                 'avg_daily_views': avg_daily_views
             }
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def get_trending_content(self, days: int = 7, limit: int = 10) -> List[Dict[str, Any]]:
         """Get trending content based on recent engagement"""
-        with self.db.session() as session:
+        session = self.db.get_session()
+        try:
             since = datetime.now() - timedelta(days=days)
             
             # Query content with analytics content_metadata
@@ -258,13 +277,18 @@ class AnalyticsRepository(SQLAlchemyRepository[Content]):
                     'comments': comments
                 })
             
+            session.commit()
             # Sort by score and limit results
             content_scores.sort(key=lambda x: x['score'], reverse=True)
             return content_scores[:limit]
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def get_user_activity_stats(self, profile_id: UUID) -> Dict[str, Any]:
         """Get user activity statistics"""
-        with self.db.session() as session:
+        session = self.db.get_session()
+        try:
             # Get all content created by user
             contents = (
                 session.query(Content)
@@ -301,6 +325,7 @@ class AnalyticsRepository(SQLAlchemyRepository[Content]):
             if total_views > 0:
                 engagement_rate = ((total_likes + total_shares + total_comments) / total_views) * 100
             
+            session.commit()
             return {
                 'total_content': total_content,
                 'total_views': total_views,
@@ -310,3 +335,6 @@ class AnalyticsRepository(SQLAlchemyRepository[Content]):
                 'engagement_rate': round(engagement_rate, 2),
                 'avg_views_per_content': round(total_views / total_content if total_content > 0 else 0, 2)
             }
+        except Exception as e:
+            session.rollback()
+            raise e

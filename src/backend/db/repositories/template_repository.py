@@ -10,43 +10,49 @@ class TemplateRepository(SQLAlchemyRepository[Template]):
     def __init__(self):
         super().__init__(Template)
 
-    def create_template_with_parameters(self, session, template_data: Dict[str, Any], parameters: List[Dict[str, Any]]) -> Template:
+    def create_template_with_parameters(self, template_data: Dict[str, Any], parameters: List[Dict[str, Any]]) -> Template:
         """Create a template with its parameters"""
-        # Create template
-        template = self.create(session, template_data)
-        
-        # Add parameters if provided
-        if parameters:
-            for param_data in parameters:
-                param_id = param_data.get('parameter_id')
-                if param_id:
-                    param = session.query(Parameter).get(param_id)
-                    if param:
-                        template.parameters.append(param)
-        
-        session.flush()
-        return template
+        session = self.db.get_session()
+        try:
+            # Create template
+            template = self.create(template_data)
+            
+            # Add parameters if provided
+            if parameters:
+                for param_data in parameters:
+                    param_id = param_data.get('parameter_id')
+                    if param_id:
+                        param = session.query(Parameter).get(param_id)
+                        if param:
+                            template.parameters.append(param)
+            
+            session.commit()
+            return template
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def get_template_with_parameters(self, template_id: UUID, profile_id: UUID):
         """Get template with its parameters"""
+        session = self.db.get_session()
         try:
-            with self.db.session() as session:
-                template = session.query(Template)\
-                    .options(
-                        joinedload(Template.parameters).joinedload(Parameter.values)
-                    )\
-                    .filter(
-                        Template.template_id == template_id,
-                        Template.profile_id == profile_id,
-                        Template.is_deleted == False
-                    ).first()
+            template = session.query(Template)\
+                .options(
+                    joinedload(Template.parameters).joinedload(Parameter.values)
+                )\
+                .filter(
+                    Template.template_id == template_id,
+                    Template.profile_id == profile_id,
+                    Template.is_deleted == False
+                ).first()
                 
-                if not template:
-                    return None
+            if not template:
+                return None
 
-                return format_template_response(template.__dict__)
-
+            session.commit()
+            return format_template_response(template.__dict__)
         except Exception as e:
+            session.rollback()
             raise e
 
     def list_templates_for_profile(
@@ -58,26 +64,27 @@ class TemplateRepository(SQLAlchemyRepository[Template]):
         include_deleted: bool = False
     ):
         """List all templates for a profile"""
+        session = self.db.get_session()
         try:
-            with self.db.session() as session:
-                query = session.query(Template)\
-                    .options(joinedload(Template.parameters).joinedload(Parameter.values))\
-                    .filter(Template.profile_id == profile_id)
+            query = session.query(Template)\
+                .options(joinedload(Template.parameters).joinedload(Parameter.values))\
+                .filter(Template.profile_id == profile_id)
 
-                if not include_deleted:
-                    query = query.filter(Template.is_deleted == False)
+            if not include_deleted:
+                query = query.filter(Template.is_deleted == False)
                 
-                if template_type:
-                    query = query.filter(Template.template_type == template_type)
+            if template_type:
+                query = query.filter(Template.template_type == template_type)
 
-                templates = query.order_by(desc(Template.created_at))\
-                    .offset(skip)\
-                    .limit(limit)\
-                    .all()
+            templates = query.order_by(desc(Template.created_at))\
+                .offset(skip)\
+                .limit(limit)\
+                .all()
 
-                return [format_template_response(template.__dict__) for template in templates]
-
+            session.commit()
+            return [format_template_response(template.__dict__) for template in templates]
         except Exception as e:
+            session.rollback()
             raise e
 
     def update_template_with_parameters(
@@ -88,7 +95,8 @@ class TemplateRepository(SQLAlchemyRepository[Template]):
         parameters: Optional[List[Dict[str, Any]]] = None
     ) -> Optional[Template]:
         """Update a template and its parameters"""
-        with self.db.transaction() as session:
+        session = self.db.get_session()
+        try:
             template = (
                 session.query(Template)
                 .filter(
@@ -119,12 +127,16 @@ class TemplateRepository(SQLAlchemyRepository[Template]):
                         if param:
                             template.parameters.append(param)
             
-            session.flush()
+            session.commit()
             return template
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def duplicate_template(self, template_id: UUID, profile_id: UUID, new_name: str) -> Optional[Template]:
         """Create a copy of an existing template"""
-        with self.db.transaction() as session:
+        session = self.db.get_session()
+        try:
             # Get original template with parameters
             original = self.get_template_with_parameters(template_id, profile_id)
             if not original:
@@ -143,8 +155,11 @@ class TemplateRepository(SQLAlchemyRepository[Template]):
             # Copy parameters
             new_template.parameters = original.parameters.copy()
             
-            session.flush()
+            session.commit()
             return new_template
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def filter_templates(
         self,
@@ -156,7 +171,8 @@ class TemplateRepository(SQLAlchemyRepository[Template]):
         limit: int = 10
     ) -> List[Template]:
         """Filter templates by parameters"""
-        with self.db.session() as session:
+        session = self.db.get_session()
+        try:
             query = (
                 session.query(Template)
                 .join(Template.parameters)
@@ -190,7 +206,11 @@ class TemplateRepository(SQLAlchemyRepository[Template]):
                 .limit(limit)
             )
             
+            session.commit()
             return query.all()
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def count_templates(
         self,

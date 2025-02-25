@@ -4,11 +4,16 @@ from contextlib import contextmanager
 from typing import Generator
 import backoff
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker, Session, scoped_session
 from sqlalchemy.exc import SQLAlchemyError
 from functools import wraps
+from contextvars import ContextVar
+import contextvars
 
 logger = logging.getLogger(__name__)
+
+# Context variable to store the current session
+session_context: ContextVar[Session] = ContextVar('session_context')
 
 class DatabaseConnectionManager:
     _instance = None
@@ -34,6 +39,7 @@ class DatabaseConnectionManager:
                 autoflush=False,
                 expire_on_commit=False
             )
+            self.session_factory = scoped_session(self.SessionLocal)
             self.initialized = True
 
     @backoff.on_exception(
@@ -44,7 +50,18 @@ class DatabaseConnectionManager:
     )
     def get_session(self) -> Session:
         """Get a new database session"""
-        return self.SessionLocal()
+        try:
+            # Try to get existing session from context
+            session = session_context.get()
+            if session:
+                return session
+        except LookupError:
+            pass
+            
+        # Create new session if none exists
+        session = self.SessionLocal()
+        session_context.set(session)
+        return session
 
     @contextmanager
     def session(self) -> Generator[Session, None, None]:
@@ -58,13 +75,10 @@ class DatabaseConnectionManager:
             raise e
         finally:
             session.close()
-
-    @contextmanager
-    def transaction(self):
-        """Transaction context manager"""
-        with self.session() as session:
-            with session.begin():
-                yield session
+            try:
+                session_context.set(None)
+            except:
+                pass
 
 def db_retry(retries=3, delay=1):
     """Decorator for database operations with retry logic"""

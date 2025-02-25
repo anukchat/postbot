@@ -1,9 +1,10 @@
-from typing import Any, Optional, List, Dict, TypeVar, Type
+from typing import Dict, List, Optional, Any, ContextManager
 from uuid import UUID
-from .connection import DatabaseConnectionManager, db_retry
 from datetime import datetime, timedelta
 from contextlib import contextmanager
-import psycopg
+from sqlalchemy import select, func
+from sqlalchemy.exc import SQLAlchemyError
+from .connection import DatabaseConnectionManager, db_retry
 
 class RateLimitExceeded(Exception):
     """Exception raised when a rate limit is exceeded"""
@@ -14,8 +15,7 @@ class QuotaExceeded(Exception):
     pass
 
 class BaseRepository:
-    def __init__(self, table_name: str):
-        self.table_name = table_name
+    def __init__(self):
         self.db = DatabaseConnectionManager()
 
     def _format_error_response(self, error: Exception) -> Dict[str, Any]:
@@ -44,10 +44,8 @@ class BaseRepository:
         """Context manager for handling database errors consistently"""
         try:
             yield
-        except psycopg.errors.ForeignKeyViolation:
-            raise ValueError("Referenced record does not exist")
-        except psycopg.errors.UniqueViolation:
-            raise ValueError("Record already exists")
+        except SQLAlchemyError as e:
+            raise ValueError(f"Database error: {str(e)}")
         except Exception as e:
             raise ValueError(f"Unexpected error: {str(e)}")
 
@@ -276,69 +274,76 @@ class BaseRepository:
                     return cur.rowcount > 0
 
     def check_rate_limit(self, profile_id: UUID, action_type: str, limit: int, window_minutes: int = 60) -> bool:
-        """Check if an action is within rate limits for a profile"""
-        with self.handle_db_errors():
-            with self.db.connection() as conn:
-                with conn.cursor() as cur:
-                    window_start = datetime.now() - timedelta(minutes=window_minutes)
-                    query = """
-                        SELECT COUNT(*)
-                        FROM rate_limits
-                        WHERE profile_id = %s
-                        AND action_type = %s
-                        AND created_at >= %s
-                    """
-                    cur.execute(query, (str(profile_id), action_type, window_start))
-                    count = cur.fetchone()[0]
-                    return count < limit
+        """Check if an action is within rate limits"""
+        session = self.db.get_session()
+        try:
+            from .models import RateLimit
+            window_start = datetime.now() - timedelta(minutes=window_minutes)
+            stmt = select(func.count(RateLimit.rate_limit_id)).where(
+                RateLimit.profile_id == profile_id,
+                RateLimit.action_type == action_type,
+                RateLimit.created_at >= window_start
+            )
+            result = session.execute(stmt).scalar() < limit
+            session.commit()
+            return result
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def increment_rate_limit(self, profile_id: UUID, action_type: str) -> None:
         """Record a rate-limited action"""
-        with self.handle_db_errors():
-            with self.db.connection() as conn:
-                with conn.cursor() as cur:
-                    query = """
-                        INSERT INTO rate_limits (profile_id, action_type, created_at)
-                        VALUES (%s, %s, %s)
-                    """
-                    cur.execute(query, (str(profile_id), action_type, datetime.now()))
+        session = self.db.get_session()
+        try:
+            from .models import RateLimit
+            rate_limit = RateLimit(profile_id=profile_id, action_type=action_type)
+            session.add(rate_limit)
+            session.flush()
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            raise e
 
-    def check_quota(self, profile_id: UUID, quota_type: str, current_period_start: datetime) -> tuple[int, int]:
+    def check_quota(self, profile_id: UUID, quota_type: str, period_start: datetime) -> tuple[int, int]:
         """Check quota usage and limit for a profile"""
-        with self.handle_db_errors():
-            with self.db.connection() as conn:
-                with conn.cursor() as cur:
-                    # Get quota limit
-                    cur.execute(
-                        "SELECT limit FROM quotas WHERE profile_id = %s AND quota_type = %s",
-                        (str(profile_id), quota_type)
-                    )
-                    quota_result = cur.fetchone()
-                    if not quota_result:
-                        return 0, 0
+        session = self.db.get_session()
+        try:
+            from .models import Quota, QuotaUsage
+            # Get quota limit
+            quota = session.query(Quota).filter(
+                Quota.profile_id == profile_id,
+                Quota.quota_type == quota_type
+            ).first()
+            
+            if not quota:
+                session.commit()
+                return 0, 0
 
-                    # Get usage count
-                    cur.execute("""
-                        SELECT COUNT(*)
-                        FROM quota_usage
-                        WHERE profile_id = %s
-                        AND quota_type = %s
-                        AND created_at >= %s
-                    """, (str(profile_id), quota_type, current_period_start))
-                    usage_count = cur.fetchone()[0]
-                    
-                    return usage_count, quota_result[0]
+            # Get usage count
+            usage = session.query(func.count(QuotaUsage.quota_usage_id)).filter(
+                QuotaUsage.profile_id == profile_id,
+                QuotaUsage.quota_type == quota_type,
+                QuotaUsage.created_at >= period_start
+            ).scalar()
+
+            session.commit()
+            return usage, quota.limit
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def increment_quota(self, profile_id: UUID, quota_type: str) -> None:
         """Record quota usage"""
-        with self.handle_db_errors():
-            with self.db.connection() as conn:
-                with conn.cursor() as cur:
-                    query = """
-                        INSERT INTO quota_usage (profile_id, quota_type, created_at)
-                        VALUES (%s, %s, %s)
-                    """
-                    cur.execute(query, (str(profile_id), quota_type, datetime.now()))
+        session = self.db.get_session()
+        try:
+            from .models import QuotaUsage
+            usage = QuotaUsage(profile_id=profile_id, quota_type=quota_type)
+            session.add(usage)
+            session.flush()
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            raise e
 
     @contextmanager
     def rate_limited_operation(self, profile_id: UUID, action_type: str, limit: int, window_minutes: int = 60):
