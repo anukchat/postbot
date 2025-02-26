@@ -23,7 +23,7 @@ export const TemplateDialog: React.FC<TemplateDialogProps> = ({
   parameterValues,
   isLoading,
 }) => {
-  const { fetchParameterValues } = useEditorStore();
+  const { fetchParameters } = useEditorStore();
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -31,15 +31,18 @@ export const TemplateDialog: React.FC<TemplateDialogProps> = ({
     template_image_url: '',
     parameters: [] as TemplateParameter[],
   });
-
-  // Load parameter values for each parameter on mount
+  
+  // Load all parameters with their values at once when needed
   useEffect(() => {
-    parameters.forEach(param => {
-      if (!parameterValues[param.parameter_id]) {
-        fetchParameterValues(param.parameter_id);
-      }
-    });
-  }, [parameters, parameterValues, fetchParameterValues]);
+    // Only fetch parameters if we don't have data for all parameters
+    const missingParameterValues = parameters.some(param => 
+      !parameterValues[param.parameter_id] || parameterValues[param.parameter_id].length === 0
+    );
+    
+    if (missingParameterValues) {
+      fetchParameters();
+    }
+  }, [parameters, parameterValues, fetchParameters]);
 
   // Initialize form with template data if editing
   useEffect(() => {
@@ -186,6 +189,14 @@ export const TemplateDialog: React.FC<TemplateDialogProps> = ({
             {/* Parameters Grid */}
             <div className="space-y-4">
               <h3 className="font-medium text-lg">Parameters</h3>
+              
+              {parameters.length === 0 && (
+                <div className="flex items-center justify-center p-4 text-gray-500">
+                  <LoadingSpinner size="md" className="mr-2" />
+                  <span>Loading parameters...</span>
+                </div>
+              )}
+              
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {parameters.map(param => (
                   <div key={param.parameter_id} className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">

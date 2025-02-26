@@ -25,6 +25,10 @@ const QUICK_FILTERS = [
   { label: 'Drafts', value: 'Draft' },
 ];
 
+// Cache control constants
+const DRAWER_SESSION_KEY = 'navigation_drawer_last_fetch';
+const FETCH_COOLDOWN = 60 * 1000; // 1 minute cooldown between fetches
+
 export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onClose }) => {
   const { 
     posts, 
@@ -34,7 +38,8 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
     limit, 
     isLoading,
     hasReachedEnd,
-    deletePost, // Add this
+    deletePost,
+    contentCache
   } = useEditorStore();
   
   const isListLoading = useEditorStore(state => state.isListLoading);
@@ -52,7 +57,14 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
   const [selectedQuickFilter, setSelectedQuickFilter] = useState('');
   const [isResetting, setIsResetting] = useState(false);
 
-  // Move filteredPosts before its usage and optimize memoization
+  // Track if initial fetch has been done
+  const initialFetchDoneRef = useRef(false);
+  const isFetchingRef = useRef(false);
+  const scrollPositionRef = useRef(0);
+  const drawerOpenedRef = useRef(false);
+  const lastFetchRef = useRef(0);
+
+  // Filter posts client-side when possible
   const filteredPosts = useMemo(() => {
     if (!posts || posts.length === 0) return [];
     
@@ -91,9 +103,15 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
   }, [filteredPosts]);
 
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const initialFetchDoneRef = useRef(false);
-  const isFetchingRef = useRef(false);
-  const scrollPositionRef = useRef(0);
+
+  // Check if we need to fetch data based on last fetch time
+  const shouldFetchData = useCallback(() => {
+    const now = Date.now();
+    const timeSinceLastFetch = now - lastFetchRef.current;
+    
+    // Allow fetch if it's been more than the cooldown period
+    return timeSinceLastFetch > FETCH_COOLDOWN;
+  }, []);
 
   // Optimize the handleLoadMore callback
   const handleLoadMore = useCallback(async () => {
@@ -138,19 +156,54 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
     };
   }, [handleLoadMore, isLoading, hasReachedEnd]);
 
+  // Only fetch data when the drawer opens and sufficient time has passed
   useEffect(() => {
-    if (!initialFetchDoneRef.current && !isLoading) {
-      initialFetchDoneRef.current = true;
-      fetchPosts({
-        timestamp: Date.now(),
-        forceRefresh: true
-      }, 0, limit);
+    if (isOpen && !isListLoading && !isFetchingRef.current) {
+      // If drawer was just opened, or we haven't fetched data yet
+      if (!drawerOpenedRef.current || !initialFetchDoneRef.current) {
+        drawerOpenedRef.current = true;
+        
+        // Only fetch if no recent fetch or cache is empty
+        if (shouldFetchData() || posts.length === 0) {
+          initialFetchDoneRef.current = true;
+          lastFetchRef.current = Date.now();
+          fetchPosts({
+            timestamp: Date.now()
+          }, 0, limit);
+        }
+      }
     }
-  }, [fetchPosts, isLoading, limit]);
+    // Reset the drawer opened state when it closes
+    if (!isOpen) {
+      drawerOpenedRef.current = false;
+    }
+  }, [isOpen, fetchPosts, isListLoading, limit, posts.length, shouldFetchData]);
+
+  // Debounced search that uses client-side filtering when possible
+  const debouncedSearch = useMemo(() => {
+    return debounce((term: string) => {
+      setSearchTerm(term);
+      // If search term is long enough, we need to filter server-side
+      if (term.length > 3) {
+        fetchPosts({
+          title_contains: term,
+          timestamp: Date.now()
+        }, 0, limit);
+      }
+    }, 500);
+  }, [fetchPosts, limit]);
+
+  // Clean up the debounce on unmount
+  useEffect(() => {
+    return () => {
+      debouncedSearch.cancel();
+    };
+  }, [debouncedSearch]);
 
   // Client-side search handler
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
+    // Immediately update UI with the new value
     setSearchTerm(value);
     
     // Reset filters and quick filters when searching
@@ -165,6 +218,9 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
       });
       setSelectedQuickFilter('');
     }
+    
+    // Debounce the actual search operation
+    debouncedSearch(value);
   };
 
   // API-based reset handler
@@ -185,24 +241,26 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
       setSelectedQuickFilter('');
       setShowFilters(false);
       
-      // Clear the posts in the store
-      useEditorStore.setState(state => ({
-        ...state,
-        posts: [],
-        hasReachedEnd: false
-      }));
+      // Only fetch from API if we don't have a recent cache
+      if (shouldFetchData()) {
+        // Clear the posts in the store
+        useEditorStore.setState(state => ({
+          ...state,
+          posts: [],
+          hasReachedEnd: false
+        }));
 
-      // Reset ref to allow fresh fetch
-      initialFetchDoneRef.current = false;
-      isFetchingRef.current = false;
+        // Reset ref to allow fresh fetch
+        initialFetchDoneRef.current = false;
+        isFetchingRef.current = false;
+        lastFetchRef.current = Date.now();
 
-      // Force fresh fetch with clean state
-      await fetchPosts({
-        timestamp: Date.now(),
-        forceRefresh: true,
-        noCache: true
-      }, 0, limit);
-
+        // Force fresh fetch with clean state
+        await fetchPosts({
+          timestamp: Date.now(),
+          forceRefresh: true
+        }, 0, limit);
+      }
     } catch (error) {
       console.error('Error resetting posts:', error);
     } finally {
@@ -222,11 +280,12 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
         return acc;
       }, {} as Record<string, any>);
 
+      // Update last fetch time
+      lastFetchRef.current = Date.now();
+
       await fetchPosts({
         ...cleanedFilters,
-        timestamp: Date.now(),
-        forceRefresh: true,
-        noCache: true
+        timestamp: Date.now()
       }, 0, limit);
 
       setShowFilters(false);
@@ -257,6 +316,21 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
       created_before: ''
     });
     setSearchTerm('');
+    
+    // Apply the quick filter if it changed
+    if (newValue !== selectedQuickFilter) {
+      // Check if we have this filter cached, otherwise fetch from API
+      const cacheKey = JSON.stringify({ filters: { status: newValue }, skip: 0, limit });
+      const hasCachedData = Object.keys(contentCache).some(key => key.includes(cacheKey));
+      
+      if (!hasCachedData) {
+        lastFetchRef.current = Date.now();
+        fetchPosts({
+          status: newValue || undefined,
+          timestamp: Date.now()
+        }, 0, limit);
+      }
+    }
   };
 
   const handlePostSelect = (post: Post) => {
@@ -276,19 +350,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
     }
   };
 
-  // Reset filters when drawer is closed
-  useEffect(() => {
-    if (!isOpen) {
-      // Reset the filter panel state
-      setShowFilters(false);
-      
-      // Only reset filters if they're not actively being used
-      if (!searchTerm && !selectedQuickFilter && !Object.values(filters).some(val => val)) {
-        handleReset();
-      }
-    }
-  }, [isOpen]);
-
+  // Don't reset filters when drawer is closed to maintain state between openings
   return (
     <>
       {/* Add backdrop overlay */}

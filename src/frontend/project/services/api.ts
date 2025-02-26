@@ -22,22 +22,33 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// Add deleteContent method
+// Content methods
 const deleteContent = (threadId: string) => api.delete(`/content/thread/${threadId}`);
 
 // Template-specific methods
 const templateApi = {
   getTemplate: (templateId: string) => api.get(`/templates/${templateId}`),
+  
+  // Enhanced getAllTemplates with better parameter handling
   getAllTemplates: (params?: any, limit?: number, filter?: TemplateFilter | undefined) => 
     api.get('/templates', { params: { ...params, ...filter } }),
+  
   createTemplate: (template: any) => api.post('/templates', template),
   updateTemplate: (templateId: string, template: any) => api.put(`/templates/${templateId}`, template),
   deleteTemplate: (templateId: string) => api.delete(`/templates/${templateId}`),
+  
+  // Use the more efficient filter endpoint 
   filterTemplates: (params: any) => api.post('/templates/filter', params),
   
   // Parameter endpoints
+  // Use /parameters/all as the primary method to get all parameters with values
   getParameters: () => api.get('/parameters/all'),
+  
+  // Only used as fallback for specific parameter values
   getParameterValues: (parameterId: string) => api.get(`/parameters/${parameterId}/values`),
+  
+  // Add a method to get a specific template with parameters
+  getTemplateWithParameters: (templateId: string) => api.get(`/templates/${templateId}`),
 };
 
 export { templateApi, deleteContent };

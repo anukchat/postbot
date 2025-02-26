@@ -2,8 +2,6 @@ import { create } from 'zustand';
 import { templateApi, deleteContent } from '../services/api';
 import { Post } from '../types/editor';
 import api from '../services/api';
-import { cacheService } from '../services/cacheService';
-import { toast } from 'react-hot-toast';
 
 // import {
 //   Template,
@@ -77,6 +75,7 @@ export interface ParameterValue {
 export interface CachedTemplateData {
   templates: Template[];
   timestamp: number;
+  filter?: TemplateFilter;
 }
 
 interface GeneratePayload {
@@ -107,6 +106,7 @@ interface EditorState {
   trendingTopicsCache: Record<string, { topics: string[], timestamp: number }>;
   isListLoading: boolean;
   currentTab: 'blog' | 'twitter' | 'linkedin';
+  contentCache: Record<string, { posts: Post[], totalPosts: number, timestamp: number }>;
   setCurrentTab: (tab: 'blog' | 'twitter' | 'linkedin') => void;
   setCurrentPost: (post: Post | null) => void;
   toggleTheme: () => void;
@@ -144,6 +144,8 @@ interface AdminState {
   isTemplateActionLoading: boolean;
   templateError: string | null;
   currentTemplate: Template | null;
+  templateCache: Record<string, CachedTemplateData>;
+  lastTemplatesFetch: number;
   setIsAdminView: (isAdmin: boolean) => void;
   setTemplateError: (error: string | null) => void;
   fetchTemplates: (skip?: number, limit?: number, filter?: TemplateFilter, forceRefresh?: boolean) => Promise<void>;
@@ -159,11 +161,14 @@ interface AdminState {
   deleteParameterValue: (parameterId: string, valueId: string) => Promise<void>;
   fetchParameterValues: (parameterId: string) => Promise<void>;
   handleUpdateTemplate: (templateId: string) => Promise<void>;
+  lastParametersFetch: number;
 }
 
 interface CombinedState extends EditorState, AdminState {}
 
 const MAX_CACHE_SIZE = 250;
+const PARAMETERS_CACHE_EXPIRY = 1000 * 60 * 10; // 10 minutes
+const TEMPLATES_CACHE_EXPIRY = 1000 * 60 * 5; // 5 minutes
 
 export const useEditorStore = create<CombinedState>((set, get) => ({
   // Editor State Implementation
@@ -186,10 +191,18 @@ export const useEditorStore = create<CombinedState>((set, get) => ({
   trendingBlogTopics: [],
   lastBlogTopicsFetch: {},
   trendingTopicsCache: {},
-
-  // Admin State Implementation
+  contentCache: {},
+  
+  // Add these missing state implementation methods
+  setCurrentTab: (tab) => set({ currentTab: tab }),
+  setCurrentPost: (post) => set({ currentPost: post }),
+  toggleTheme: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
+  setPosts: (posts) => set({ posts }),
+  setLoading: (loading) => set({ isLoading: loading }),
+  setError: (error) => set({ error }),
+  
+  // Admin state properties that were missing
   templates: [],
-  currentTemplate: null,
   isTemplateLoading: false,
   parameters: [],
   parameterValues: {},
@@ -198,51 +211,57 @@ export const useEditorStore = create<CombinedState>((set, get) => ({
   isAdminView: false,
   isTemplateActionLoading: false,
   templateError: null,
-
-  // Editor Actions
-  setCurrentTab: (tab) => set({ currentTab: tab }),
-  setCurrentPost: (post) => {
-    const { currentTab, fetchContentByThreadId } = get();
-    set({ currentPost: post, history: [], future: [], isContentUpdated: false });
-    
-    if (post && currentTab !== 'blog') {
-      fetchContentByThreadId(post.thread_id, currentTab);
-    }
-  },
-  toggleTheme: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
-  setPosts: (posts) => set({ posts }),
-  setLoading: (loading) => set({ isLoading: loading }),
-  setError: (error) => set({ error }),
+  currentTemplate: null,
+  templateCache: {},
+  lastTemplatesFetch: 0,
+  lastParametersFetch: 0,
 
   fetchPosts: async (filters, skip = 0, limit = 20) => {
     console.log('fetchPosts called', { filters, skip, limit });
-    const { isLoading, posts, hasReachedEnd, currentPost } = get();
+    const { isLoading, hasReachedEnd, contentCache } = get();
     
-    if (isLoading || (!filters.reset && hasReachedEnd)) {
+    // Do not fetch if already loading or reached end (unless explicitly requested to refresh)
+    if (isLoading || (!filters.forceRefresh && !filters.reset && hasReachedEnd)) {
       console.log('Skip fetch - loading or reached end:', { isLoading, hasReachedEnd });
       return;
+    }
+
+    // Create a cache key based on filters and pagination
+    const cleanedFilters = Object.entries(filters).reduce((acc, [key, value]) => {
+      // Skip timestamp, forceRefresh and other cache control params
+      if (value && !['timestamp', 'forceRefresh', 'reset', 'noCache'].includes(key)) {
+        acc[key] = value;
+      }
+      return acc;
+    }, {} as Record<string, any>);
+    
+    const cacheKey = JSON.stringify({ filters: cleanedFilters, skip, limit });
+    
+    // Check if we have a valid cache entry and no force refresh requested
+    if (!filters.forceRefresh && !filters.noCache && contentCache[cacheKey]) {
+      const cachedData = contentCache[cacheKey];
+      const now = Date.now();
+      const CONTENT_CACHE_EXPIRY = 1000 * 60 * 2; // 2 minutes
+      
+      if (now - cachedData.timestamp < CONTENT_CACHE_EXPIRY) {
+        console.log('Using cached content data');
+        set({ 
+          posts: cachedData.posts,
+          totalPosts: cachedData.totalPosts,
+          lastLoadedSkip: skip + cachedData.posts.length,
+          hasReachedEnd: cachedData.posts.length < limit,
+          isListLoading: false
+        });
+        return;
+      }
     }
 
     // Set list loading instead of general loading
     set({ isListLoading: true });
 
     try {
-      const cleanedFilters = Object.entries(filters).reduce((acc, [key, value]) => {
-        if ((['created_after', 'created_before', 'updated_after', 'updated_before'].includes(key)) && !value) {
-          return acc;
-        }
-        if (value === '') {
-          return acc;
-        }
-        if (['created_after', 'created_before', 'updated_after', 'updated_before'].includes(key) && value && (typeof value === 'string' || value instanceof Date)) {
-          acc[key] = new Date(value).toISOString();
-          return acc;
-        }
-        acc[key] = value;
-        return acc;
-      }, {} as Record<string, any>);
-
-      const params: Record<string, any> = { ...cleanedFilters, skip, limit, timestamp: Date.now() };
+      // Use the cleaned filters for the API request
+      const params: Record<string, any> = { ...cleanedFilters, skip, limit };
       if (params.status === 'All') {
         delete params.status;
       }
@@ -269,53 +288,48 @@ export const useEditorStore = create<CombinedState>((set, get) => ({
         }));
 
         console.log('Formatted blogs:', formattedBlogs);
-
-        const isLastPage = formattedBlogs.length < limit;
-        const currentTotal = Math.max(
-          posts.length + formattedBlogs.length,
-          skip + formattedBlogs.length
-        );
-
-        set((state) => {
-          const existingPosts = skip === 0 ? [] : state.posts;
-          const mergedPosts = [...existingPosts, ...formattedBlogs];
-          
-          // Create a map for quick lookups
-          const postsMap = new Map(mergedPosts.map(post => [post.id, post]));
-          
-          // Preserve current post data if it exists
-          if (currentPost) {
-            // Only update non-content related fields from new data
-            const newPostData = postsMap.get(currentPost.id);
-            if (newPostData) {
-              postsMap.set(currentPost.id, {
-                ...newPostData,
-                content: currentPost.content,
-                twitter_post: currentPost.twitter_post,
-                linkedin_post: currentPost.linkedin_post
-              });
-            } else {
-              postsMap.set(currentPost.id, currentPost);
+        
+        // Set hasReachedEnd if we got fewer items than requested
+        const newHasReachedEnd = formattedBlogs.length < limit;
+        
+        // Cache this result
+        set(state => {
+          // Create a new cache entry
+          const newCache = {
+            ...state.contentCache,
+            [cacheKey]: {
+              posts: formattedBlogs,
+              totalPosts: response.data.total || formattedBlogs.length,
+              timestamp: Date.now()
             }
+          };
+          
+          // Limit cache size by removing oldest entries if needed
+          const MAX_CONTENT_CACHE_SIZE = 20;
+          const cacheKeys = Object.keys(newCache);
+          if (cacheKeys.length > MAX_CONTENT_CACHE_SIZE) {
+            const oldestKeys = cacheKeys
+              .map(key => ({ key, timestamp: newCache[key].timestamp }))
+              .sort((a, b) => a.timestamp - b.timestamp)
+              .slice(0, cacheKeys.length - MAX_CONTENT_CACHE_SIZE)
+              .map(item => item.key);
+              
+            oldestKeys.forEach(key => {
+              delete newCache[key];
+            });
           }
-
-          const sortedPosts = Array.from(postsMap.values())
-            .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-
+          
           return {
-            posts: sortedPosts,
-            totalPosts: isLastPage ? currentTotal : currentTotal + limit,
-            skip: skip + formattedBlogs.length,
-            lastLoadedSkip: skip,
-            hasReachedEnd: isLastPage,
-            limit,
-            isListLoading: false,  // Update list loading
-            isLoading: false,
-            error: null,
+            posts: filters.reset ? formattedBlogs : 
+                  skip === 0 ? formattedBlogs : 
+                  [...state.posts, ...formattedBlogs],
+            totalPosts: response.data.total || formattedBlogs.length,
+            lastLoadedSkip: skip + formattedBlogs.length,
+            hasReachedEnd: newHasReachedEnd,
+            isListLoading: false,
+            contentCache: newCache
           };
         });
-
-        return formattedBlogs;
       }
     } catch (error: any) {
       console.error('Error fetching blogs:', error);
@@ -794,11 +808,60 @@ ${content}`;
   },
 
   fetchTemplates: async (skip = 0, limit = 10, filter?: TemplateFilter, forceRefresh = false) => {
+    const { templateCache } = get();
+    const now = Date.now();
+    
+    // Create a cache key based on the filter and pagination
+    const cacheKey = JSON.stringify({ skip, limit, filter: filter || {} });
+    const cachedData = templateCache[cacheKey];
+    
+    // Return cached data if available and not expired (unless forceRefresh is true)
+    if (
+      !forceRefresh && 
+      cachedData && 
+      now - cachedData.timestamp < TEMPLATES_CACHE_EXPIRY
+    ) {
+      console.log('Using cached templates data');
+      set({ templates: cachedData.templates });
+      return;
+    }
+    
     try {
       set({ isTemplateLoading: true, templateError: null });
       const response = await templateApi.getAllTemplates({ skip, limit }, limit, filter);
       if (response.data) {
-        set({ templates: response.data });
+        // Update cache with new data
+        set((state) => {
+          // Create new cache entry
+          const newCache = { 
+            ...state.templateCache,
+            [cacheKey]: {
+              templates: response.data,
+              timestamp: now,
+              filter
+            }
+          };
+          
+          // Limit cache size by removing oldest entries if needed
+          const cacheKeys = Object.keys(newCache);
+          if (cacheKeys.length > MAX_CACHE_SIZE) {
+            const oldestKeys = cacheKeys
+              .map(key => ({ key, timestamp: newCache[key].timestamp }))
+              .sort((a, b) => a.timestamp - b.timestamp)
+              .slice(0, cacheKeys.length - MAX_CACHE_SIZE)
+              .map(item => item.key);
+              
+            oldestKeys.forEach(key => {
+              delete newCache[key];
+            });
+          }
+          
+          return {
+            templates: response.data,
+            templateCache: newCache,
+            lastTemplatesFetch: now
+          };
+        });
       }
     } catch (error) {
       set({ templateError: error instanceof Error ? error.message : 'An error occurred' });
@@ -861,11 +924,33 @@ ${content}`;
   },
 
   fetchParameters: async () => {
+    // Check if we have recently fetched parameters
+    const now = Date.now();
+    const lastFetch = get().lastParametersFetch;
+    const parameters = get().parameters;
+
+    // If we have parameters and they were fetched recently, don't fetch again
+    if (parameters.length > 0 && now - lastFetch < PARAMETERS_CACHE_EXPIRY && !get().isParametersLoading) {
+      return;
+    }
+
     try {
       set({ isParametersLoading: true, parametersError: null });
-      const response = await templateApi.getParameters();
+      
+      // Use the '/parameters/all' endpoint that returns parameters with their values
+      const response = await api.get('/parameters/all');
+      
       if (response.data) {
-        set({ parameters: response.data });
+        // Store all parameters with their values
+        set((state) => ({
+          parameters: response.data,
+          // Pre-populate the parameterValues map with values from each parameter
+          parameterValues: response.data.reduce((acc: Record<string, any>, param: Parameter) => {
+            acc[param.parameter_id] = param.values || [];
+            return acc;
+          }, {...state.parameterValues}),
+          lastParametersFetch: now
+        }));
       }
     } catch (error) {
       set({ parametersError: error instanceof Error ? error.message : 'An error occurred' });
@@ -875,8 +960,14 @@ ${content}`;
   },
 
   fetchParameterValues: async (parameterId: string) => {
+    // Check if we already have values for this parameter
+    const existingValues = get().parameterValues[parameterId];
+    if (existingValues && existingValues.length > 0) {
+      return; // We already have the values, no need to fetch
+    }
+
     try {
-      const response = await templateApi.getParameterValues(parameterId);
+      const response = await api.get(`/parameters/${parameterId}/values`);
       if (response.data) {
         set((state) => ({
           parameterValues: {
@@ -894,8 +985,11 @@ ${content}`;
     try {
       const response = await api.post('/parameters', parameter);
       if (response.data) {
-        const { fetchParameters } = get();
-        await fetchParameters();
+        // Update local state without full refetch
+        set((state) => ({
+          parameters: [...state.parameters, response.data],
+          lastParametersFetch: Date.now()
+        }));
       }
     } catch (error) {
       console.error('Error creating parameter:', error);
@@ -907,8 +1001,13 @@ ${content}`;
     try {
       const response = await api.put(`/parameters/${parameterId}`, parameter);
       if (response.data) {
-        const { fetchParameters } = get();
-        await fetchParameters();
+        // Update the parameter in local state
+        set((state) => ({
+          parameters: state.parameters.map(p => 
+            p.parameter_id === parameterId ? { ...p, ...response.data } : p
+          ),
+          lastParametersFetch: Date.now()
+        }));
       }
     } catch (error) {
       console.error('Error updating parameter:', error);
@@ -919,8 +1018,16 @@ ${content}`;
   deleteParameter: async (parameterId) => {
     try {
       await api.delete(`/parameters/${parameterId}`);
-      const { fetchParameters } = get();
-      await fetchParameters();
+      // Update local state directly
+      set((state) => ({
+        parameters: state.parameters.filter(p => p.parameter_id !== parameterId),
+        parameterValues: (() => {
+          const newValues = {...state.parameterValues};
+          delete newValues[parameterId];
+          return newValues;
+        })(),
+        lastParametersFetch: Date.now()
+      }));
     } catch (error) {
       console.error('Error deleting parameter:', error);
       throw error;
@@ -931,8 +1038,26 @@ ${content}`;
     try {
       const response = await api.post(`/parameters/${parameterId}/values`, value);
       if (response.data) {
-        const { fetchParameterValues } = get();
-        await fetchParameterValues(parameterId);
+        // Update local state directly
+        set((state) => {
+          const parameterIndex = state.parameters.findIndex(p => p.parameter_id === parameterId);
+          if (parameterIndex >= 0) {
+            const updatedParameters = [...state.parameters];
+            updatedParameters[parameterIndex] = {
+              ...updatedParameters[parameterIndex],
+              values: [...(updatedParameters[parameterIndex].values || []), response.data]
+            };
+            
+            return {
+              parameters: updatedParameters,
+              parameterValues: {
+                ...state.parameterValues,
+                [parameterId]: [...(state.parameterValues[parameterId] || []), response.data]
+              }
+            };
+          }
+          return state;
+        });
       }
     } catch (error) {
       console.error('Error creating parameter value:', error);
@@ -944,8 +1069,38 @@ ${content}`;
     try {
       const response = await api.put(`/parameters/${parameterId}/values/${valueId}`, value);
       if (response.data) {
-        const { fetchParameterValues } = get();
-        await fetchParameterValues(parameterId);
+        // Update the value in local state
+        set((state) => {
+          // Update in parameters array
+          const parameterIndex = state.parameters.findIndex(p => p.parameter_id === parameterId);
+          let updatedParameters = [...state.parameters];
+          
+          if (parameterIndex >= 0) {
+            const parameter = updatedParameters[parameterIndex];
+            const updatedValues = parameter.values?.map(v => 
+              v.value_id === valueId ? { ...v, ...response.data } : v
+            ) || [];
+            
+            updatedParameters[parameterIndex] = {
+              ...parameter,
+              values: updatedValues
+            };
+          }
+          
+          // Also update in parameterValues map
+          const currentValues = state.parameterValues[parameterId] || [];
+          const updatedValues = currentValues.map(v => 
+            v.value_id === valueId ? { ...v, ...response.data } : v
+          );
+          
+          return {
+            parameters: updatedParameters,
+            parameterValues: {
+              ...state.parameterValues,
+              [parameterId]: updatedValues
+            }
+          };
+        });
       }
     } catch (error) {
       console.error('Error updating parameter value:', error);
@@ -956,8 +1111,35 @@ ${content}`;
   deleteParameterValue: async (parameterId, valueId) => {
     try {
       await api.delete(`/parameters/${parameterId}/values/${valueId}`);
-      const { fetchParameterValues } = get();
-      await fetchParameterValues(parameterId);
+      
+      // Update local state directly
+      set((state) => {
+        // Update in parameters array
+        const parameterIndex = state.parameters.findIndex(p => p.parameter_id === parameterId);
+        let updatedParameters = [...state.parameters];
+        
+        if (parameterIndex >= 0) {
+          const parameter = updatedParameters[parameterIndex];
+          const updatedValues = parameter.values?.filter(v => v.value_id !== valueId) || [];
+          
+          updatedParameters[parameterIndex] = {
+            ...parameter,
+            values: updatedValues
+          };
+        }
+        
+        // Also update in parameterValues map
+        const currentValues = state.parameterValues[parameterId] || [];
+        const updatedValues = currentValues.filter(v => v.value_id !== valueId);
+        
+        return {
+          parameters: updatedParameters,
+          parameterValues: {
+            ...state.parameterValues,
+            [parameterId]: updatedValues
+          }
+        };
+      });
     } catch (error) {
       console.error('Error deleting parameter value:', error);
       throw error;

@@ -32,14 +32,11 @@ from src.backend.formatters import (
     format_source_list_response,
     format_template_response,
 )
+from cachetools import TTLCache
 
-from typing import List, Dict, Optional, Any, Union
-from uuid import UUID
-from datetime import datetime
-from fastapi import FastAPI, HTTPException, Depends, Body, Query, Response
-from pydantic import BaseModel
-
-from src.backend.db.datamodel import *
+# Auth cache to store token-to-user mappings with a TTL (Time To Live)
+# Cache size of 100 users, and tokens expire after 5 minutes
+auth_cache = TTLCache(maxsize=100, ttl=6000)  # 6000 seconds = 100 minutes
 
 # Get settings from environment variables
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
@@ -71,6 +68,8 @@ async def db_session_middleware(request: Request, call_next):
     session = None
     try:
         session = db_manager.get_session()
+        # Set up a place to cache auth results
+        request.state.auth_cache = {}
         response = await call_next(request)
         if session:
             try:
@@ -108,7 +107,7 @@ def get_workflow() -> AgentWorkflow:
     """Dependency to get a AgentWorkflow instance."""
     return AgentWorkflow()
 
-# Authentication Dependency
+# Authentication Dependency with caching
 async def get_current_user_profile(
     credentials: HTTPAuthorizationCredentials = Security(security),
     request: Request=None
@@ -122,6 +121,15 @@ async def get_current_user_profile(
         if not refresh_token:
             raise HTTPException(status_code=401, detail="Refresh token is required")
         
+        # Create a cache key based on both tokens
+        cache_key = f"{access_token}:{refresh_token}"
+        
+        # Try to get user from cache first
+        cached_user_data = auth_cache.get(cache_key)
+        if cached_user_data:
+            return cached_user_data
+        
+        # If not in cache, perform the API call
         user = await auth_repository.get_user(access_token, refresh_token)
         
         if not user:
@@ -132,11 +140,16 @@ async def get_current_user_profile(
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found")
 
-        return UserProfileResponse(
+        user_profile = UserProfileResponse(
             id=user.user.id,
             profile_id=str(profile.id),
             role=profile.role,
         )
+        
+        # Store in cache
+        auth_cache[cache_key] = user_profile
+        
+        return user_profile
         
     except Exception as e:
         raise HTTPException(status_code=401, detail=str(e))
@@ -161,6 +174,10 @@ async def sign_in(email: str = Body(...), password: str = Body(...)):
 async def sign_out():
     try:
         result = await auth_repository.sign_out()
+        
+        # Clear the auth cache on signout
+        auth_cache.clear()
+        
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

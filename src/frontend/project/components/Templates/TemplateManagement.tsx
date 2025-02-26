@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useEditorStore } from '../../store/editorStore';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { TemplateActionButton } from './TemplateActionButton';
@@ -17,19 +17,65 @@ export const TemplateManagement: React.FC = () => {
     fetchParameters,
     createTemplate, 
     updateTemplate, 
-    deleteTemplate 
+    deleteTemplate,
+    templateCache,
+    lastTemplatesFetch 
   } = useEditorStore();
 
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedTemplateData, setSelectedTemplateData] = useState<any>(null);
+  
+  // Keep track of mount status
+  const isMounted = useRef(false);
+  const hasFetchedInitialData = useRef(false);
 
-  // Load templates and parameters on component mount
+  // Check if we need to fetch templates based on cache
+  const needsFreshTemplateData = () => {
+    // Check if we have templates in state already
+    if (templates.length > 0) {
+      // If we have templates and they were loaded recently (within 5 minutes), no need to fetch
+      const TEMPLATE_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+      return Date.now() - lastTemplatesFetch > TEMPLATE_REFRESH_INTERVAL;
+    }
+    
+    // If no templates, we need to fetch
+    return true;
+  };
+
+  // Load templates and parameters on component mount - optimized to use cache
   useEffect(() => {
-    fetchTemplates();
-    fetchParameters();
-  }, [fetchTemplates, fetchParameters]);
+    // Mark component as mounted
+    isMounted.current = true;
+    
+    const loadInitialData = async () => {
+      // Don't load if we've already loaded or another fetch is in progress
+      if (hasFetchedInitialData.current || isTemplateLoading) {
+        return;
+      }
+      
+      // Only fetch templates if needed
+      if (needsFreshTemplateData()) {
+        await fetchTemplates();
+      }
+      
+      // Fetch parameters only once per session
+      await fetchParameters();
+      
+      // Mark as fetched
+      if (isMounted.current) {
+        hasFetchedInitialData.current = true;
+      }
+    };
+    
+    loadInitialData();
+    
+    // Cleanup function
+    return () => {
+      isMounted.current = false;
+    };
+  }, [fetchTemplates, fetchParameters, isTemplateLoading]);
 
   const handleCreateTemplate = async (templateData: any) => {
     try {
@@ -86,6 +132,12 @@ export const TemplateManagement: React.FC = () => {
     setIsDeleteDialogOpen(true);
   };
 
+  // Handle manual refresh of templates
+  const handleRefreshTemplates = () => {
+    fetchTemplates(undefined, undefined, undefined, true);
+    toast.success('Templates refreshed');
+  };
+
   return (
     <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow p-4">
       {/* Loading overlays */}
@@ -95,17 +147,26 @@ export const TemplateManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Header with create button */}
+      {/* Header with create button and refresh option */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Template Management</h2>
-        <TemplateActionButton
-          onClick={() => openEditDialog()}
-          isLoading={isTemplateActionLoading}
-          variant="primary"
-          className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
-        >
-          Create Template
-        </TemplateActionButton>
+        <div className="flex gap-2">
+          <button 
+            onClick={handleRefreshTemplates}
+            disabled={isTemplateLoading}
+            className="px-3 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
+          >
+            Refresh
+          </button>
+          <TemplateActionButton
+            onClick={() => openEditDialog()}
+            isLoading={isTemplateActionLoading}
+            variant="primary"
+            className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+          >
+            Create Template
+          </TemplateActionButton>
+        </div>
       </div>
 
       {/* Template list */}
