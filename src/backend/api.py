@@ -1,3 +1,4 @@
+import json
 import os
 import uuid
 from fastapi import FastAPI, HTTPException, Depends, Query, Security, Body, Request, Response
@@ -368,11 +369,20 @@ async def increment_generation_count(profile_id: UUID):
 async def filter_content(
     skip: int = 0,
     limit: int = 10,
-    filters: Dict[str, Any] = None,
+    filters: str = Query(None, description="JSON string containing filters"),
     current_user: Dict = Depends(get_current_user_profile)
 ):
     try:
-        result = content_repository.filter_content(UUID(current_user.profile_id), filters or {}, skip, limit)
+        # Parse the JSON string filters into a dictionary
+        filter_dict = {}
+        if filters:
+            try:
+                filter_dict = json.loads(filters)
+            except json.JSONDecodeError:
+                logger.error(f"Failed to parse filters JSON: {filters}")
+                filter_dict = {}
+
+        result = content_repository.filter_content(UUID(current_user.profile_id), filter_dict, skip, limit)
         return format_content_list_response(
             items=result["items"],
             total=result["total"],
@@ -380,6 +390,7 @@ async def filter_content(
             size=result["size"]
         )
     except Exception as e:
+        logger.error(f"Error in filter_content: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/content/{content_id}", response_model=ContentListItem, tags=["content"])

@@ -15,8 +15,8 @@ interface FilterState {
   status: string;
   domain: string;
   tag_name: string;
-  created_after: string;
-  created_before: string;
+  updated_after: string;
+  updated_before: string;
 }
 
 const QUICK_FILTERS = [
@@ -51,11 +51,13 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
     status: '',
     domain: '',
     tag_name: '',
-    created_after: '',
-    created_before: ''
+    updated_after: '',
+    updated_before: ''
   });
   const [selectedQuickFilter, setSelectedQuickFilter] = useState('');
   const [isResetting, setIsResetting] = useState(false);
+  const [isServerFiltered, setIsServerFiltered] = useState(false);
+  const [activeFilterCount, setActiveFilterCount] = useState(0);
 
   // Track if initial fetch has been done
   const initialFetchDoneRef = useRef(false);
@@ -67,6 +69,11 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
   // Filter posts client-side when possible
   const filteredPosts = useMemo(() => {
     if (!posts || posts.length === 0) return [];
+    
+    // If server-side filters are active, don't filter client-side
+    if (isServerFiltered) {
+      return posts;
+    }
     
     // Only filter if we have search term or quick filter
     if (!searchTerm && !selectedQuickFilter) {
@@ -94,7 +101,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
 
         return titleMatch;
       });
-  }, [posts, searchTerm, selectedQuickFilter]);
+  }, [posts, searchTerm, selectedQuickFilter, isServerFiltered]);
 
   // Add latestDate calculation for post indicators
   const latestDate = useMemo(() => {
@@ -206,6 +213,12 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
     // Immediately update UI with the new value
     setSearchTerm(value);
     
+    // Reset server-side filters when searching
+    if (isServerFiltered) {
+      setIsServerFiltered(false);
+      setActiveFilterCount(0);
+    }
+    
     // Reset filters and quick filters when searching
     if (!showFilters) {
       setFilters({
@@ -213,8 +226,8 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
         status: '',
         domain: '',
         tag_name: '',
-        created_after: '',
-        created_before: ''
+        updated_after: '',
+        updated_before: ''
       });
       setSelectedQuickFilter('');
     }
@@ -235,62 +248,83 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
         status: '',
         domain: '',
         tag_name: '',
-        created_after: '',
-        created_before: ''
+        updated_after: '',
+        updated_before: ''
       });
       setSelectedQuickFilter('');
       setShowFilters(false);
+      setIsServerFiltered(false);
+      setActiveFilterCount(0);
       
-      // Only fetch from API if we don't have a recent cache
-      if (shouldFetchData()) {
-        // Clear the posts in the store
-        useEditorStore.setState(state => ({
-          ...state,
-          posts: [],
-          hasReachedEnd: false
-        }));
+      // Clear the posts in the store
+      useEditorStore.setState(state => ({
+        ...state,
+        posts: [],
+        hasReachedEnd: false
+      }));
 
-        // Reset ref to allow fresh fetch
-        initialFetchDoneRef.current = false;
-        isFetchingRef.current = false;
-        lastFetchRef.current = Date.now();
+      // Reset ref to allow fresh fetch
+      initialFetchDoneRef.current = false;
+      isFetchingRef.current = false;
+      lastFetchRef.current = Date.now();
 
-        // Force fresh fetch with clean state
-        await fetchPosts({
-          timestamp: Date.now(),
-          forceRefresh: true
-        }, 0, limit);
-      }
+      // Force fresh fetch with clean state
+      await fetchPosts({
+        timestamp: Date.now(),
+        forceRefresh: true
+      }, 0, limit);
     } catch (error) {
       console.error('Error resetting posts:', error);
+      toast.error('Failed to reset posts');
     } finally {
       setIsResetting(false);
     }
   };
 
-  // API-based filter application
   const handleApplyFilters = async () => {
     setIsResetting(true);
     
     try {
-      const cleanedFilters = Object.entries(filters).reduce((acc, [key, value]) => {
+      // Clean and structure filters for API
+      const apiFilters = Object.entries(filters).reduce((acc, [key, value]) => {
         if (value && value !== 'All') {
-          acc[key] = value;
+          // Handle date filters specially to ensure proper ISO format
+          if (key === 'updated_after' || key === 'updated_before') {
+            acc[key] = new Date(value).toISOString();
+          } else {
+            acc[key] = value;
+          }
         }
         return acc;
       }, {} as Record<string, any>);
 
+      // Count active filters for UI indicator
+      const filterCount = Object.keys(apiFilters).length;
+      setActiveFilterCount(filterCount);
+      
+      // Set server filtered flag if we have any filters
+      setIsServerFiltered(filterCount > 0);
+
       // Update last fetch time
       lastFetchRef.current = Date.now();
 
-      await fetchPosts({
-        ...cleanedFilters,
+      // Clear search term and quick filters when applying advanced filters
+      setSearchTerm('');
+      setSelectedQuickFilter('');
+
+      // Ensure filters are properly structured for the API
+      const fetchFilters = {
+        ...apiFilters,
         timestamp: Date.now()
-      }, 0, limit);
+      };
+
+      console.log('Applying filters:', fetchFilters);
+      await fetchPosts(fetchFilters, 0, limit);
 
       setShowFilters(false);
     } catch (error) {
       console.error('Error applying filters:', error);
+      toast.error('Failed to apply filters');
     } finally {
       setIsResetting(false);
     }
@@ -306,14 +340,18 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
     const newValue = value === selectedQuickFilter ? '' : value;
     setSelectedQuickFilter(newValue);
 
-    // Reset other filters when using quick filters
+    // Reset server-side filters when using quick filters
+    setIsServerFiltered(false);
+    setActiveFilterCount(0);
+    
+    // Reset other filters
     setFilters({
       post_type: '',
       status: '',
       domain: '',
       tag_name: '',
-      created_after: '',
-      created_before: ''
+      updated_after: '',
+      updated_before: ''
     });
     setSearchTerm('');
     
@@ -325,8 +363,10 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
       
       if (!hasCachedData) {
         lastFetchRef.current = Date.now();
+        // Structure the filter object properly for the API
+        const apiFilters = newValue ? { status: newValue } : {};
         fetchPosts({
-          status: newValue || undefined,
+          ...apiFilters,
           timestamp: Date.now()
         }, 0, limit);
       }
@@ -394,12 +434,19 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
                 onChange={handleSearchChange}
                 className="w-full pl-9 pr-12 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg border-0 focus:ring-2 focus:ring-blue-500"
               />
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-full transition-colors"
-              >
-                <Filter className={`w-4 h-4 ${showFilters ? 'text-blue-500' : 'text-gray-400'}`} />
-              </button>
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center">
+                {isServerFiltered && (
+                  <span className="inline-flex items-center justify-center mr-2 w-5 h-5 text-xs font-bold text-white bg-blue-500 rounded-full">
+                    {activeFilterCount}
+                  </span>
+                )}
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-full transition-colors"
+                >
+                  <Filter className={`w-4 h-4 ${showFilters || isServerFiltered ? 'text-blue-500' : 'text-gray-400'}`} />
+                </button>
+              </div>
             </div>
 
             {/* Filter Panel Overlay */}
@@ -454,8 +501,8 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
                       <label className="block text-sm font-medium mb-1">From</label>
                       <input
                         type="date"
-                        name="created_after"
-                        value={filters.created_after}
+                        name="updated_after"
+                        value={filters.updated_after}
                         onChange={handleFilterChange}
                         className="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-700 border-0"
                       />
@@ -464,8 +511,8 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
                       <label className="block text-sm font-medium mb-1">To</label>
                       <input
                         type="date"
-                        name="created_before"
-                        value={filters.created_before}
+                        name="updated_before"
+                        value={filters.updated_before}
                         onChange={handleFilterChange}
                         className="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-700 border-0"
                       />
@@ -511,6 +558,29 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
             {isListLoading && (
               <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-50">
                 <Loader className="w-6 h-6 animate-spin text-blue-500" />
+              </div>
+            )}
+            
+            {/* Server filter indicator */}
+            {isServerFiltered && (
+              <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/30 border-b dark:border-gray-700 flex justify-between items-center">
+                <span className="text-sm text-blue-700 dark:text-blue-300">
+                  {activeFilterCount} {activeFilterCount === 1 ? 'filter' : 'filters'} applied
+                </span>
+                <button
+                  onClick={async () => {
+                    setIsResetting(true);
+                    try {
+                      await handleReset();
+                    } finally {
+                      setIsResetting(false);
+                    }
+                  }}
+                  disabled={isResetting}
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+                >
+                  {isResetting ? 'Clearing...' : 'Clear'}
+                </button>
               </div>
             )}
             

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { templateApi, deleteContent } from '../services/api';
+import { templateApi, deleteContent, filterContent } from '../services/api';
 import { Post } from '../types/editor';
 import api from '../services/api';
 
@@ -226,19 +226,33 @@ export const useEditorStore = create<CombinedState>((set, get) => ({
       return;
     }
 
-    // Create a cache key based on filters and pagination
-    const cleanedFilters = Object.entries(filters).reduce((acc, [key, value]) => {
-      // Skip timestamp, forceRefresh and other cache control params
-      if (value && !['timestamp', 'forceRefresh', 'reset', 'noCache'].includes(key)) {
-        acc[key] = value;
+    // Remove control flags from filters before sending to API
+    const {
+      forceRefresh,
+      reset,
+      noCache,
+      timestamp,
+      ...apiFilters
+    } = filters;
+
+    // Ensure apiFilters is a plain object without undefined/null values
+    const cleanedFilters = Object.entries(apiFilters).reduce((acc, [key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        // Handle special cases like dates
+        if (value instanceof Date) {
+          acc[key] = value.toISOString();
+        } else {
+          acc[key] = value;
+        }
       }
       return acc;
     }, {} as Record<string, any>);
-    
+
+    // Create a cache key based on filters and pagination
     const cacheKey = JSON.stringify({ filters: cleanedFilters, skip, limit });
     
     // Check if we have a valid cache entry and no force refresh requested
-    if (!filters.forceRefresh && !filters.noCache && contentCache[cacheKey]) {
+    if (!forceRefresh && !noCache && contentCache[cacheKey]) {
       const cachedData = contentCache[cacheKey];
       const now = Date.now();
       const CONTENT_CACHE_EXPIRY = 1000 * 60 * 2; // 2 minutes
@@ -260,13 +274,8 @@ export const useEditorStore = create<CombinedState>((set, get) => ({
     set({ isListLoading: true });
 
     try {
-      // Use the cleaned filters for the API request
-      const params: Record<string, any> = { ...cleanedFilters, skip, limit };
-      if (params.status === 'All') {
-        delete params.status;
-      }
-      
-      const response = await api.get('/content/filter', { params });
+      // Use the dedicated filterContent function with cleaned filters
+      const response = await filterContent(cleanedFilters, skip, limit);
       console.log('API Response:', response.data);
       
       if (response.data && response.data.items) {

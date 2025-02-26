@@ -25,6 +25,28 @@ api.interceptors.request.use(async (config) => {
 // Content methods
 const deleteContent = (threadId: string) => api.delete(`/content/thread/${threadId}`);
 
+// Update filterContent to correctly send filters as an object/dictionary
+const filterContent = (filters: Record<string, any> = {}, skip: number = 0, limit: number = 10) => {
+  // Clean the filters object by removing null, undefined, and empty string values
+  const cleanedFilters = Object.entries(filters).reduce((acc, [key, value]) => {
+    if (value !== null && value !== undefined && value !== '') {
+      acc[key] = value;
+    }
+    return acc;
+  }, {} as Record<string, any>);
+
+  // Convert filters to a JSON string
+  const filtersJson = JSON.stringify(cleanedFilters);
+
+  return api.get('/content/filter', { 
+    params: { 
+      filters: filtersJson,
+      skip,
+      limit
+    }
+  });
+};
+
 // Template-specific methods
 const templateApi = {
   getTemplate: (templateId: string) => api.get(`/templates/${templateId}`),
@@ -51,5 +73,5 @@ const templateApi = {
   getTemplateWithParameters: (templateId: string) => api.get(`/templates/${templateId}`),
 };
 
-export { templateApi, deleteContent };
+export { templateApi, deleteContent, filterContent };
 export default api;
