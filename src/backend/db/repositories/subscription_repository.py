@@ -67,7 +67,7 @@ class SubscriptionRepository(SQLAlchemyRepository[Content]):
         """Cancel a subscription"""
         session = self.db.get_session()
         try:
-            subscription = self.find_by_id(session, "content_id", subscription_id)
+            subscription = self.find_by_field(session, "content_id", subscription_id)
             if subscription:
                 subscription.status = 'cancelled'
                 subscription.updated_at = datetime.now()
@@ -86,7 +86,7 @@ class SubscriptionRepository(SQLAlchemyRepository[Content]):
         """Record a payment for a subscription"""
         session = self.db.get_session()
         try:
-            subscription = self.find_by_id(session, "content_id", subscription_id)
+            subscription = self.find_by_field(session, "content_id", subscription_id)
             if not subscription:
                 raise ValueError("Subscription not found")
             

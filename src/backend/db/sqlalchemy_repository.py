@@ -15,11 +15,11 @@ class SQLAlchemyRepository(Generic[Model]):
         self.model = model
         self.db = DatabaseConnectionManager()
 
-    def find_by_id(self, id_field: str, id_value: UUID) -> Optional[Model]:
-        """Find a record by ID field"""
+    def find_by_field(self, field: str, value: UUID) -> Optional[Model]:
+        """Find a record by field"""
         session = self.db.get_session()
         try:
-            stmt = select(self.model).where(getattr(self.model, id_field) == id_value)
+            stmt = select(self.model).where(getattr(self.model, field) == value)
             result = session.execute(stmt).scalar_one_or_none()
             session.commit()
             return result
@@ -44,7 +44,7 @@ class SQLAlchemyRepository(Generic[Model]):
         """Update a record"""
         session = self.db.get_session()
         try:
-            instance = self.find_by_id(id_field, id_value)
+            instance = self.find_by_field(id_field, id_value)
             if instance:
                 for key, value in data.items():
                     setattr(instance, key, value)
@@ -59,7 +59,7 @@ class SQLAlchemyRepository(Generic[Model]):
         """Hard delete a record"""
         session = self.db.get_session()
         try:
-            instance = self.find_by_id(id_field, id_value)
+            instance = self.find_by_field(id_field, id_value)
             if instance:
                 session.delete(instance)
                 session.commit()
@@ -129,7 +129,7 @@ class SQLAlchemyRepository(Generic[Model]):
         """Soft delete a record"""
         session = self.db.get_session()
         try:
-            instance = self.find_by_id(id_field, id_value)
+            instance = self.find_by_field(id_field, id_value)
             if instance and hasattr(instance, 'is_deleted'):
                 instance.is_deleted = True
                 instance.deleted_at = datetime.now()
@@ -216,6 +216,19 @@ class SQLAlchemyRepository(Generic[Model]):
             session.add(rate_limit)
             session.flush()
             session.commit()
+        except Exception as e:
+            session.rollback()
+            raise e
+
+    def bulk_create(self, instances: List[Model]) -> List[Model]:
+        """Create multiple model instances in a single transaction"""
+        session = self.db.get_session()
+        try:
+            for instance in instances:
+                session.add(instance)
+            session.flush()
+            session.commit()
+            return instances
         except Exception as e:
             session.rollback()
             raise e

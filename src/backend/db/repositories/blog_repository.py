@@ -3,7 +3,7 @@ from uuid import UUID
 from datetime import datetime
 from sqlalchemy import desc, and_, or_
 from sqlalchemy.orm import joinedload
-from ..models import Content, ContentType, Source, Tag, URLReference, Media
+from ..models import Content, ContentType, Source, SourceMetadata, Tag, URLReference, Media
 from ..sqlalchemy_repository import SQLAlchemyRepository
 from ..connection import db_retry
 
@@ -53,30 +53,32 @@ class BlogRepository(SQLAlchemyRepository[Content]):
             tags = tag_repo.get_or_create_tags(session, result.get('tags', []))
 
             # Get source using base repository method
-            source = self.find_by_id("source_id", source_id)
+            source = self.find_by_field("source_id", source_id)
             if not source:
-                raise ValueError(f"Source {source_id} not found")
+                raise ValueError(f"Source not found with ID: {source_id}")
 
-            blog_data = {
-                'thread_id': thread_id,
-                'profile_id': user['profile_id'],
-                'content_type_id': content_type.content_type_id,
-                'title': result.get('blog_title', ''),
-                'body': result['final_blog'],
-                'status': payload.get('status', 'draft'),
-                'content_metadata': {
-                    'original_source': str(source_id),
-                    'generation_params': payload.get('params', {}),
-                    'version': payload.get('version', '1.0')
-                }
-            }
+            # Create content record
+            content = Content(
+                profile_id=user["profile_id"],
+                content_type_id=content_type.id,
+                thread_id=thread_id,
+                title=result.get("blog_title", "").strip(),
+                body=result.get("final_blog", "").strip(),
+                status="Draft",
+                content_metadata=payload.get("metadata", {})
+            )
 
-            blog = super().create(blog_data)
-            blog.tags = tags
-            blog.sources.append(source)
+            session.add(content)
             session.flush()
+
+            # Associate tags with content
+            content.tags = tags
+
+            # Associate source with content
+            content.sources.append(source)
+
+            session.commit()
             
-            return self._format_blog_response(blog)
         except Exception as e:
             session.rollback()
             raise e
@@ -94,21 +96,17 @@ class BlogRepository(SQLAlchemyRepository[Content]):
                     joinedload(Source.url_references),
                     joinedload(Source.media)
                 )
-                .join(Source.source_type)
-                .filter(
-                    Source.source_identifier == tweet_id,
-                    Source.is_deleted.is_(False)
-                )
+                .filter(Source.source_identifier == tweet_id)
                 .first()
             )
-            
+
             if not source:
-                raise ValueError(f"No source found for tweet {tweet_id}")
-            
+                raise ValueError(f"No source found for tweet_id: {tweet_id}")
+
             return {
                 "source_id": str(source.source_id),
-                "url_references": [ref.to_dict() for ref in source.url_references],
-                "media": [media.to_dict() for media in source.media]
+                "urls": [{"url": ref.url, "type": ref.type} for ref in source.url_references],
+                "media": [{"url": m.media_url, "type": m.media_type} for m in source.media]
             }
         except Exception as e:
             session.rollback()
@@ -121,15 +119,24 @@ class BlogRepository(SQLAlchemyRepository[Content]):
         """Get blog content by thread ID"""
         session = self.db.get_session()
         try:
-            filters = {
-                'thread_id': thread_id,
-                'profile_id': profile_id,
-                'is_deleted': False
-            }
-            blogs = super().filter(filters, limit=1)
-            blog = blogs[0] if blogs else None
+            content = (
+                session.query(Content)
+                .options(
+                    joinedload(Content.tags),
+                    joinedload(Content.sources).joinedload(Source.source_type),
+                    joinedload(Content.sources).joinedload(Source.url_references),
+                    joinedload(Content.sources).joinedload(Source.media)
+                )
+                .filter(
+                    Content.thread_id == thread_id,
+                    Content.profile_id == profile_id
+                )
+                .first()
+            )
             
-            return self._format_blog_response(blog) if blog else None
+            if content:
+                return self._format_blog_response(content)
+            return None
         except Exception as e:
             session.rollback()
             raise e
@@ -142,21 +149,27 @@ class BlogRepository(SQLAlchemyRepository[Content]):
         """List blogs with pagination and optional status filter"""
         session = self.db.get_session()
         try:
-            filters = {
-                'profile_id': profile_id,
-                'is_deleted': False
-            }
-            if status:
-                filters['status'] = status
+            query = (
+                session.query(Content)
+                .options(
+                    joinedload(Content.tags),
+                    joinedload(Content.sources).joinedload(Source.source_type),
+                    joinedload(Content.sources).joinedload(Source.url_references),
+                    joinedload(Content.sources).joinedload(Source.media)
+                )
+                .filter(Content.profile_id == profile_id)
+                .order_by(desc(Content.created_at))
+            )
 
-            blogs = super().filter(filters, skip=skip, limit=limit)
-            total = super().count(filters)
+            if status:
+                query = query.filter(Content.status == status)
+
+            total = query.count()
+            blogs = query.offset(skip).limit(limit).all()
 
             return {
-                "items": [self._format_blog_response(blog) for blog in blogs],
                 "total": total,
-                "page": skip // limit + 1,
-                "size": limit
+                "items": [self._format_blog_response(blog) for blog in blogs]
             }
         except Exception as e:
             session.rollback()
@@ -174,34 +187,26 @@ class BlogRepository(SQLAlchemyRepository[Content]):
                 session.query(Content)
                 .options(
                     joinedload(Content.tags),
-                    joinedload(Content.sources)
+                    joinedload(Content.sources).joinedload(Source.source_type),
+                    joinedload(Content.sources).joinedload(Source.url_references),
+                    joinedload(Content.sources).joinedload(Source.media)
                 )
-                .join(Content.content_type)
                 .filter(
                     Content.profile_id == profile_id,
-                    ContentType.name == 'blog',
-                    Content.is_deleted.is_(False),
                     or_(
-                        Content.title.ilike(f'%{query}%'),
-                        Content.body.ilike(f'%{query}%')
+                        Content.title.ilike(f"%{query}%"),
+                        Content.body.ilike(f"%{query}%")
                     )
                 )
+                .order_by(desc(Content.created_at))
             )
 
             total = search_query.count()
-            blogs = (
-                search_query
-                .order_by(desc(Content.created_at))
-                .offset(skip)
-                .limit(limit)
-                .all()
-            )
+            blogs = search_query.offset(skip).limit(limit).all()
 
             return {
-                "items": [self._format_blog_response(blog) for blog in blogs],
                 "total": total,
-                "page": skip // limit + 1,
-                "size": limit
+                "items": [self._format_blog_response(blog) for blog in blogs]
             }
         except Exception as e:
             session.rollback()
@@ -214,38 +219,415 @@ class BlogRepository(SQLAlchemyRepository[Content]):
         """Update blog content"""
         session = self.db.get_session()
         try:
-            filters = {
-                'thread_id': thread_id,
-                'profile_id': profile_id,
-                'is_deleted': False
-            }
-            blogs = super().filter(filters, limit=1)
-            blog = blogs[0] if blogs else None
+            content = (
+                session.query(Content)
+                .filter(
+                    Content.thread_id == thread_id,
+                    Content.profile_id == profile_id
+                )
+                .first()
+            )
 
-            if not blog:
+            if not content:
                 return None
 
-            update_data = {
-                key: data[key] 
-                for key in ['title', 'body', 'status'] 
-                if key in data
-            }
-            
-            if 'metadata' in data:
-                update_data['content_metadata'] = {
-                    **(blog.content_metadata or {}),
-                    **data['metadata']
-                }
+            # Update allowed fields
+            content.title = data.get('title', content.title)
+            content.body = data.get('body', content.body)
+            content.status = data.get('status', content.status)
+            content.content_metadata = data.get('metadata', content.content_metadata)
+            content.updated_at = datetime.now()
 
             # Update tags if provided
             if 'tags' in data:
                 from .tag_repository import TagRepository
                 tag_repo = TagRepository()
-                blog.tags = tag_repo.get_or_create_tags(session, data['tags'])
+                tags = tag_repo.get_or_create_tags(session, data['tags'])
+                content.tags = tags
 
-            blog = super().update("thread_id", thread_id, update_data)
-            return self._format_blog_response(blog) if blog else None
+            session.commit()
+            return self._format_blog_response(content)
             
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+
+    @db_retry  
+    def get_source_by_identifier(self, identifier: str) -> Optional[Dict[str, Any]]:
+        """Get source by identifier"""
+        session = self.db.get_session()
+        try:
+            source = (
+                session.query(Source)
+                .filter(Source.source_identifier == identifier)
+                .first()
+            )
+            if source:
+                return {
+                    "source_id": str(source.source_id),
+                    "identifier": source.source_identifier,
+                    "type": source.source_type.name if source.source_type else None
+                }
+            return None
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+
+    @db_retry
+    def setup_web_url_source(self, url: str, thread_id: UUID, user: Dict[str, Any], 
+                            url_meta: Dict[str, Any], media_meta: List[Dict[str, Any]]) -> UUID:
+        """Setup source records for web URL"""
+        session = self.db.get_session()
+        try:
+            # Check existing source
+            existing_source = (
+                session.query(Source)
+                .filter(
+                    Source.source_identifier == url,
+                    Source.profile_id == user["profile_id"]
+                )
+                .first()
+            )
+
+            if existing_source:
+                # Validate no existing content
+                if self._has_existing_content(existing_source.source_id):
+                    raise ValueError("Content already exists for this URL")
+                return existing_source.source_id
+
+            # Create new source
+            source = Source(
+                source_type_id=self._get_source_type_id("web_url"),
+                source_identifier=url,
+                batch_id=str(thread_id),
+                profile_id=user["profile_id"]
+            )
+            session.add(source)
+            session.flush()
+
+            # Add URL reference
+            url_ref = URLReference(
+                source_id=source.source_id,
+                url=url_meta["original_url"],
+                type=url_meta["type"],
+                domain=url_meta.get("domain"),
+                content_type=url_meta.get("content_type"),
+                file_category=url_meta.get("file_category")
+            )
+            session.add(url_ref)
+
+            # Add media
+            for media in media_meta:
+                media_obj = Media(
+                    source_id=source.source_id,
+                    media_url=media["original_url"],
+                    media_type=media["type"]
+                )
+                session.add(media_obj)
+
+            session.commit()
+            return source.source_id
+
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+
+    def _has_existing_content(self, source_id: UUID) -> bool:
+        """Check if content exists for source"""
+        session = self.db.get_session()
+        try:
+            return (
+                session.query(Content)
+                .join(Content.sources)
+                .filter(Source.source_id == source_id)
+                .first()
+            ) is not None
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+
+    def _get_source_type_id(self, type_name: str) -> UUID:
+        """Get source type ID by name"""
+        session = self.db.get_session()
+        try:
+            source_type = (
+                session.query(ContentType)
+                .filter(ContentType.name == type_name)
+                .first()
+            )
+            if not source_type:
+                raise ValueError(f"Source type '{type_name}' not found")
+            return source_type.id
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+
+    @db_retry
+    def get_url_references(self, source_id: UUID) -> List[Dict[str, Any]]:
+        """Fetch URL references for a source"""
+        session = self.db.get_session()
+        try:
+            references = (
+                session.query(URLReference)
+                .filter(URLReference.source_id == source_id)
+                .all()
+            )
+            return [
+                {
+                    "url": ref.url,
+                    "type": ref.type,
+                    "domain": ref.domain,
+                    "content_type": ref.content_type,
+                    "file_category": ref.file_category
+                }
+                for ref in references
+            ]
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+
+    @db_retry
+    def get_media(self, source_id: UUID) -> List[Dict[str, Any]]:
+        """Fetch media for a source"""
+        session = self.db.get_session()
+        try:
+            media_list = (
+                session.query(Media)
+                .filter(Media.source_id == source_id)
+                .all()
+            )
+            return [
+                {
+                    "url": media.media_url,
+                    "type": media.media_type
+                }
+                for media in media_list
+            ]
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+
+    @db_retry
+    def get_source_metadata(self, source_id: UUID) -> List[Dict[str, Any]]:
+        """Fetch metadata for a source"""
+        session = self.db.get_session()
+        try:
+            metadata_list = (
+                session.query(SourceMetadata)
+                .filter(SourceMetadata.source_id == source_id)
+                .all()
+            )
+            return [
+                {
+                    "key": meta.key,
+                    "value": meta.value,
+                }
+                for meta in metadata_list
+            ]
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+
+    @db_retry
+    def get_content_by_source_id(self, source_id: UUID) -> Optional[Dict[str, Any]]:
+        """Get content by source ID"""
+        session = self.db.get_session()
+        try:
+            content = (
+                session.query(Content)
+                .join(Content.sources)
+                .filter(Source.source_id == source_id)
+                .first()
+            )
+            return self._format_blog_response(content) if content else None
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+
+    @db_retry
+    def setup_topic_source(self, topic: str, urls: List[str], thread_id: UUID, user: Dict[str, Any]) -> UUID:
+        """Setup source records for topic-based search"""
+        session = self.db.get_session()
+        try:
+            # Check existing source
+            existing_source = (
+                session.query(Source)
+                .filter(
+                    Source.source_identifier == topic,
+                    Source.profile_id == user["profile_id"]
+                )
+                .first()
+            )
+
+            if existing_source:
+                if self._has_existing_content(existing_source.source_id):
+                    raise ValueError("Content already exists for this topic")
+                return existing_source.source_id
+
+            # Create new source
+            source = Source(
+                source_type_id=self._get_source_type_id("topic"),
+                source_identifier=topic,
+                batch_id=str(thread_id),
+                profile_id=user["profile_id"]
+            )
+            session.add(source)
+            session.flush()
+
+            # Add URL references
+            for url in urls:
+                url_ref = URLReference(
+                    source_id=source.source_id,
+                    url=url,
+                    type="web",
+                )
+                session.add(url_ref)
+
+            session.commit()
+            return source.source_id
+
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+
+    @db_retry
+    def setup_reddit_source(self, payload: Dict[str, Any], thread_id: UUID, user: Dict[str, Any]) -> UUID:
+        """Setup source records for Reddit-based content"""
+        session = self.db.get_session()
+        try:
+            query = payload["reddit_query"]
+            # Check existing source
+            existing_source = (
+                session.query(Source)
+                .filter(
+                    Source.source_identifier == query,
+                    Source.profile_id == user["profile_id"]
+                )
+                .first()
+            )
+
+            if existing_source:
+                if self._has_existing_content(existing_source.source_id):
+                    raise ValueError("Content already exists for this Reddit query")
+                return existing_source.source_id
+
+            # Create new source
+            source = Source(
+                source_type_id=self._get_source_type_id("reddit"),
+                source_identifier=query,
+                batch_id=str(thread_id),
+                profile_id=user["profile_id"]
+            )
+            session.add(source)
+            session.flush()
+
+            session.commit()
+            return source.source_id
+
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+
+    @db_retry
+    def setup_tweet_source(self, tweet_id: str, thread_id: UUID, user: Dict[str, Any]) -> UUID:
+        """Setup source records for tweet-based content"""
+        session = self.db.get_session()
+        try:
+            # Check existing source
+            existing_source = (
+                session.query(Source)
+                .filter(
+                    Source.source_identifier == tweet_id,
+                    Source.profile_id == user["profile_id"]
+                )
+                .first()
+            )
+
+            if existing_source:
+                if self._has_existing_content(existing_source.source_id):
+                    raise ValueError("Content already exists for this tweet")
+                return existing_source.source_id
+
+            # Create new source
+            source = Source(
+                source_type_id=self._get_source_type_id("tweet"),
+                source_identifier=tweet_id,
+                batch_id=str(thread_id),
+                profile_id=user["profile_id"]
+            )
+            session.add(source)
+            session.flush()
+
+            session.commit()
+            return source.source_id
+
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+
+    @db_retry
+    def create_url_reference(self, source_id: UUID, url_meta: Dict[str, Any]) -> None:
+        """Create URL reference for a source"""
+        session = self.db.get_session()
+        try:
+            url_ref = URLReference(
+                source_id=source_id,
+                url=url_meta["original_url"],
+                type=url_meta["type"],
+                domain=url_meta.get("domain"),
+                content_type=url_meta.get("content_type"),
+                file_category=url_meta.get("file_category")
+            )
+            session.add(url_ref)
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+
+    @db_retry
+    def _handle_media_storage(self, source_id: UUID, media_meta: List[Dict[str, Any]]) -> None:
+        """Handle batch media storage in a single transaction"""
+        if not media_meta:
+            return
+            
+        session = self.db.get_session()
+        try:
+            media_records = [
+                Media(
+                    source_id=source_id,
+                    media_url=media["original_url"],
+                    media_type=media["type"]
+                )
+                for media in media_meta
+            ]
+            session.bulk_save_objects(media_records)
+            session.commit()
         except Exception as e:
             session.rollback()
             raise e

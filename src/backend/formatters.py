@@ -3,7 +3,7 @@ from datetime import datetime
 from uuid import UUID
 from .db.connection import DatabaseConnectionManager
 from .db.datamodel import (
-    Content, Source, Tag, URLReference, Media, ContentSource,
+    Content, Source, Tag, TemplateParameter, TemplateParameterValue, URLReference, Media, ContentSource,
     ContentListItem, ContentListResponse,
     SourceListResponse, TemplateResponse,
     RedditResponse,
@@ -15,7 +15,7 @@ db = DatabaseConnectionManager()
 
 def format_content_list_item(content: Any) -> ContentListItem:
     """Format a single content item from repository to API response format"""
-    session = db.get_session()
+   
     try:
         # Get content type
         content_type = content.content_type.name if hasattr(content, 'content_type') else None
@@ -47,18 +47,18 @@ def format_content_list_item(content: Any) -> ContentListItem:
                 None
             )
         )
-        session.commit()
+        
         return result
     except Exception as e:
-        session.rollback()
+        
         raise e
 
 def format_content_list_response(items: List[Any], total: int, page: int, size: int) -> ContentListResponse:
     """Format content list response"""
-    session = db.get_session()
+   
     try:
         formatted_items = [format_content_list_item(item) for item in items]
-        session.commit()
+        
         return ContentListResponse(
             items=formatted_items,
             total=total,
@@ -66,22 +66,22 @@ def format_content_list_response(items: List[Any], total: int, page: int, size: 
             size=size
         )
     except Exception as e:
-        session.rollback()
+        
         raise e
 
 def format_source(source: Any) -> Dict[str, Any]:
     """Format a single source object"""
-    session = db.get_session()
+   
     try:
         result = {
-            "source_id": getattr(source, 'source_id', None),
-            "source_identifier": getattr(source, 'source_identifier', None),
-            "source_type": getattr(source.source_type, 'name', None) if hasattr(source, 'source_type') else None,
+            "source_id": getattr(source, 'source_id', ''),
+            "source_identifier": getattr(source, 'source_identifier', ''),
+            "source_type": getattr(source.source_type, 'name', '') if hasattr(source, 'source_type') else '',
             "url_references": [
                 {
                     "url": getattr(ref, 'url', ''),
-                    "type": getattr(ref, 'type', None),
-                    "domain": getattr(ref, 'domain', None)
+                    "type": getattr(ref, 'type', ''),
+                    "domain": getattr(ref, 'domain', '')
                 }
                 for ref in getattr(source, 'url_references', [])
             ],
@@ -95,18 +95,18 @@ def format_source(source: Any) -> Dict[str, Any]:
             "created_at": getattr(source, 'created_at', datetime.now()),
             "updated_at": getattr(source, 'updated_at', datetime.now())
         }
-        session.commit()
+        
         return result
     except Exception as e:
-        session.rollback()
+        
         raise e
 
 def format_source_list_response(items: List[Any], total: int, page: int, size: int) -> SourceListResponse:
     """Format source list response"""
-    session = db.get_session()
+   
     try:
         formatted_items = [format_source(item) for item in items]
-        session.commit()
+        
         return SourceListResponse(
             items=formatted_items,
             total=total,
@@ -114,88 +114,87 @@ def format_source_list_response(items: List[Any], total: int, page: int, size: i
             size=size
         )
     except Exception as e:
-        session.rollback()
+        
         raise e
 
 def format_template_parameter(parameter: Any) -> Dict[str, Any]:
     """Format a template parameter"""
-    session = db.get_session()
     try:
-        result = {
-            "parameter_id": getattr(parameter, 'parameter_id', None),
-            "name": getattr(parameter, 'name', ''),
-            "display_name": getattr(parameter, 'display_name', ''),
-            "description": getattr(parameter, 'description', None),
-            "is_required": getattr(parameter, 'is_required', True),
-            "value": format_parameter_value(parameter.value) if hasattr(parameter, 'value') else None
-        }
-        session.commit()
+        # Create a valid TemplateParaßmeterValue instance if value exists
+        parameter_values = []
+        if hasattr(parameter, 'values'):
+            parameter_values = [format_parameter_value(value) for value in parameter.values]
+
+        result = TemplateParameter(
+            parameter_id=getattr(parameter, 'parameter_id', ''),
+            name=getattr(parameter, 'name', ''),
+            display_name=getattr(parameter, 'display_name', ''),
+            description=getattr(parameter, 'description', ''),
+            is_required=getattr(parameter, 'is_required', True),
+            value=parameter_values  # This will be None if no value exists
+        )
         return result
     except Exception as e:
-        session.rollback()
         raise e
 
 def format_parameter_value(value: Any) -> Dict[str, Any]:
     """Format a parameter value"""
     if not value:
         return None
-    session = db.get_session()
+
     try:
-        result = {
-            "value_id": getattr(value, 'value_id', None),
-            "value": getattr(value, 'value', ''),
-            "display_order": getattr(value, 'display_order', 0)
-        }
-        session.commit()
+        result = TemplateParameterValue(
+            value_id=getattr(value, 'value_id', None),
+            value=getattr(value, 'value', ''),
+            display_order=getattr(value, 'display_order', 0))
+
         return result
     except Exception as e:
-        session.rollback()
         raise e
 
 def format_template_response(template: Any) -> TemplateResponse:
     """Format template response"""
-    session = db.get_session()
     try:
         parameters = []
         if hasattr(template, 'parameters'):
             parameters = [format_template_parameter(param) for param in template.parameters]
+            # Filter out any None values
+            parameters = [p for p in parameters if p is not None]
 
         result = TemplateResponse(
             template_id=getattr(template, 'template_id', None),
             name=getattr(template, 'name', ''),
-            description=getattr(template, 'description', None),
+            description=getattr(template, 'description', ""),
             template_type=getattr(template, 'template_type', ''),
-            template_image_url=getattr(template, 'template_image_url', None),
+            template_image_url=getattr(template, 'template_image_url', ""),
             parameters=parameters,
             created_at=getattr(template, 'created_at', datetime.now()),
             updated_at=getattr(template, 'updated_at', datetime.now())
         )
-        session.commit()
         return result
     except Exception as e:
-        session.rollback()
         raise e
 
 def format_parameter_response(parameter: Any) -> ParameterResponse:
     """Format parameter response"""
-    session = db.get_session()
+   
     try:
         values = []
         if hasattr(parameter, 'parameter_values'):
             values = [(value) for value in parameter.parameter_values]
 
         result = ParameterResponse(
-            parameter_id=getattr(parameter, 'parameter_id', None),
+            parameter_id=getattr(parameter, 'parameter_id', ''),
             name=getattr(parameter, 'name', ''),
             display_name=getattr(parameter, 'display_name', ''),
-            description=getattr(parameter, 'description', None),
+            description=getattr(parameter, 'description', ''),
             is_required=getattr(parameter, 'is_required', True),
             values=values,
             created_at=getattr(parameter, 'created_at', datetime.now()),
             updated_at=getattr(parameter, 'updated_at', datetime.now())
         )
-        session.commit()
+        
         return result
     except Exception as e:
-        session.rollback()
+        
         raise e

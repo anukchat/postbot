@@ -1,47 +1,14 @@
 from typing import Dict, List, Optional, Any
 from uuid import UUID
 from sqlalchemy.orm import joinedload, contains_eager
-from sqlalchemy import and_, or_, desc
-from ..models import Content, ContentType, Profile, Source, Tag, URLReference, Media
+from sqlalchemy import and_, or_, desc, insert
+from ..models import Content, ContentType, Profile, Source, Tag, URLReference, Media, content_tags, content_sources
 from ..sqlalchemy_repository import SQLAlchemyRepository
 from ...formatters import format_content_list_item, format_content_list_response
 
 class ContentRepository(SQLAlchemyRepository[Content]):
     def __init__(self):
         super().__init__(Content)
-
-    def list_content(self, profile_id: UUID, skip: int = 0, limit: int = 10):
-        """List all content for a profile with formatting"""
-        session = self.db.get_session()
-        try:
-            query = session.query(Content)\
-                .options(
-                    joinedload(Content.content_type),
-                    joinedload(Content.content_tags).joinedload(Content.tags),
-                    joinedload(Content.sources).joinedload(Source.source_type),
-                    joinedload(Content.sources).joinedload(Source.url_references),
-                    joinedload(Content.sources).joinedload(Source.media)
-                )\
-                .filter(Content.profile_id == profile_id)\
-                .filter(Content.is_deleted == False)\
-                .order_by(desc(Content.created_at))
-
-            # Get total count
-            total = query.count()
-
-            # Get paginated results
-            items = query.offset(skip).limit(limit).all()
-            session.commit()
-            
-            return {
-                "items": items,
-                "total": total,
-                "page": skip // limit + 1,
-                "size": limit
-            }
-        except Exception as e:
-            session.rollback()
-            raise e
 
     def get_content_by_thread(self, thread_id: UUID, profile_id: UUID, content_type_id: Optional[UUID] = None):
         """Get content by thread ID with optional content type filter"""
@@ -190,6 +157,199 @@ class ContentRepository(SQLAlchemyRepository[Content]):
                 "page": skip // limit + 1,
                 "size": limit
             }
+        except Exception as e:
+            session.rollback()
+            raise e
+
+    def add_content_tag(self, content_id: UUID, tag_id: UUID) -> bool:
+        """
+        Add a tag to content by inserting into the content_tags association table
+        Returns True if successful, False otherwise
+        """
+        session = self.db.get_session()
+        try:
+            # Check if the association already exists
+            existing = session.query(content_tags).filter(
+                content_tags.c.content_id == content_id,
+                content_tags.c.tag_id == tag_id,
+                content_tags.c.is_deleted == False
+            ).first()
+            
+            if existing:
+                # Association already exists and is not deleted
+                return True
+                
+            # Check if there's a soft-deleted record to restore
+            soft_deleted = session.query(content_tags).filter(
+                content_tags.c.content_id == content_id,
+                content_tags.c.tag_id == tag_id,
+                content_tags.c.is_deleted == True
+            ).first()
+            
+            if soft_deleted:
+                # Update the soft-deleted record
+                stmt = (
+                    content_tags.update()
+                    .where(
+                        content_tags.c.content_id == content_id,
+                        content_tags.c.tag_id == tag_id
+                    )
+                    .values(is_deleted=False, deleted_at=None)
+                )
+                session.execute(stmt)
+            else:
+                # Insert a new record
+                stmt = insert(content_tags).values(
+                    content_id=content_id,
+                    tag_id=tag_id
+                )
+                session.execute(stmt)
+                
+            session.commit()
+            return True
+        except Exception as e:
+            session.rollback()
+            raise e
+
+    def add_content_tags(self, content_id: UUID, tag_ids: List[UUID]) -> bool:
+        """
+        Add multiple tags to content by inserting into the content_tags association table
+        Returns True if successful, False otherwise
+        """
+        session = self.db.get_session()
+        try:
+            for tag_id in tag_ids:
+                self.add_content_tag(content_id, tag_id)
+            return True
+        except Exception as e:
+            session.rollback()
+            raise e
+
+    def remove_content_tag(self, content_id: UUID, tag_id: UUID, hard_delete: bool = False) -> bool:
+        """
+        Remove a tag from content
+        If hard_delete is True, removes the record entirely
+        Otherwise performs a soft delete
+        """
+        session = self.db.get_session()
+        try:
+            if hard_delete:
+                # Hard delete
+                stmt = content_tags.delete().where(
+                    content_tags.c.content_id == content_id,
+                    content_tags.c.tag_id == tag_id
+                )
+            else:
+                # Soft delete
+                from datetime import datetime
+                stmt = content_tags.update().where(
+                    content_tags.c.content_id == content_id,
+                    content_tags.c.tag_id == tag_id
+                ).values(
+                    is_deleted=True,
+                    deleted_at=datetime.now()
+                )
+            
+            session.execute(stmt)
+            session.commit()
+            return True
+        except Exception as e:
+            session.rollback()
+            raise e
+    
+    # Content source methods
+    def add_content_source(self, content_id: UUID, source_id: UUID) -> bool:
+        """
+        Add a source to content by inserting into the content_sources association table
+        Returns True if successful, False otherwise
+        """
+        session = self.db.get_session()
+        try:
+            # Check if the association already exists
+            existing = session.query(content_sources).filter(
+                content_sources.c.content_id == content_id,
+                content_sources.c.source_id == source_id,
+                content_sources.c.is_deleted == False
+            ).first()
+            
+            if existing:
+                # Association already exists and is not deleted
+                return True
+                
+            # Check if there's a soft-deleted record to restore
+            soft_deleted = session.query(content_sources).filter(
+                content_sources.c.content_id == content_id,
+                content_sources.c.source_id == source_id,
+                content_sources.c.is_deleted == True
+            ).first()
+            
+            if soft_deleted:
+                # Update the soft-deleted record
+                stmt = (
+                    content_sources.update()
+                    .where(
+                        content_sources.c.content_id == content_id,
+                        content_sources.c.source_id == source_id
+                    )
+                    .values(is_deleted=False, deleted_at=None)
+                )
+                session.execute(stmt)
+            else:
+                # Insert a new record
+                stmt = insert(content_sources).values(
+                    content_id=content_id,
+                    source_id=source_id
+                )
+                session.execute(stmt)
+                
+            session.commit()
+            return True
+        except Exception as e:
+            session.rollback()
+            raise e
+
+    def add_content_sources(self, content_id: UUID, source_ids: List[UUID]) -> bool:
+        """
+        Add multiple sources to content by inserting into the content_sources association table
+        Returns True if successful, False otherwise
+        """
+        session = self.db.get_session()
+        try:
+            for source_id in source_ids:
+                self.add_content_source(content_id, source_id)
+            return True
+        except Exception as e:
+            session.rollback()
+            raise e
+
+    def remove_content_source(self, content_id: UUID, source_id: UUID, hard_delete: bool = False) -> bool:
+        """
+        Remove a source from content
+        If hard_delete is True, removes the record entirely
+        Otherwise performs a soft delete
+        """
+        session = self.db.get_session()
+        try:
+            if hard_delete:
+                # Hard delete
+                stmt = content_sources.delete().where(
+                    content_sources.c.content_id == content_id,
+                    content_sources.c.source_id == source_id
+                )
+            else:
+                # Soft delete
+                from datetime import datetime
+                stmt = content_sources.update().where(
+                    content_sources.c.content_id == content_id,
+                    content_sources.c.source_id == source_id
+                ).values(
+                    is_deleted=True,
+                    deleted_at=datetime.now()
+                )
+            
+            session.execute(stmt)
+            session.commit()
+            return True
         except Exception as e:
             session.rollback()
             raise e

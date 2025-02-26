@@ -16,8 +16,7 @@ class ContentTypeRepository(SQLAlchemyRepository[ContentType]):
             content_type = (
                 session.query(ContentType)
                 .filter(
-                    ContentType.name == name,
-                    ContentType.is_deleted.is_(False)
+                    ContentType.name == name
                 )
                 .first()
             )

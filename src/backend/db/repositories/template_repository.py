@@ -35,10 +35,12 @@ class TemplateRepository(SQLAlchemyRepository[Template]):
     def get_template_with_parameters(self, template_id: UUID, profile_id: UUID):
         """Get template with its parameters"""
         session = self.db.get_session()
+
         try:
             template = session.query(Template)\
                 .options(
-                    joinedload(Template.parameters).joinedload(Parameter.values)
+                    joinedload(Template.parameters)
+                    .joinedload(Parameter.values)
                 )\
                 .filter(
                     Template.template_id == template_id,
@@ -49,10 +51,8 @@ class TemplateRepository(SQLAlchemyRepository[Template]):
             if not template:
                 return None
 
-            session.commit()
-            return format_template_response(template.__dict__)
+            return format_template_response(template)
         except Exception as e:
-            session.rollback()
             raise e
 
     def list_templates_for_profile(
@@ -82,7 +82,7 @@ class TemplateRepository(SQLAlchemyRepository[Template]):
                 .all()
 
             session.commit()
-            return [format_template_response(template.__dict__) for template in templates]
+            return [format_template_response(template) for template in templates]
         except Exception as e:
             session.rollback()
             raise e

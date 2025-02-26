@@ -446,30 +446,6 @@ class SourceListResponse(BaseModel):
     page: int
     size: int
 
-class TemplateParameterValue(BaseModel):
-    parameter_id: UUID
-    value_id: UUID
-    value: str
-    display_order: Optional[int] = None
-
-class TemplateParameter(BaseModel):
-    parameter_id: UUID
-    name: str
-    display_name: str
-    description: Optional[str] = None
-    is_required: bool = True
-    value: Optional[TemplateParameterValue] = None
-
-class TemplateResponse(BaseModel):
-    template_id: UUID
-    name: str
-    description: Optional[str] = None
-    template_type: str
-    template_image_url: Optional[str] = None
-    parameters: Optional[List[TemplateParameter]] = None
-    created_at: datetime
-    updated_at: datetime
-
 # Parameter Response Models
 class ParameterValueResponse(BaseModel):
     value_id: str
@@ -514,19 +490,37 @@ class CallbackResponse(BaseModel):
 
 # Model for a single parameter value
 class TemplateParameterValue(BaseModel):
-    parameter_id: UUID
     value_id: UUID
     value: str
     display_order: Optional[int] = None
+
+    class Config:
+        from_attributes = True
 
 # Model for a single parameter
 class TemplateParameter(BaseModel):
     parameter_id: UUID
     name: str  # Parameter name (e.g., "persona")
     display_name: str  # Friendly name for UI
-    description: Optional[str] = None
+    description: Optional[str] = ''
     is_required: bool = True
-    value: Optional[TemplateParameterValue] = None
+    value: List[Optional[TemplateParameterValue]] 
+
+    class Config:
+        from_attributes = True
+
+class TemplateResponse(BaseModel):
+    template_id: UUID
+    name: str
+    description: Optional[str] = ''
+    template_type: str
+    template_image_url: Optional[str] = ''
+    parameters: Optional[List[TemplateParameter]]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
 
 # Model for creating a template
 class TemplateCreate(BaseModel):

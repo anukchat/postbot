@@ -24,7 +24,6 @@ from src.backend.db.repositories import (
     ContentTypeRepository,
     AuthRepository
 )
-from src.backend.db.repository import RateLimitExceeded, QuotaExceeded
 from fastapi.responses import JSONResponse
 from src.backend.formatters import (
     format_content_list_item,
@@ -32,7 +31,6 @@ from src.backend.formatters import (
     format_parameter_response,
     format_source_list_response,
     format_template_response,
-    format_reddit_response
 )
 
 from typing import List, Dict, Optional, Any, Union
@@ -189,7 +187,7 @@ async def get_profile(
     current_user: Dict = Depends(get_current_user_profile)
 ):
     try:
-        profile = profile_repository.find_by_id("id", profile_id)
+        profile = profile_repository.find_by_field("id", profile_id)
         if not profile or profile["user_id"] != current_user.id:
             raise HTTPException(status_code=404, detail="Profile not found")
         return profile
@@ -203,7 +201,7 @@ async def update_profile(
     current_user: Dict = Depends(get_current_user_profile)
 ):
     try:
-        profile = profile_repository.find_by_id("id", profile_id)
+        profile = profile_repository.find_by_field("id", profile_id)
         if not profile or profile["user_id"] != current_user.id:
             raise HTTPException(status_code=404, detail="Profile not found")
         return profile_repository.update("id", profile_id, profile_data)
@@ -216,7 +214,7 @@ async def delete_profile(
     current_user: Dict = Depends(get_current_user_profile)
 ):
     try:
-        profile = profile_repository.find_by_id("id", profile_id)
+        profile = profile_repository.find_by_field("id", profile_id)
         if not profile or profile["user_id"] != current_user.id:
             raise HTTPException(status_code=404, detail="Profile not found")
         return profile_repository.soft_delete("id", profile_id)
@@ -227,7 +225,7 @@ async def delete_profile(
 async def list_profiles(
     skip: int = 0,
     limit: int = 10,
-    current_user: Dict = Depends(get_current_user_profile)
+    current_user = Depends(get_current_user_profile)
 ):
     try:
         return profile_repository.filter({"id": current_user.profile_id}, skip, limit)
@@ -236,21 +234,21 @@ async def list_profiles(
 
 # ContentType Endpoints
 @app.post("/content-types/", response_model=ContentType, tags=["content_types"])
-def create_content_type(content_type: ContentTypeCreate, user: dict = Depends(get_current_user_profile)):
+def create_content_type(content_type: ContentTypeCreate, current_user: dict = Depends(get_current_user_profile)):
     result = content_type_repository.create(content_type.dict())
     if not result:
         raise HTTPException(status_code=400, detail="Failed to create content type")
     return result
 
 @app.get("/content-types/{content_type_id}", response_model=ContentType, tags=["content_types"])
-def read_content_type(content_type_id: UUID, user: dict = Depends(get_current_user_profile)):
-    result = content_type_repository.find_by_id("content_type_id", content_type_id)
+def read_content_type(content_type_id: UUID, current_user: dict = Depends(get_current_user_profile)):
+    result = content_type_repository.find_by_field("content_type_id", content_type_id)
     if not result:
         raise HTTPException(status_code=404, detail="ContentType not found")
     return result
 
 @app.put("/content-types/{content_type_id}", response_model=ContentType, tags=["content_types"])
-def update_content_type(content_type_id: UUID, content_type: ContentTypeUpdate, user: dict = Depends(get_current_user_profile)):
+def update_content_type(content_type_id: UUID, content_type: ContentTypeUpdate, current_user: dict = Depends(get_current_user_profile)):
     result = content_type_repository.update(
         id_field="content_type_id",
         id_value=content_type_id,
@@ -261,14 +259,14 @@ def update_content_type(content_type_id: UUID, content_type: ContentTypeUpdate, 
     return result
 
 @app.delete("/content-types/{content_type_id}", tags=["content_types"])
-def delete_content_type(content_type_id: UUID, user: dict = Depends(get_current_user_profile)):
+def delete_content_type(content_type_id: UUID, current_user: dict = Depends(get_current_user_profile)):
     result = content_type_repository.delete("content_type_id", content_type_id)
     if not result:
         raise HTTPException(status_code=404, detail="ContentType not found")
     return {"message": "ContentType deleted"}
 
 @app.get("/content-types/", response_model=List[ContentType], tags=["content_types"])
-def filter_content_types(name: Optional[str] = None, skip: int = 0, limit: int = 10, user: dict = Depends(get_current_user_profile)):
+def filter_content_types(name: Optional[str] = None, skip: int = 0, limit: int = 10, current_user: dict = Depends(get_current_user_profile)):
     query_filters = {}
     if name:
         query_filters["name"] = name
@@ -282,24 +280,49 @@ async def create_content(
     current_user: Dict = Depends(get_current_user_profile)
 ):
     try:
-        content_data["profile_id"] = current_user.id
+        content_data["profile_id"] = current_user.profile_id
         return content_repository.create(content_data)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.post("/content/generate", tags=["content"])
-async def generate_content(
-    request: GeneratePostRequestModel,
-    current_user: Dict = Depends(get_current_user_profile),
-    workflow: AgentWorkflow = Depends(get_workflow)
+@app.post("/content/generate", tags=["agents"])
+async def generate_generic_blog(
+    payload: GeneratePostRequestModel,
+    workflow: AgentWorkflow = Depends(get_workflow),
+    current_user: dict = Depends(get_current_user_profile),
 ):
+    """Initiate the workflow with the provided data."""
     try:
-        result = await workflow.run(current_user["profile_id"], request.dict())
+        thread_id = payload.thread_id or str(uuid.uuid4())
+        # Get template and parameters if template_id is provided
+        if payload.template_id:
+            template_data=template_repository.get_template_with_parameters(UUID(payload.template_id), UUID(current_user.profile_id))
+            payload_dict = payload.model_dump()
+            payload_dict["template"] = template_data
+            # payload = GeneratePostRequestModel(**payload_dict)
+        # Check generation limit        
+        limit_response = await check_generation_limit(current_user.profile_id)
+        logger.info(f"Generation limit check: {limit_response}")
+        
+        if limit_response['generations_used'] >= limit_response['max_generations']:
+            logger.warning(f"Generation limit reached for user {current_user['id']}")
+            raise HTTPException(status_code=403, detail="Generation limit reached for this thread")
+
+        # Proceed with generation
+        logger.debug("Starting workflow execution")
+        result = workflow.run_generic_workflow(payload_dict, thread_id, current_user)
+        logger.debug("Workflow execution completed")
+
+        # Increment generation count
+        await increment_generation_count(current_user.profile_id)
+
         return result
-    except (RateLimitExceeded, QuotaExceeded) as e:
-        raise HTTPException(status_code=403, detail=str(e))
+    except HTTPException as e:
+        logger.error(f"HTTP Exception in generate_generic_blog: {str(e)}")
+        raise e
     except Exception as e:
+        logger.error(f"Unexpected error in generate_generic_blog: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
 
 async def check_generation_limit(profile_id: UUID) -> Dict:
@@ -332,14 +355,13 @@ async def filter_content(
     current_user: Dict = Depends(get_current_user_profile)
 ):
     try:
-        with db_manager.keep_session() as session:
-            result = content_repository.filter_content(UUID(current_user.profile_id), filters or {}, skip, limit)
-            return format_content_list_response(
-                items=result["items"],
-                total=result["total"],
-                page=result["page"],
-                size=result["size"]
-            )
+        result = content_repository.filter_content(UUID(current_user.profile_id), filters or {}, skip, limit)
+        return format_content_list_response(
+            items=result["items"],
+            total=result["total"],
+            page=result["page"],
+            size=result["size"]
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -349,16 +371,15 @@ async def get_content(
     current_user: Dict = Depends(get_current_user_profile)
 ):
     try:
-        with db_manager.keep_session() as session:
-            content = content_repository.find_by_id("content_id", content_id)
-            if not content or str(content.profile_id) != current_user.profile_id:
-                raise HTTPException(status_code=404, detail="Content not found")
-            return format_content_list_item(content)
+        content = content_repository.find_by_field("content_id", content_id)
+        if not content or str(content.profile_id) != current_user.profile_id:
+            raise HTTPException(status_code=404, detail="Content not found")
+        return format_content_list_item(content)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.put("/content/{content_id}", response_model=Content, tags=["content"]) 
-def update_content(content_id: UUID, content: ContentUpdate, profile: dict = Depends(get_current_user_profile)):
+def update_content(content_id: UUID, content: ContentUpdate, current_user: dict = Depends(get_current_user_profile)):
     """Update content"""
     result = content_repository.update(
         id_field="content_id",
@@ -367,7 +388,7 @@ def update_content(content_id: UUID, content: ContentUpdate, profile: dict = Dep
     )
     if not result:
         raise HTTPException(status_code=404, detail="Content not found")
-    if result["profile_id"] != str(profile["id"]):
+    if result["profile_id"] != str(current_user.profile_id):
         raise HTTPException(status_code=403, detail="Not authorized to update this content")
     return result
 
@@ -378,8 +399,8 @@ async def delete_thread_content(
 ):
     try:
         # Delete all content associated with thread
-        content = content_repository.find_by_id("thread_id", thread_id)
-        if not content or str(content["profile_id"]) != current_user.id:
+        content = content_repository.find_by_field("thread_id", thread_id)
+        if not content or str(content["profile_id"]) != current_user.profile_id:
             raise HTTPException(status_code=404, detail="Content not found")
         return content_repository.soft_delete("thread_id", thread_id)
     except Exception as e:
@@ -394,7 +415,7 @@ async def save_content(
     try:
         result = content_repository.update_by_thread(
             thread_id,
-            UUID(current_user["profile_id"]),
+            UUID(current_user.profile_id),
             content.dict(exclude_unset=True)
         )
         if not result:
@@ -435,21 +456,13 @@ async def schedule_thread_content(
 
 # Update sources endpoints to use profile_id
 @app.post("/sources/", response_model=Source, tags=["sources"])
-def create_source(source: SourceCreate, profile: dict = Depends(get_current_user_profile)):
+def create_source(source: SourceCreate, current_user: dict = Depends(get_current_user_profile)):
     """Create a new source"""
     try:
-        with source_repository.rate_limited_operation(
-            profile_id=profile["id"],
-            action_type='source_creation',
-            limit=30,  # 30 sources per hour
-            window_minutes=60
-        ):
-            result = source_repository.create_source(source.dict(), profile['id'])
-            if not result:
-                raise HTTPException(status_code=400, detail="Failed to create source")
-            return result
-    except RateLimitExceeded as e:
-        raise
+        result = source_repository.create_source(source.dict(), current_user.profile_id)
+        if not result:
+            raise HTTPException(status_code=400, detail="Failed to create source")
+        return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -459,26 +472,26 @@ def filter_sources(
     source_identifier: Optional[str] = None, 
     skip: int = 0, 
     limit: int = 10, 
-    profile: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     result = source_repository.list_sources_with_related(
-        profile_id=profile['id'],
+        profile_id=current_user.profile_id,
         type=type,
         source_identifier=source_identifier,
         skip=skip,
         limit=limit
     )
-    return SourceListResponse(**result)
+    return result
 
 @app.get("/sources/{source_id}", response_model=Source, tags=["sources"])
-def read_source(source_id: UUID, user: dict = Depends(get_current_user_profile)):
-    result = source_repository.find_by_id("source_id", source_id)
+def read_source(source_id: UUID, current_user: dict = Depends(get_current_user_profile)):
+    result = source_repository.find_by_field("source_id", source_id)
     if not result:
         raise HTTPException(status_code=404, detail="Source not found")
     return result
 
 @app.put("/sources/{source_id}", response_model=Source, tags=["sources"])
-def update_source(source_id: UUID, source: SourceUpdate, profile: dict = Depends(get_current_user_profile)):
+def update_source(source_id: UUID, source: SourceUpdate, current_user: dict = Depends(get_current_user_profile)):
     result = source_repository.update(
         id_field="source_id",
         id_value=source_id,
@@ -489,8 +502,8 @@ def update_source(source_id: UUID, source: SourceUpdate, profile: dict = Depends
     return result
 
 @app.delete("/sources/{source_id}", tags=["sources"])
-def delete_source(source_id: UUID, profile: dict = Depends(get_current_user_profile)):
-    result = source_repository.soft_delete(source_id, profile["id"])
+def delete_source(source_id: UUID, current_user: dict = Depends(get_current_user_profile)):
+    result = source_repository.soft_delete(source_id, current_user.profile_id)
     if not result:
         raise HTTPException(status_code=404, detail="Source not found")
     return {"message": "Source deleted"}
@@ -499,7 +512,7 @@ def delete_source(source_id: UUID, profile: dict = Depends(get_current_user_prof
 async def get_content_by_thread(
     thread_id: UUID,
     post_type: Optional[str] = Query(None, description="Filter by post type (blog, twitter, linkedin)"),
-    user: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Get content by thread ID with optional post type filter"""
     try:
@@ -511,7 +524,7 @@ async def get_content_by_thread(
                 raise HTTPException(status_code=400, detail=f"Invalid post type: {post_type}")
             content_type_id = type_id
 
-        result = content_repository.get_content_by_thread(thread_id, UUID(user.profile_id), content_type_id)
+        result = content_repository.get_content_by_thread(thread_id, UUID(current_user.profile_id), content_type_id)
 
         if not result:
             return ContentListItem(
@@ -538,7 +551,7 @@ async def get_content_by_thread(
 async def get_trending_reddit_topics(
     limit: int = Query(10, description="Number of posts to fetch per subreddit"),
     subreddits: Optional[str] = Query(None, description="Comma-separated list of subreddits"),
-    user: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Fetch trending topics from specified subreddits or r/all"""
     try:
@@ -548,16 +561,16 @@ async def get_trending_reddit_topics(
             limit=limit,
             subreddits=subreddit_list
         )
-        return format_reddit_response(data=trending_data)
+        return trending_data
     except Exception as e:
-        return format_reddit_response(data={}, error=str(e))
+        return trending_data
 
 @app.get("/reddit/discussions", response_model=RedditResponse, tags=["reddit"])
 async def get_trending_discussions(
     category: str = Query('all', description="Category/subreddit to fetch from"),
     timeframe: str = Query('day', description="Time period (hour, day, week, month, year, all)"),
     limit: int = Query(10, description="Number of posts to fetch"),
-    user: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Fetch trending discussion posts based on category and timeframe"""
     try:
@@ -583,7 +596,7 @@ async def get_trending_discussions(
 async def get_topic_suggetsions(
     limit: int = Query(15, description="Number of posts to fetch per subreddit"),
     subreddits: Optional[str] = Query(None, description="Comma-separated list of subreddits"),
-    user: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Get information about a specific subreddit"""
     try:
@@ -604,7 +617,7 @@ async def get_topic_suggetsions(
 async def get_active_subreddits(
     category: Optional[str] = Query(None, description="Category filter"),
     limit: int = Query(10, description="Number of subreddits to return"),
-    user: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Get most active subreddits for a given category"""
     try:
@@ -629,7 +642,7 @@ async def get_active_subreddits(
 async def extract_reddit_content(
     url: str = Body(..., description="Reddit post URL to extract"),
     skip_llm: bool = Body(False, description="Skip LLM processing"),
-    user: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Extract content from a Reddit post URL"""
     try:
@@ -653,7 +666,7 @@ async def extract_reddit_content(
 @app.post("/reddit/batch-summary", response_model=RedditResponse, tags=["reddit"])
 async def create_reddit_summary(
     posts: List[Dict] = Body(..., description="List of Reddit posts to summarize"),
-    user: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Create a summary from multiple Reddit posts"""
     try:
@@ -679,7 +692,7 @@ async def create_template(
 ):
     try:
         template_data = template.dict()
-        template_data["profile_id"] = current_user.id
+        template_data["profile_id"] = current_user.profile_id
         parameters = template_data.pop("parameters", [])
         return template_repository.create_template_with_parameters(template_data, parameters)
     except Exception as e:
@@ -691,11 +704,10 @@ async def get_template(
     current_user: Dict = Depends(get_current_user_profile)
 ):
     try:
-        with db_manager.keep_session() as session:
-            template = template_repository.get_template_with_parameters(template_id, UUID(current_user["profile_id"]))
-            if not template:
-                raise HTTPException(status_code=404, detail="Template not found")
-            return format_template_response(template)
+        template = template_repository.get_template_with_parameters(template_id, UUID(current_user.profile_id))
+        if not template:
+            raise HTTPException(status_code=404, detail="Template not found")
+        return format_template_response(template)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -710,7 +722,7 @@ async def update_template(
         parameters = template_data.pop("parameters", None)
         updated = template_repository.update_template_with_parameters(
             template_id,
-            UUID(current_user.id),
+            UUID(current_user.profile_id),
             template_data,
             parameters
         )
@@ -726,18 +738,18 @@ def list_templates(
     limit: int = 10, 
     template_type: Optional[str] = None,
     include_deleted: bool = False,
-    profile: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """List all templates for the authenticated user."""
     try:
         templates = template_repository.list_templates_for_profile(
-            profile_id=UUID(profile["id"]),
+            profile_id=UUID(current_user.profile_id),
             skip=skip,
             limit=limit,
             template_type=template_type,
             include_deleted=include_deleted
         )
-        return [format_template_response(template) for template in templates]
+        return templates
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -750,7 +762,7 @@ async def duplicate_template(
     try:
         duplicated = template_repository.duplicate_template(
             template_id,
-            UUID(current_user.id),
+            UUID(current_user.profile_id),
             new_name
         )
         if not duplicated:
@@ -765,12 +777,12 @@ def filter_templates(
     skip: int = 0,
     limit: int = 10,
     include_deleted: bool = False,
-    profile: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Filter templates based on parameters."""
     try:
         return template_repository.filter_templates(
-            UUID(profile["id"]),
+            UUID(current_user.profile_id),
             filters.dict(exclude_unset=True),
             filters.template_type,
             include_deleted,
@@ -781,12 +793,12 @@ def filter_templates(
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.delete("/templates/{template_id}", tags=["templates"])
-def delete_template(template_id: UUID, profile: dict = Depends(get_current_user_profile)):
+def delete_template(template_id: UUID, current_user: dict = Depends(get_current_user_profile)):
     """Soft delete a template by ID."""
     try:
         result = template_repository.update_template_with_parameters(
             template_id=template_id,
-            profile_id=profile["id"],
+            profile_id=current_user.profile_id,
             template_data={
                 "updated_at": datetime.now().isoformat(),
                 "is_deleted": True,
@@ -808,7 +820,7 @@ async def list_templates(
 ):
     try:
         templates = template_repository.list_templates_for_profile(
-            UUID(current_user["profile_id"]),
+            UUID(current_user.profile_id),
             skip,
             limit,
             template_type
@@ -822,18 +834,18 @@ def filter_templates(
     filter: TemplateFilter, 
     skip: int = 0, 
     limit: int = 10, 
-    profile: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Filter templates based on parameters."""
     try:
         results = template_repository.list_templates_for_profile(
-            profile_id=profile["id"],
+            profile_id=current_user.profile_id,
             skip=skip,
             limit=limit,
             template_type=filter.template_type,
             include_deleted=filter.is_deleted or False
         )
-        return [template_repository.get_template_with_parameters(UUID(t["template_id"]), UUID(profile["id"])) for t in results]
+        return [template_repository.get_template_with_parameters(UUID(t["template_id"]), UUID(current_user.profile_id)) for t in results]
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -842,19 +854,19 @@ def advanced_filter_templates(
     filter: AdvancedTemplateFilter,
     skip: int = 0,
     limit: int = 10,
-    profile: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Filter templates by multiple parameters."""
     try:
         results = template_repository.filter_templates(
-            profile_id=profile["id"],
+            profile_id=current_user.profile_id,
             parameters=filter.parameters,
             template_type=filter.template_type,
             include_deleted=filter.is_deleted,
             skip=skip,
             limit=limit
         )
-        return [template_repository.get_template_with_parameters(UUID(t["template_id"]), UUID(profile["id"])) for t in results]
+        return [template_repository.get_template_with_parameters(UUID(t["template_id"]), UUID(current_user.profile_id)) for t in results]
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -862,7 +874,7 @@ def advanced_filter_templates(
 def get_all_parameters(
     skip: int = 0, 
     limit: int = 100,
-    profile: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Get all available parameters."""
     try:
@@ -871,21 +883,12 @@ def get_all_parameters(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# Response model for parameter values
-class ParameterWithValues(BaseModel):
-    parameter_id: UUID
-    name: str
-    display_name: str
-    description: Optional[str]
-    is_required: bool
-    created_at: datetime
-    values: List[ParameterValueResponse]
 
-@app.get("/parameters/all", response_model=List[ParameterWithValues], tags=["parameters"])
+@app.get("/parameters/all", response_model=List[ParameterResponse], tags=["parameters"])
 def get_all_parameters_with_values(
     skip: int = 0,
     limit: int = 100,
-    profile: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Get all parameters with their values."""
     try:
@@ -895,21 +898,21 @@ def get_all_parameters_with_values(
         # Convert raw parameters into ParameterWithValues schema
         formatted_parameters = []
         for param in parameters:
-            formatted_param = ParameterWithValues(
-                parameter_id=param["parameter_id"],
-                name=param["name"],
-                display_name=param["display_name"],
-                description=param.get("description"),
-                is_required=param["is_required"],
-                created_at=param["created_at"],
+            formatted_param = ParameterResponse(
+                parameter_id=str(param.parameter_id),
+                name=param.name,
+                display_name=param.display_name,
+                description=param.description,
+                is_required=param.is_required,
+                created_at=param.created_at,
                 values=[
                     ParameterValueResponse(
-                        value_id=value["value_id"],
-                        value=value["value"], 
-                        display_order=value["display_order"],
-                        created_at=value["created_at"]
+                        value_id=str(value.value_id),
+                        value=value.value, 
+                        display_order=value.display_order,
+                        created_at=value.created_at
                     )
-                    for value in param.get("parameter_values", [])
+                    for value in param.values
                 ]
             )
             formatted_parameters.append(formatted_param)
@@ -920,11 +923,11 @@ def get_all_parameters_with_values(
 @app.get("/parameters/{parameter_id}", response_model=ParameterResponse, tags=["parameters"])
 def get_parameter(
     parameter_id: UUID,
-    profile: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Get a parameter by ID."""
     try:
-        result = parameter_repository.get_parameter(parameter_id)
+        result = parameter_repository.get_parameter_with_values(parameter_id)
         if not result:
             raise HTTPException(status_code=404, detail="Parameter not found")
         return result
@@ -938,7 +941,7 @@ async def get_parameter_values(
 ):
     try:
         values = parameter_repository.get_parameter_values(parameter_id)
-        return [ParameterValueResponse(**value) for value in values]
+        return [ParameterValueResponse(value_id=str(value.value_id),value=value.value,display_order=value.display_order,created_at=value.created_at) for value in values]
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -949,7 +952,7 @@ def create_parameter(
     display_name: str = Body(...),
     description: Optional[str] = Body(None),
     is_required: bool = Body(True),
-    profile: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Create a new parameter."""
     try:
@@ -972,7 +975,7 @@ def update_parameter(
     display_name: Optional[str] = Body(None),
     description: Optional[str] = Body(None),
     is_required: Optional[bool] = Body(None),
-    profile: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Update a parameter."""
     try:
@@ -993,7 +996,7 @@ def update_parameter(
 @app.delete("/parameters/{parameter_id}", tags=["parameters"])
 def delete_parameter(
     parameter_id: UUID,
-    profile: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Delete a parameter and its values."""
     try:
@@ -1010,7 +1013,7 @@ def create_parameter_value(
     parameter_id: UUID,
     value: str = Body(...),
     display_order: int = Body(0),
-    profile: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Create a new parameter value."""
     try:
@@ -1029,7 +1032,7 @@ def update_parameter_value(
     value_id: UUID,
     value: Optional[str] = Body(None),
     display_order: Optional[int] = Body(None),
-    profile: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Update a parameter value."""
     try:
@@ -1051,7 +1054,7 @@ def update_parameter_value(
 def delete_parameter_value(
     parameter_id: UUID,
     value_id: UUID,
-    profile: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Delete a parameter value."""
     try:
@@ -1066,14 +1069,14 @@ def delete_parameter_value(
 def duplicate_template(
     template_id: UUID, 
     new_name: str = Body(..., embed=True),
-    profile: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Create a copy of an existing template."""
     try:
-        result = template_repository.duplicate_template(template_id, profile["id"], new_name)
+        result = template_repository.duplicate_template(template_id, current_user.profile_id, new_name)
         if not result:
             raise HTTPException(status_code=404, detail="Template not found")
-        return template_repository.get_template_with_parameters(result["template_id"], UUID(profile["id"]))
+        return template_repository.get_template_with_parameters(result["template_id"], UUID(current_user.profile_id))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1081,12 +1084,12 @@ def duplicate_template(
 def count_templates(
     template_type: Optional[str] = None,
     include_deleted: bool = False,
-    profile: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Get count of templates for the current user."""
     try:
         count = template_repository.count_templates(
-            profile_id=profile["id"],
+            profile_id=current_user.profile_id,
             template_type=template_type,
             include_deleted=include_deleted
         )
@@ -1105,7 +1108,7 @@ async def list_sources(
     try:
         with db_manager.keep_session() as session:
             result = source_repository.list_sources_with_related(
-                UUID(current_user.id),
+                UUID(current_user.profile_id),
                 type,
                 source_identifier,
                 skip,
@@ -1126,7 +1129,7 @@ async def create_source(
     current_user: Dict = Depends(get_current_user_profile)
 ):
     try:
-        return source_repository.create_source(source_data, UUID(current_user.id))
+        return source_repository.create_source(source_data, UUID(current_user.profile_id))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1136,29 +1139,15 @@ async def delete_source(
     current_user: Dict = Depends(get_current_user_profile)
 ):
     try:
-        result = source_repository.soft_delete(source_id, UUID(current_user.id))
+        result = source_repository.soft_delete(source_id, UUID(current_user.profile_id))
         if not result:
             raise HTTPException(status_code=404, detail="Source not found")
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.exception_handler(RateLimitExceeded)
-async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
-    return JSONResponse(
-        status_code=429,
-        content={"detail": str(exc)}
-    )
-
-@app.exception_handler(QuotaExceeded)
-async def quota_exceeded_handler(request: Request, exc: QuotaExceeded):
-    return JSONResponse(
-        status_code=402,
-        content={"detail": str(exc)}
-    )
-
 @app.get("/parameters/{parameter_id}", response_model=ParameterResponse, tags=["parameters"])
-async def get_parameter(parameter_id: UUID):
+async def get_parameter(parameter_id: UUID, current_user: Dict = Depends(get_current_user_profile)):
     try:
         parameter = parameter_repository.get_parameter_with_values(parameter_id)
         if not parameter:
@@ -1168,7 +1157,7 @@ async def get_parameter(parameter_id: UUID):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/parameters/", response_model=List[ParameterResponse], tags=["parameters"])
-async def list_parameters(skip: int = 0, limit: int = 100):
+async def list_parameters(skip: int = 0, limit: int = 100, current_user: Dict = Depends(get_current_user_profile)):
     try:
         parameters = parameter_repository.list_parameters_with_values(skip, limit)
         return [format_parameter_response(param) for param in parameters]
@@ -1179,7 +1168,8 @@ async def list_parameters(skip: int = 0, limit: int = 100):
 async def create_parameter_value(
     parameter_id: UUID,
     value: str = Body(...),
-    display_order: int = Body(0)
+    display_order: int = Body(0),
+    current_user: Dict = Depends(get_current_user_profile)
 ):
     try:
         return parameter_repository.create_parameter_value(parameter_id, value, display_order)
@@ -1192,7 +1182,8 @@ async def create_parameter_value(
 async def update_parameter_value(
     parameter_id: UUID,
     value_id: UUID,
-    update_data: Dict[str, Any]
+    update_data: Dict[str, Any],
+    current_user: Dict = Depends(get_current_user_profile)
 ):
     try:
         result = parameter_repository.update_parameter_value(value_id, parameter_id, update_data)
@@ -1205,7 +1196,7 @@ async def update_parameter_value(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/parameters/{parameter_id}/values/{value_id}", tags=["parameters"])
-async def delete_parameter_value(parameter_id: UUID, value_id: UUID):
+async def delete_parameter_value(parameter_id: UUID, value_id: UUID, current_user: Dict = Depends(get_current_user_profile)):
     try:
         if not parameter_repository.delete_parameter_value(value_id, parameter_id):
             raise HTTPException(status_code=404, detail="Parameter value not found")

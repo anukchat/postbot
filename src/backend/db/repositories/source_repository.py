@@ -65,7 +65,6 @@ class SourceRepository(SQLAlchemyRepository[Source]):
                     joinedload(Source.source_type),
                     joinedload(Source.url_references),
                     joinedload(Source.media),
-                    joinedload(Source.metadata)
                 )\
                 .filter(Source.profile_id == profile_id)\
                 .filter(Source.is_deleted == False)
@@ -90,11 +89,9 @@ class SourceRepository(SQLAlchemyRepository[Source]):
             result = {
                 "items": [
                     {
-                        **source.__dict__,
-                        "source_type": source.source_type.__dict__ if source.source_type else None,
-                        "url_references": [ref.__dict__ for ref in source.url_references],
-                        "media": [media.__dict__ for media in source.media],
-                        "metadata": [meta.__dict__ for meta in source.metadata]
+                        "source_type": source.source_type if source.source_type else None,
+                        "url_references": [ref.url for ref in source.url_references],
+                        "media": [media for media in source.media],
                     } 
                     for source in sources
                 ],

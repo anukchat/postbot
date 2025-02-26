@@ -13,7 +13,7 @@ content_tags = Table(
     'content_tags',
     Base.metadata,
     Column('content_tag_id', UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
-    Column('content_id', UUID(as_uuid=True), ForeignKey('content.content_id')),
+    Column('content_id', UUID(as_uuid=True), ForeignKey('content.content_id')), 
     Column('tag_id', UUID(as_uuid=True), ForeignKey('tags.tag_id')),
     Column('created_at', DateTime(timezone=True), default=func.now()),
     Column('is_deleted', Boolean, default=False),
@@ -214,6 +214,7 @@ class Template(Base):
 
     # Relationships
     profile = relationship("Profile")
+    parameters = relationship("Parameter", secondary=template_parameters, back_populates="templates")
 
 class Parameter(Base):
     __tablename__ = 'parameters'
@@ -227,6 +228,7 @@ class Parameter(Base):
     
     # Relationships
     values = relationship("ParameterValue", back_populates="parameter", cascade="all, delete-orphan")
+    templates = relationship("Template", secondary=template_parameters, back_populates="parameters")
 
 
 class ParameterValue(Base):

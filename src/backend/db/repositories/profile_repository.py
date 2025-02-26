@@ -3,7 +3,7 @@ from uuid import UUID
 from datetime import datetime, timedelta
 from sqlalchemy.orm import joinedload
 from sqlalchemy import desc, func
-from ..models import Profile, RateLimit, Quota, QuotaUsage
+from ..models import GenerationLimits, Profile, RateLimit, Quota, QuotaUsage
 from ..sqlalchemy_repository import SQLAlchemyRepository
 
 class ProfileRepository(SQLAlchemyRepository[Profile]):
@@ -30,19 +30,21 @@ class ProfileRepository(SQLAlchemyRepository[Profile]):
         try:
             profile = (
                 session.query(Profile)
+                .join(GenerationLimits, Profile.role == GenerationLimits.tier)
                 .filter(
-                    Profile.profile_id == profile_id,
+                    Profile.id == profile_id,
                     Profile.is_deleted.is_(False)
                 )
+                .add_columns(GenerationLimits.max_generations)
                 .first()
             )
             
             session.commit()
             if profile:
                 return {
-                    "role": profile.role,
-                    "generation_limit": profile.generation_limit,
-                    "generations_used": profile.generations_used
+                    "role": profile[0].role,
+                    "generation_limit": profile[1],  # max_generations from GenerationLimits
+                    "generations_used": profile[0].generations_used
                 }
             return None
         except Exception as e:

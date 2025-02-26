@@ -14,7 +14,7 @@ class AnalyticsRepository(SQLAlchemyRepository[Content]):
         """Record a content view"""
         session = self.db.get_session()
         try:
-            content = self.find_by_id("content_id", content_id)
+            content = self.find_by_field("content_id", content_id)
             if not content:
                 raise ValueError("Content not found")
             
@@ -44,7 +44,7 @@ class AnalyticsRepository(SQLAlchemyRepository[Content]):
         """Record a content interaction (like, share, comment)"""
         session = self.db.get_session()
         try:
-            content = self.find_by_id("content_id", content_id)
+            content = self.find_by_field("content_id", content_id)
             if not content:
                 raise ValueError("Content not found")
             
@@ -74,7 +74,7 @@ class AnalyticsRepository(SQLAlchemyRepository[Content]):
         """Get analytics for a specific content item"""
         session = self.db.get_session()
         try:
-            content = self.find_by_id("content_id", content_id)
+            content = self.find_by_field("content_id", content_id)
             if not content or not content.content_metadata or 'analytics' not in content.content_metadata:
                 return {
                     'daily_data': [],
