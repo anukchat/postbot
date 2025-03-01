@@ -3,6 +3,8 @@ from typing import Dict, List, Optional, Any
 from uuid import UUID
 from sqlalchemy.orm import joinedload
 from sqlalchemy import desc
+
+from src.backend.api.datamodel import TemplateParameter, TemplateParameterValue
 from ..models import Parameter, ParameterValue
 from ..sqlalchemy_repository import SQLAlchemyRepository
 
@@ -25,23 +27,23 @@ class ParameterRepository(SQLAlchemyRepository[Parameter]):
             if not parameter:
                 return None
                 
-            return {
-                "parameter_id": parameter.parameter_id,
-                "name": parameter.name,
-                "display_name": parameter.display_name,
-                "description": parameter.description,
-                "is_required": parameter.is_required,
-                "created_at": parameter.created_at,
-                "values": [
-                    {
-                        "value_id": value.value_id,
-                        "value": value.value,
-                        "display_order": value.display_order,
-                        "created_at": value.created_at
-                    }
+            return TemplateParameter(
+                parameter_id= parameter.parameter_id,
+                name= parameter.name,
+                display_name= parameter.display_name,
+                description= parameter.description,
+                is_required= parameter.is_required,
+                created_at= parameter.created_at,
+                values= [
+                    TemplateParameterValue(
+                        value_id= value.value_id,
+                        value= value.value,
+                        display_order= value.display_order,
+                        created_at= value.created_at
+                    )
                     for value in parameter.values
                 ]
-            }
+            )
         except Exception as e:
             session.rollback()
             logger.error(f"Error getting parameter with values: {str(e)}")

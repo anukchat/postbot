@@ -215,7 +215,7 @@ export const TemplateManagement: React.FC = () => {
                 <div className="flex flex-wrap gap-2 mt-1">
                   {template.parameters?.map((param: any) => (
                     <span key={param.parameter_id} className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">
-                      {param.display_name}: {param.value.value}
+                      {param.display_name}: {param.values.value}
                     </span>
                   ))}
                 </div>

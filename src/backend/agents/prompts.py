@@ -210,7 +210,7 @@ FOR CONCLUSION (if writing Conclusion):
 
 
 ##----------------- Twitter Post Instructions -----------------##
-twitter_post_instructions = """You are a social media expert tasked with crafting tweets that drive engagement on Twitter for {age_group}. 
+twitter_post_instructions = """You are a social media expert tasked with crafting tweets that drive engagement on Twitter. 
 
 Please turn the following article into a Twitter thread: 
 
@@ -248,7 +248,7 @@ Thread:
 
 
 ##----------------- LinkedIn Post Instructions -----------------##
-linkedin_post_instructions = """You are a professional LinkedIn content creator, focused on crafting posts that establish thought leadership and build connections with {age_group}.  
+linkedin_post_instructions = """You are a professional LinkedIn content creator, focused on crafting posts that establish thought leadership and build connections.  
 
 Please turn the following article into a LinkedIn post:
 

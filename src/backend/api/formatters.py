@@ -1,14 +1,12 @@
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 from uuid import UUID
-from .db.connection import DatabaseConnectionManager
-from .db.datamodel import (
+from ..db.connection import DatabaseConnectionManager
+from .datamodel import (
     Content, Source, Tag, TemplateParameter, TemplateParameterValue, URLReference, Media, ContentSource,
     ContentListItem, ContentListResponse,
     SourceListResponse, TemplateResponse,
-    RedditResponse,
-    ParameterResponse,
-    ParameterValueResponse
+    RedditResponse
 )
 
 db = DatabaseConnectionManager()
@@ -131,7 +129,8 @@ def format_template_parameter(parameter: Any) -> Dict[str, Any]:
             display_name=getattr(parameter, 'display_name', ''),
             description=getattr(parameter, 'description', ''),
             is_required=getattr(parameter, 'is_required', True),
-            value=parameter_values  # This will be None if no value exists
+            created_at=getattr(parameter, 'created_at', datetime.now()),
+            values=parameter_values  # This will be None if no value exists
         )
         return result
     except Exception as e:
@@ -146,7 +145,9 @@ def format_parameter_value(value: Any) -> Dict[str, Any]:
         result = TemplateParameterValue(
             value_id=getattr(value, 'value_id', None),
             value=getattr(value, 'value', ''),
-            display_order=getattr(value, 'display_order', 0))
+            display_order=getattr(value, 'display_order', 0),
+            created_at=getattr(value, 'created_at', datetime.now())
+        )
 
         return result
     except Exception as e:
@@ -175,7 +176,7 @@ def format_template_response(template: Any) -> TemplateResponse:
     except Exception as e:
         raise e
 
-def format_parameter_response(parameter: Any) -> ParameterResponse:
+def format_parameter_response(parameter: Any) -> TemplateParameter:
     """Format parameter response"""
    
     try:
@@ -183,7 +184,7 @@ def format_parameter_response(parameter: Any) -> ParameterResponse:
         if hasattr(parameter, 'parameter_values'):
             values = [(value) for value in parameter.parameter_values]
 
-        result = ParameterResponse(
+        result = TemplateParameter(
             parameter_id=getattr(parameter, 'parameter_id', ''),
             name=getattr(parameter, 'name', ''),
             display_name=getattr(parameter, 'display_name', ''),
@@ -191,7 +192,6 @@ def format_parameter_response(parameter: Any) -> ParameterResponse:
             is_required=getattr(parameter, 'is_required', True),
             values=values,
             created_at=getattr(parameter, 'created_at', datetime.now()),
-            updated_at=getattr(parameter, 'updated_at', datetime.now())
         )
         
         return result

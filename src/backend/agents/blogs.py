@@ -847,7 +847,7 @@ class AgentWorkflow:
     def _handle_social_post_generation(self, thread_id, payload, user):
         """Handle generation of social media posts"""
 
-        content = self.content_repo.find_by_field("thread_id",thread_id)
+        content = self.content_repo.exists("thread_id",thread_id)
         if not content:
             raise ValueError("No content found for thread_id")
 
@@ -893,7 +893,7 @@ class AgentWorkflow:
 
             existing_content = self.content_repo.filter({"thread_id":thread_id,"content_type_id":content_type.content_type_id})
 
-            if not existing_content.data:
+            if not existing_content:
                 content_body = result.get(
                     "final_blog" if post_type == "blog" else f"{post_type}_post"
                 )

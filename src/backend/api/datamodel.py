@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Any, Optional, List, Dict, Union
 from uuid import UUID
 
-# Profile Pydantic Model
+#region Profile Pydantic Model
 class ProfileBase(BaseModel):
     user_id: UUID
     full_name: Optional[str] = None
@@ -31,7 +31,9 @@ class Profile(ProfileBase):
     class Config:
         from_attributes = True
 
-# ContentType Pydantic Model
+#endregion
+
+#region ContentType Pydantic Model
 class ContentTypeBase(BaseModel):
     name: str
 
@@ -47,8 +49,9 @@ class ContentType(ContentTypeBase):
 
     class Config:
         from_attributes = True
+#endregion
 
-# Content Pydantic Model
+#region Content Pydantic Model
 class ContentBase(BaseModel):
     profile_id: UUID  # Changed from Optional[UUID] to required UUID
     content_type_id: UUID
@@ -76,8 +79,9 @@ class Content(ContentBase):
 
     class Config:
         from_attributes = True
+#endregion
 
-# SourceType Pydantic Model
+#region SourceType Pydantic Model
 class SourceTypeBase(BaseModel):
     name: str
 
@@ -94,7 +98,9 @@ class SourceType(SourceTypeBase):
     class Config:
         from_attributes = True
 
-# Source Pydantic Model
+#endregion
+
+#region Source Pydantic Model
 class SourceBase(BaseModel):
     batch_id: Optional[UUID] = None
     source_type_id: UUID
@@ -116,7 +122,9 @@ class Source(SourceBase):
     class Config:
         from_attributes = True
 
-# ContentSource Pydantic Model
+#endregion
+
+#region ContentSource Pydantic Model
 class ContentSourceBase(BaseModel):
     content_id: UUID
     source_id: UUID
@@ -135,7 +143,9 @@ class ContentSource(ContentSourceBase):
     class Config:
         from_attributes = True
 
-# URLReference Pydantic Model
+#endregion
+
+#region URLReference Pydantic Model
 class URLReferenceBase(BaseModel):
     source_id: UUID
     url: str
@@ -164,7 +174,9 @@ class URLReference(URLReferenceBase):
     class Config:
         from_attributes = True
 
-# Media Pydantic Model
+#endregion
+
+#region Media Pydantic Model
 class MediaBase(BaseModel):
     source_id: UUID
     media_url: str
@@ -185,7 +197,9 @@ class Media(MediaBase):
     class Config:
         from_attributes = True
 
-# Tag Pydantic Model
+#endregion
+
+#region Tag Pydantic Model
 class TagBase(BaseModel):
     name: str
 
@@ -202,7 +216,9 @@ class Tag(TagBase):
     class Config:
         from_attributes = True
 
-# ContentTag Pydantic Model
+#endregion
+
+#region ContentTag Pydantic Model
 class ContentTagBase(BaseModel):
     content_id: UUID
     tag_id: UUID
@@ -221,7 +237,9 @@ class ContentTag(ContentTagBase):
     class Config:
         from_attributes = True
 
-# SourceMetadata Pydantic Model
+#endregion
+
+#region SourceMetadata Pydantic Model
 class SourceMetadataBase(BaseModel):
     source_id: UUID
     key: str
@@ -242,49 +260,9 @@ class SourceMetadata(SourceMetadataBase):
     class Config:
         from_attributes = True
 
-# CustomField Pydantic Model
-class CustomFieldBase(BaseModel):
-    source_type_id: UUID
-    field_name: str
-    field_type: str
+#endregion
 
-class CustomFieldCreate(CustomFieldBase):
-    pass
-
-class CustomFieldUpdate(BaseModel):
-    source_type_id: Optional[UUID] = None
-    field_name: Optional[str] = None
-    field_type: Optional[str] = None
-
-class CustomField(CustomFieldBase):
-    custom_field_id: UUID
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-# CustomFieldValue Pydantic Model
-class CustomFieldValueBase(BaseModel):
-    source_id: UUID
-    custom_field_id: UUID
-    value: Optional[str] = None
-
-class CustomFieldValueCreate(CustomFieldValueBase):
-    pass
-
-class CustomFieldValueUpdate(BaseModel):
-    source_id: Optional[UUID] = None
-    custom_field_id: Optional[UUID] = None
-    value: Optional[str] = None
-
-class CustomFieldValue(CustomFieldValueBase):
-    custom_field_value_id: UUID
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-# ContentAnalytics Pydantic Model
+#region ContentAnalytics Pydantic Model
 class ContentAnalyticsBase(BaseModel):
     content_id: UUID
     views: int = 0
@@ -308,7 +286,9 @@ class ContentAnalytics(ContentAnalyticsBase):
     class Config:
         from_attributes = True
 
-# UserActivity Pydantic Model
+#endregion
+
+#region UserActivity Pydantic Model
 class UserActivityBase(BaseModel):
     profile_id: UUID
     activity_type: str
@@ -329,7 +309,9 @@ class UserActivity(UserActivityBase):
     class Config:
         from_attributes = True
 
-# Plan Pydantic Model
+#endregion
+
+#region Plan Pydantic Model
 class PlanBase(BaseModel):
     name: str
     price: float
@@ -350,7 +332,9 @@ class Plan(PlanBase):
     class Config:
         from_attributes = True
 
-# Subscription Pydantic Model
+#endregion
+
+#region Subscription Pydantic Model
 class SubscriptionBase(BaseModel):
     profile_id: UUID
     plan_id: UUID
@@ -375,7 +359,9 @@ class Subscription(SubscriptionBase):
     class Config:
         from_attributes = True
 
-# Payment Pydantic Model
+#endregion
+
+#region Payment Pydantic Model
 class PaymentBase(BaseModel):
     subscription_id: UUID
     amount: float
@@ -398,24 +384,7 @@ class Payment(PaymentBase):
     class Config:
         from_attributes = True
 
-# UserSelectedSource Pydantic Model
-class UserSelectedSourceBase(BaseModel):
-    profile_id: UUID
-    source_id: UUID
-
-class UserSelectedSourceCreate(UserSelectedSourceBase):
-    pass
-
-class UserSelectedSourceUpdate(BaseModel):
-    profile_id: Optional[UUID] = None
-    source_id: Optional[UUID] = None
-
-class UserSelectedSource(UserSelectedSourceBase):
-    selection_id: UUID
-    selected_at: datetime
-
-    class Config:
-        from_attributes = True
+#endregion
 
 # Response Models (moved from api.py)
 class ContentListItem(BaseModel):
@@ -446,27 +415,10 @@ class SourceListResponse(BaseModel):
     page: int
     size: int
 
-# Parameter Response Models
-class ParameterValueResponse(BaseModel):
-    value_id: str
-    value: str
-    display_order: int
-    created_at: datetime
-
-class ParameterResponse(BaseModel):
-    parameter_id: str
-    name: str
-    display_name: str
-    description: Optional[str]
-    is_required: bool
-    created_at: datetime
-    values: List[ParameterValueResponse]
-
 class RedditResponse(BaseModel):
     data: Dict[str, Any]
     status: str
     error: Optional[str] = None
-
 
 # Token Generation Models
 class TokenRequest(BaseModel):
@@ -493,6 +445,7 @@ class TemplateParameterValue(BaseModel):
     value_id: UUID
     value: str
     display_order: Optional[int] = None
+    created_at: datetime
 
     class Config:
         from_attributes = True
@@ -504,7 +457,8 @@ class TemplateParameter(BaseModel):
     display_name: str  # Friendly name for UI
     description: Optional[str] = ''
     is_required: bool = True
-    value: List[Optional[TemplateParameterValue]] 
+    created_at: datetime
+    values: List[Optional[TemplateParameterValue]] 
 
     class Config:
         from_attributes = True

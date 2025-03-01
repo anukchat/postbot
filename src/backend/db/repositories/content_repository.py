@@ -4,7 +4,7 @@ from sqlalchemy.orm import joinedload, contains_eager
 from sqlalchemy import and_, or_, desc, insert
 from ..models import Content, ContentType, Profile, Source, Tag, URLReference, Media, content_tags, content_sources
 from ..sqlalchemy_repository import SQLAlchemyRepository
-from ...formatters import format_content_list_item, format_content_list_response
+from ...api.formatters import format_content_list_item, format_content_list_response
 
 class ContentRepository(SQLAlchemyRepository[Content]):
     def __init__(self):
@@ -17,7 +17,7 @@ class ContentRepository(SQLAlchemyRepository[Content]):
             query = session.query(Content)\
                 .options(
                     joinedload(Content.content_type),
-                    joinedload(Content.content_tags).joinedload(Content.tags),
+                    joinedload(Content.tags),
                     joinedload(Content.sources).joinedload(Source.source_type),
                     joinedload(Content.sources).joinedload(Source.url_references),
                     joinedload(Content.sources).joinedload(Source.media)
@@ -43,7 +43,7 @@ class ContentRepository(SQLAlchemyRepository[Content]):
                 session.query(Content)
                 .options(
                     joinedload(Content.content_type),
-                    joinedload(Content.content_tags).joinedload(Content.tags),
+                    joinedload(Content.tags),
                     joinedload(Content.sources).joinedload(Source.source_type),
                     joinedload(Content.sources).joinedload(Source.url_references),
                     joinedload(Content.sources).joinedload(Source.media)
@@ -68,23 +68,26 @@ class ContentRepository(SQLAlchemyRepository[Content]):
             raise e
 
     def filter_content(self, profile_id: UUID, filters: Dict, skip: int = 0, limit: int = 10):
-        """Filter content with complex criteria"""
+        """Filter content with complex criteria. By default shows blog content grouped by thread_id"""
         session = self.db.get_session()
         try:
             subquery = (
                 session.query(Content)
                 .outerjoin(Content.content_type)
-                .outerjoin(Content.tags)
+                .outerjoin(Content.tags)  # This correctly uses the relationship defined in the Content model
                 .outerjoin(Content.sources)
                 .outerjoin(Source.source_type)
                 .outerjoin(Source.url_references)
                 .outerjoin(Source.media)
                 .filter(Content.profile_id == profile_id)
                 .filter(Content.is_deleted.is_(False))
+                # Default filter for blog content type
+                .filter(ContentType.name == "blog")
             )
             
-            # Apply filters
+            # Apply additional filters
             if "content_type" in filters:
+                # Override default blog filter if content_type is specified
                 subquery = subquery.filter(ContentType.name == filters["content_type"])
             
             if "status" in filters:
@@ -99,6 +102,7 @@ class ContentRepository(SQLAlchemyRepository[Content]):
                     )
                 )
             
+            # ... (keep other filters unchanged)
             if "domain" in filters:
                 domain_term = f"%{filters['domain']}%"
                 subquery = subquery.filter(URLReference.domain.ilike(domain_term))
@@ -126,20 +130,26 @@ class ContentRepository(SQLAlchemyRepository[Content]):
             
             if "tags" in filters and filters["tags"]:
                 if isinstance(filters["tags"], list):
+                    # Filter using the tags relationship through the secondary table
                     subquery = subquery.filter(Tag.name.in_(filters["tags"]))
                 else:
+                    # For a single tag string
                     subquery = subquery.filter(Tag.name == filters["tags"])
             
-            subquery = subquery.distinct()
+            # Group by thread_id and select the latest content for each thread
+            thread_subquery = (
+                subquery.distinct(Content.thread_id)
+                .order_by(Content.thread_id, desc(Content.created_at))
+            )
             
-            content_ids = subquery.with_entities(Content.content_id).distinct()
+            content_ids = thread_subquery.with_entities(Content.content_id)
 
             # Add options for eager loading
             query = (session.query(Content)
             .filter(Content.content_id.in_(content_ids))
             .options(
                 joinedload(Content.content_type),
-                joinedload(Content.tags),
+                joinedload(Content.tags),  # Correctly join using the relationship
                 joinedload(Content.sources).joinedload(Source.source_type),
                 joinedload(Content.sources).joinedload(Source.url_references),
                 joinedload(Content.sources).joinedload(Source.media)
@@ -147,7 +157,7 @@ class ContentRepository(SQLAlchemyRepository[Content]):
             .order_by(desc(Content.created_at))
             )
 
-            total = subquery.count()
+            total = thread_subquery.count()
             contents = query.offset(skip).limit(limit).all()
             session.commit()
             

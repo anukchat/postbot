@@ -4,7 +4,7 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy import desc
 from ..models import Source, SourceType, URLReference, Media, SourceMetadata
 from ..sqlalchemy_repository import SQLAlchemyRepository
-from ...formatters import format_source_list_response
+from ...api.formatters import format_source_list_response
 
 class SourceRepository(SQLAlchemyRepository[Source]):
     def __init__(self):

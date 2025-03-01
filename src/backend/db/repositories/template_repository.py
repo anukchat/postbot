@@ -4,7 +4,7 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy import desc, and_
 from ..models import Template, Parameter, ParameterValue
 from ..sqlalchemy_repository import SQLAlchemyRepository
-from ...formatters import format_template_response
+from ...api.formatters import format_template_response
 
 class TemplateRepository(SQLAlchemyRepository[Template]):
     def __init__(self):
