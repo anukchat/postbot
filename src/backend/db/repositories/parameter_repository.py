@@ -157,7 +157,7 @@ class ParameterRepository(SQLAlchemyRepository[Parameter]):
         """Create a new parameter"""
         session = self.db.get_session()
         try:
-            parameter = self.create(session, data)
+            parameter = self.create(data)
             session.commit()
             return parameter
         except Exception as e:
@@ -168,7 +168,7 @@ class ParameterRepository(SQLAlchemyRepository[Parameter]):
         """Update a parameter"""
         session = self.db.get_session()
         try:
-            parameter = self.update(session, "parameter_id", parameter_id, data)
+            parameter = self.update("parameter_id", parameter_id, data)
             session.commit()
             return parameter
         except Exception as e:
@@ -185,7 +185,7 @@ class ParameterRepository(SQLAlchemyRepository[Parameter]):
             ).delete()
             
             # Then delete the parameter
-            result = self.delete(session, "parameter_id", parameter_id)
+            result = self.delete( "parameter_id", parameter_id)
             session.commit()
             return result
         except Exception as e:
