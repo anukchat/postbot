@@ -451,9 +451,9 @@ class TemplateParameterValue(BaseModel):
         from_attributes = True
 
 class TemplateParameterValueCreate(BaseModel):
+    value_id: UUID
     value: str
-    display_order: Optional[int] = None
-    
+
 # Model for a single parameter
 class TemplateParameter(BaseModel):
     parameter_id: UUID
@@ -468,10 +468,11 @@ class TemplateParameter(BaseModel):
         from_attributes = True
 
 class TemplateParameterCreate(BaseModel):
+    parameter_id: UUID
     name: str
     display_name: str
-    description: Optional[str] = ''
     is_required: bool = True
+    values: Optional[TemplateParameterValueCreate] = None
 
 # Model for a single template
 class TemplateResponse(BaseModel):
@@ -493,7 +494,7 @@ class TemplateCreate(BaseModel):
     description: Optional[str] = None
     template_type: Optional[str] = "default"
     template_image_url: Optional[str] = None
-    parameters: Optional[List[TemplateParameter]] = None
+    parameters: Optional[List[TemplateParameterCreate]] = None
 
 # Model for updating a template
 class TemplateUpdate(BaseModel):
