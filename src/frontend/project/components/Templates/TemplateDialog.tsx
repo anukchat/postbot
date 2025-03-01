@@ -77,7 +77,7 @@ export const TemplateDialog: React.FC<TemplateDialogProps> = ({
             p.parameter_id === parameterId 
               ? {
                   ...p,
-                  value: { parameter_id: parameterId, value_id: valueId, value }
+                  values: { parameter_id: parameterId, value_id: valueId, value }
                 }
               : p
           )
@@ -87,7 +87,8 @@ export const TemplateDialog: React.FC<TemplateDialogProps> = ({
               parameter_id: parameterId,
               name: parameters.find(p => p.parameter_id === parameterId)?.name || '',
               display_name: parameters.find(p => p.parameter_id === parameterId)?.display_name || '',
-              value: { parameter_id: parameterId, value_id: valueId, value }
+              is_required: parameters.find(p => p.parameter_id === parameterId)?.is_required || false,
+              values: { parameter_id: parameterId, value_id: valueId, value }
             }
           ]
     }));
@@ -96,6 +97,25 @@ export const TemplateDialog: React.FC<TemplateDialogProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await onSubmit(formData);
+  };
+
+  // Helper function to get parameter value ID from template parameters
+  const getParameterValueId = (parameterId: string) => {
+    const parameter = formData.parameters.find(p => p.parameter_id === parameterId);
+    if (!parameter) return '';
+    
+    // Handle different structures that might exist in the data
+    if (parameter.values) {
+      if (typeof parameter.values === 'object' && 'value_id' in parameter.values) {
+        // Handle case where values is a single object
+        return parameter.values.value_id;
+      } else if (Array.isArray(parameter.values) && parameter.values.length > 0) {
+        // Handle case where values is an array
+        return parameter.values[0].value_id;
+      }
+    }
+    
+    return '';
   };
 
   return (
@@ -205,7 +225,7 @@ export const TemplateDialog: React.FC<TemplateDialogProps> = ({
                       {param.is_required && <span className="text-red-500 ml-1">*</span>}
                     </label>
                     <select
-                      value={formData.parameters.find(p => p.parameter_id === param.parameter_id)?.value.value_id || ''}
+                      value={getParameterValueId(param.parameter_id)}
                       onChange={(e) => {
                         const selectedValue = parameterValues[param.parameter_id]?.find(v => v.value_id === e.target.value);
                         if (selectedValue) {

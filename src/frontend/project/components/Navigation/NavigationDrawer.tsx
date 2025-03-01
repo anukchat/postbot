@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 interface NavigationDrawerProps {
   isOpen: boolean;
   onClose: () => void;
+  onNavigateToEditor?: () => void; // New prop for navigation handling
 }
 
 interface FilterState {
@@ -27,9 +28,13 @@ const QUICK_FILTERS = [
 
 // Cache control constants
 const DRAWER_SESSION_KEY = 'navigation_drawer_last_fetch';
-const FETCH_COOLDOWN = 60 * 1000; // 1 minute cooldown between fetches
+const FETCH_COOLDOWN = 5 * 60 * 1000; // 5 minute cooldown between fetches
 
-export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onClose }) => {
+export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ 
+  isOpen, 
+  onClose,
+  onNavigateToEditor 
+}) => {
   const { 
     posts, 
     currentPost, 
@@ -39,7 +44,8 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
     isLoading,
     hasReachedEnd,
     deletePost,
-    contentCache
+    contentCache,
+    isContentUpdated
   } = useEditorStore();
   
   const isListLoading = useEditorStore(state => state.isListLoading);
@@ -65,6 +71,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
   const scrollPositionRef = useRef(0);
   const drawerOpenedRef = useRef(false);
   const lastFetchRef = useRef(0);
+  const fetchCounterRef = useRef(0); // Counter to track fetch attempts
 
   // Filter posts client-side when possible
   const filteredPosts = useMemo(() => {
@@ -111,14 +118,43 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
 
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  // Check if we need to fetch data based on last fetch time
+  // Improved logic to check if we need to fetch data
   const shouldFetchData = useCallback(() => {
     const now = Date.now();
     const timeSinceLastFetch = now - lastFetchRef.current;
     
-    // Allow fetch if it's been more than the cooldown period
-    return timeSinceLastFetch > FETCH_COOLDOWN;
-  }, []);
+    // Check for different scenarios when we should fetch:
+    
+    // 1. If content has been updated (new blog generated)
+    if (isContentUpdated) {
+      console.log('Fetching due to content update');
+      return true;
+    }
+    
+    // 2. If there's no data yet
+    if (posts.length === 0) {
+      console.log('Fetching because posts are empty');
+      return true;
+    }
+    
+    // 3. Check if we have a valid cache entry for empty filters (default list)
+    const defaultCacheKey = JSON.stringify({ filters: {}, skip: 0, limit });
+    const hasCachedData = Object.keys(contentCache).some(key => key.includes(defaultCacheKey));
+    
+    if (!hasCachedData) {
+      console.log('Fetching because no cached data found');
+      return true;
+    }
+    
+    // 4. Allow fetch if it's been more than the cooldown period
+    if (timeSinceLastFetch > FETCH_COOLDOWN) {
+      console.log('Fetching due to cooldown period passed');
+      return true;
+    }
+    
+    console.log('Using cached data, not fetching');
+    return false;
+  }, [posts.length, isContentUpdated, contentCache, limit]);
 
   // Optimize the handleLoadMore callback
   const handleLoadMore = useCallback(async () => {
@@ -163,28 +199,43 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
     };
   }, [handleLoadMore, isLoading, hasReachedEnd]);
 
-  // Only fetch data when the drawer opens and sufficient time has passed
+  // Enhanced data fetching logic for when drawer opens
   useEffect(() => {
     if (isOpen && !isListLoading && !isFetchingRef.current) {
-      // If drawer was just opened, or we haven't fetched data yet
-      if (!drawerOpenedRef.current || !initialFetchDoneRef.current) {
-        drawerOpenedRef.current = true;
+      const justOpened = !drawerOpenedRef.current;
+      drawerOpenedRef.current = true;
+      
+      // Always check cache for default query when drawer opens
+      const defaultCacheKey = JSON.stringify({ filters: {}, skip: 0, limit });
+      const hasCachedData = Object.keys(contentCache).some(key => key.includes(defaultCacheKey));
+      
+      // Counter to prevent excessive attempts in a session
+      const fetchCount = fetchCounterRef.current;
+      
+      // Check if we should fetch data
+      if ((justOpened && shouldFetchData()) || 
+          (!initialFetchDoneRef.current && fetchCount < 3)) {
         
-        // Only fetch if no recent fetch or cache is empty
-        if (shouldFetchData() || posts.length === 0) {
-          initialFetchDoneRef.current = true;
-          lastFetchRef.current = Date.now();
-          fetchPosts({
-            timestamp: Date.now()
-          }, 0, limit);
-        }
+        console.log('Fetching posts on drawer open', { justOpened, fetchCount });
+        
+        // Mark initial fetch done and update last fetch time
+        initialFetchDoneRef.current = true;
+        lastFetchRef.current = Date.now();
+        fetchCounterRef.current += 1;
+        
+        // Fetch data with minimum parameters to maximize cache hits
+        fetchPosts({
+          timestamp: Date.now(),
+          noCache: !hasCachedData // Only bypass cache if we don't have cached data
+        }, 0, limit);
       }
     }
+    
     // Reset the drawer opened state when it closes
     if (!isOpen) {
       drawerOpenedRef.current = false;
     }
-  }, [isOpen, fetchPosts, isListLoading, limit, posts.length, shouldFetchData]);
+  }, [isOpen, fetchPosts, isListLoading, limit, shouldFetchData, contentCache]);
 
   // Debounced search that uses client-side filtering when possible
   const debouncedSearch = useMemo(() => {
@@ -236,6 +287,30 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
     debouncedSearch(value);
   };
 
+  // Force refresh data manually
+  const handleManualRefresh = async () => {
+    setIsResetting(true);
+    
+    try {
+      // Update last fetch time and reset fetch counter
+      lastFetchRef.current = Date.now();
+      fetchCounterRef.current = 0;
+      
+      // Force fetch with clean state
+      await fetchPosts({
+        timestamp: Date.now(),
+        forceRefresh: true
+      }, 0, limit);
+      
+      toast.success('Posts refreshed successfully');
+    } catch (error) {
+      console.error('Error refreshing posts:', error);
+      toast.error('Failed to refresh posts');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   // API-based reset handler
   const handleReset = async () => {
     setIsResetting(true);
@@ -267,6 +342,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
       initialFetchDoneRef.current = false;
       isFetchingRef.current = false;
       lastFetchRef.current = Date.now();
+      fetchCounterRef.current = 0;
 
       // Force fresh fetch with clean state
       await fetchPosts({
@@ -375,6 +451,10 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
 
   const handlePostSelect = (post: Post) => {
     setCurrentPost(post);
+    // Navigate to editor if provided
+    if (onNavigateToEditor) {
+      onNavigateToEditor();
+    }
     onClose();
   };
 
@@ -434,12 +514,21 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
                 onChange={handleSearchChange}
                 className="w-full pl-9 pr-12 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg border-0 focus:ring-2 focus:ring-blue-500"
               />
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center">
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
                 {isServerFiltered && (
-                  <span className="inline-flex items-center justify-center mr-2 w-5 h-5 text-xs font-bold text-white bg-blue-500 rounded-full">
+                  <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-blue-500 rounded-full">
                     {activeFilterCount}
                   </span>
                 )}
+                {/* Add manual refresh button */}
+                <button
+                  onClick={handleManualRefresh}
+                  disabled={isListLoading || isResetting}
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-full transition-colors"
+                  title="Refresh posts"
+                >
+                  <RefreshCw className={`w-4 h-4 text-gray-400 ${isListLoading || isResetting ? 'animate-spin text-blue-500' : ''}`} />
+                </button>
                 <button
                   onClick={() => setShowFilters(!showFilters)}
                   className="p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-full transition-colors"

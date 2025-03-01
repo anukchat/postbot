@@ -450,6 +450,10 @@ class TemplateParameterValue(BaseModel):
     class Config:
         from_attributes = True
 
+class TemplateParameterValueCreate(BaseModel):
+    value: str
+    display_order: Optional[int] = None
+    
 # Model for a single parameter
 class TemplateParameter(BaseModel):
     parameter_id: UUID
@@ -463,6 +467,13 @@ class TemplateParameter(BaseModel):
     class Config:
         from_attributes = True
 
+class TemplateParameterCreate(BaseModel):
+    name: str
+    display_name: str
+    description: Optional[str] = ''
+    is_required: bool = True
+
+# Model for a single template
 class TemplateResponse(BaseModel):
     template_id: UUID
     name: str

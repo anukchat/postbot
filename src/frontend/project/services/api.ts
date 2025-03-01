@@ -52,15 +52,34 @@ const templateApi = {
   getTemplate: (templateId: string) => api.get(`/templates/${templateId}`),
   
   // Enhanced getAllTemplates with better parameter handling
-  getAllTemplates: (params?: any, limit?: number, filter?: TemplateFilter | undefined) => 
-    api.get('/templates', { params: { ...params, ...filter } }),
+  getAllTemplates: (params?: any, limit?: number, filter?: TemplateFilter | undefined) => {
+    // Format filter to match backend expectations
+    const apiParams = { 
+      ...params,
+      ...(filter || {})
+    };
+    
+    // Make sure we're properly handling template_type and is_deleted which are special cases
+    if (filter?.template_type) {
+      apiParams.template_type = filter.template_type;
+    }
+    
+    // Include deleted templates flag
+    if (filter?.is_deleted !== undefined) {
+      apiParams.include_deleted = filter.is_deleted;
+    }
+    
+    return api.get('/templates', { params: apiParams });
+  },
   
   createTemplate: (template: any) => api.post('/templates', template),
+  
   updateTemplate: (templateId: string, template: any) => api.put(`/templates/${templateId}`, template),
+  
   deleteTemplate: (templateId: string) => api.delete(`/templates/${templateId}`),
   
   // Use the more efficient filter endpoint 
-  filterTemplates: (params: any) => api.post('/templates/filter', params),
+  filterTemplates: (params: TemplateFilter) => api.post('/templates/filter', params),
   
   // Parameter endpoints
   // Use /parameters/all as the primary method to get all parameters with values

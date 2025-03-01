@@ -15,16 +15,20 @@ import api from '../services/api';
 // } from '../services/api';
 
 export interface TemplateParameterValue {
-  parameter_id: string;
   value_id: string;
   value: string;
+  display_order?: number;
+  created_at?: string;
 }
 
 export interface TemplateParameter {
   parameter_id: string;
   name: string;
   display_name: string;
-  value: TemplateParameterValue;
+  description?: string;
+  is_required: boolean;
+  created_at?: string;
+  values: TemplateParameterValue[] | TemplateParameterValue;
 }
 
 export interface Template {
@@ -36,7 +40,7 @@ export interface Template {
   parameters: TemplateParameter[];
   created_at: string;
   updated_at: string;
-  is_deleted: boolean;
+  is_deleted?: boolean;
 }
 
 export interface CreateTemplatePayload {
@@ -48,10 +52,10 @@ export interface CreateTemplatePayload {
 }
 
 export interface TemplateFilter {
-  persona?: string;
-  age_group?: string;
-  content_type?: string;
+  name?: string;
   template_type?: string;
+  parameter_id?: string;
+  value_id?: string;
   is_deleted?: boolean;
 }
 

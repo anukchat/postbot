@@ -173,6 +173,12 @@ const MainAppLayout: React.FC = () => {
         <NavigationDrawer 
           isOpen={isDrawerOpen} 
           onClose={() => setIsDrawerOpen(false)} 
+          onNavigateToEditor={() => {
+            // Navigate to dashboard if not already there
+            if (location.pathname !== '/dashboard') {
+              window.location.href = '/dashboard';
+            }
+          }}
         />
 
         {/* Main Content Area */}
