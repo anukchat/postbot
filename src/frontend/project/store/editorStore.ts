@@ -4,17 +4,6 @@ import { Post } from '../types/editor';
 import api from '../services/api';
 import { cacheManager } from '../services/cacheManager';
 
-// import {
-//   Template,
-//   CreateTemplatePayload,
-//   TemplateFilter,
-//   getTemplate,
-//   getTemplates,
-//   createTemplate as createTemplateApi,
-//   updateTemplate as updateTemplateApi,
-//   deleteTemplate as deleteTemplateApi,
-// } from '../services/api';
-
 export interface TemplateParameterValue {
   value_id: string;
   value: string;
