@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { templateApi, deleteContent, filterContent } from '../services/api';
 import { Post } from '../types/editor';
 import api from '../services/api';
+import { cacheManager } from '../services/cacheManager';
 
 // import {
 //   Template,
@@ -106,11 +107,8 @@ interface EditorState {
   hasReachedEnd: boolean;
   lastRefreshTimestamp: number;
   trendingBlogTopics: string[];
-  lastBlogTopicsFetch: Record<string, number>;
-  trendingTopicsCache: Record<string, { topics: string[], timestamp: number }>;
   isListLoading: boolean;
   currentTab: 'blog' | 'twitter' | 'linkedin';
-  contentCache: Record<string, { posts: Post[], totalPosts: number, timestamp: number }>;
   setCurrentTab: (tab: 'blog' | 'twitter' | 'linkedin') => void;
   setCurrentPost: (post: Post | null) => void;
   toggleTheme: () => void;
@@ -148,8 +146,6 @@ interface AdminState {
   isTemplateActionLoading: boolean;
   templateError: string | null;
   currentTemplate: Template | null;
-  templateCache: Record<string, CachedTemplateData>;
-  lastTemplatesFetch: number;
   setIsAdminView: (isAdmin: boolean) => void;
   setTemplateError: (error: string | null) => void;
   fetchTemplates: (skip?: number, limit?: number, filter?: TemplateFilter, forceRefresh?: boolean) => Promise<void>;
@@ -165,17 +161,11 @@ interface AdminState {
   deleteParameterValue: (parameterId: string, valueId: string) => Promise<void>;
   fetchParameterValues: (parameterId: string) => Promise<void>;
   handleUpdateTemplate: (templateId: string) => Promise<void>;
-  lastParametersFetch: number;
 }
 
 interface CombinedState extends EditorState, AdminState {}
 
-const MAX_CACHE_SIZE = 250;
-const PARAMETERS_CACHE_EXPIRY = 1000 * 60 * 10; // 10 minutes
-const TEMPLATES_CACHE_EXPIRY = 1000 * 60 * 5; // 5 minutes
-
 export const useEditorStore = create<CombinedState>((set, get) => ({
-  // Editor State Implementation
   posts: [],
   currentPost: null,
   isDarkMode: false,
@@ -193,19 +183,6 @@ export const useEditorStore = create<CombinedState>((set, get) => ({
   lastRefreshTimestamp: Date.now(),
   isListLoading: false,
   trendingBlogTopics: [],
-  lastBlogTopicsFetch: {},
-  trendingTopicsCache: {},
-  contentCache: {},
-  
-  // Add these missing state implementation methods
-  setCurrentTab: (tab) => set({ currentTab: tab }),
-  setCurrentPost: (post) => set({ currentPost: post }),
-  toggleTheme: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
-  setPosts: (posts) => set({ posts }),
-  setLoading: (loading) => set({ isLoading: loading }),
-  setError: (error) => set({ error }),
-  
-  // Admin state properties that were missing
   templates: [],
   isTemplateLoading: false,
   parameters: [],
@@ -216,13 +193,17 @@ export const useEditorStore = create<CombinedState>((set, get) => ({
   isTemplateActionLoading: false,
   templateError: null,
   currentTemplate: null,
-  templateCache: {},
-  lastTemplatesFetch: 0,
-  lastParametersFetch: 0,
 
+  setCurrentTab: (tab) => set({ currentTab: tab }),
+  setCurrentPost: (post) => set({ currentPost: post }),
+  toggleTheme: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
+  setPosts: (posts) => set({ posts }),
+  setLoading: (loading) => set({ isLoading: loading }),
+  setError: (error) => set({ error }),
+  
   fetchPosts: async (filters, skip = 0, limit = 20) => {
     console.log('fetchPosts called', { filters, skip, limit });
-    const { isLoading, hasReachedEnd, contentCache } = get();
+    const { isLoading, hasReachedEnd } = get();
     
     // Do not fetch if already loading or reached end (unless explicitly requested to refresh)
     if (isLoading || (!filters.forceRefresh && !filters.reset && hasReachedEnd)) {
@@ -256,12 +237,9 @@ export const useEditorStore = create<CombinedState>((set, get) => ({
     const cacheKey = JSON.stringify({ filters: cleanedFilters, skip, limit });
     
     // Check if we have a valid cache entry and no force refresh requested
-    if (!forceRefresh && !noCache && contentCache[cacheKey]) {
-      const cachedData = contentCache[cacheKey];
-      const now = Date.now();
-      const CONTENT_CACHE_EXPIRY = 1000 * 60 * 2; // 2 minutes
-      
-      if (now - cachedData.timestamp < CONTENT_CACHE_EXPIRY) {
+    if (!forceRefresh && !noCache) {
+      const cachedData = cacheManager.getContentFromCache(cacheKey);
+      if (cachedData) {
         console.log('Using cached content data');
         set({ 
           posts: cachedData.posts,
@@ -306,32 +284,9 @@ export const useEditorStore = create<CombinedState>((set, get) => ({
         const newHasReachedEnd = formattedBlogs.length < limit;
         
         // Cache this result
+        cacheManager.setContentInCache(cacheKey, formattedBlogs, response.data.total || formattedBlogs.length);
+        
         set(state => {
-          // Create a new cache entry
-          const newCache = {
-            ...state.contentCache,
-            [cacheKey]: {
-              posts: formattedBlogs,
-              totalPosts: response.data.total || formattedBlogs.length,
-              timestamp: Date.now()
-            }
-          };
-          
-          // Limit cache size by removing oldest entries if needed
-          const MAX_CONTENT_CACHE_SIZE = 20;
-          const cacheKeys = Object.keys(newCache);
-          if (cacheKeys.length > MAX_CONTENT_CACHE_SIZE) {
-            const oldestKeys = cacheKeys
-              .map(key => ({ key, timestamp: newCache[key].timestamp }))
-              .sort((a, b) => a.timestamp - b.timestamp)
-              .slice(0, cacheKeys.length - MAX_CONTENT_CACHE_SIZE)
-              .map(item => item.key);
-              
-            oldestKeys.forEach(key => {
-              delete newCache[key];
-            });
-          }
-          
           return {
             posts: filters.reset ? formattedBlogs : 
                   skip === 0 ? formattedBlogs : 
@@ -339,8 +294,7 @@ export const useEditorStore = create<CombinedState>((set, get) => ({
             totalPosts: response.data.total || formattedBlogs.length,
             lastLoadedSkip: skip + formattedBlogs.length,
             hasReachedEnd: newHasReachedEnd,
-            isListLoading: false,
-            contentCache: newCache
+            isListLoading: false
           };
         });
       }
@@ -727,26 +681,17 @@ ${content}`;
   },
 
   fetchTrendingBlogTopics: async (subreddits?: string[], limit: number = 15) => {
+    set({ trendingBlogTopics: [] });
+
+    const cacheKey = subreddits ? subreddits.join(',') : 'all';
+    const cachedTopics = cacheManager.getTrendingTopicsFromCache(cacheKey);
+    
+    if (cachedTopics) {
+      set({ trendingBlogTopics: cachedTopics });
+      return;
+    }
+
     try {
-      // Clear topics immediately
-      set({ trendingBlogTopics: [] });
-
-      const now = Date.now();
-      const cacheKey = subreddits ? subreddits.join(',') : 'all';
-      const cachedData = get().trendingTopicsCache[cacheKey];
-      
-      if (cachedData && now - cachedData.timestamp < 24 * 60 * 60 * 1000) {
-        // Use cached data after clearing
-        set({ 
-          trendingBlogTopics: cachedData.topics,
-          lastBlogTopicsFetch: {
-            ...get().lastBlogTopicsFetch,
-            [cacheKey]: cachedData.timestamp
-          }
-        });
-        return;
-      }
-
       const params: Record<string, any> = { limit };
       if (subreddits && subreddits.length > 0) {
         params.subreddits = subreddits.join(',');
@@ -754,35 +699,8 @@ ${content}`;
 
       const response = await api.get('/reddit/topic-suggestions', { params });
       if (response.data?.blog_topics) {
-        set((state) => {
-          const newCache = {
-            ...state.trendingTopicsCache,
-            [cacheKey]: {
-              topics: response.data.blog_topics,
-              timestamp: now
-            }
-          };
-
-          // Clean up cache if too large
-          if (Object.keys(newCache).length > MAX_CACHE_SIZE) {
-            const oldestEntries = Object.entries(newCache)
-              .sort(([, a], [, b]) => a.timestamp - b.timestamp)
-              .slice(0, Object.keys(newCache).length - MAX_CACHE_SIZE);
-
-            oldestEntries.forEach(([key]) => {
-              delete newCache[key];
-            });
-          }
-
-          return {
-            trendingBlogTopics: response.data.blog_topics,
-            trendingTopicsCache: newCache,
-            lastBlogTopicsFetch: {
-              ...state.lastBlogTopicsFetch,
-              [cacheKey]: now
-            }
-          };
-        });
+        cacheManager.setTrendingTopicsInCache(cacheKey, response.data.blog_topics);
+        set({ trendingBlogTopics: response.data.blog_topics });
       }
     } catch (error) {
       console.error('Error fetching trending blog topics:', error);
@@ -821,60 +739,23 @@ ${content}`;
   },
 
   fetchTemplates: async (skip = 0, limit = 10, filter?: TemplateFilter, forceRefresh = false) => {
-    const { templateCache } = get();
-    const now = Date.now();
-    
-    // Create a cache key based on the filter and pagination
     const cacheKey = JSON.stringify({ skip, limit, filter: filter || {} });
-    const cachedData = templateCache[cacheKey];
     
-    // Return cached data if available and not expired (unless forceRefresh is true)
-    if (
-      !forceRefresh && 
-      cachedData && 
-      now - cachedData.timestamp < TEMPLATES_CACHE_EXPIRY
-    ) {
-      console.log('Using cached templates data');
-      set({ templates: cachedData.templates });
-      return;
+    if (!forceRefresh) {
+      const cachedData = cacheManager.getTemplatesFromCache(cacheKey);
+      if (cachedData) {
+        console.log('Using cached templates data');
+        set({ templates: cachedData.templates });
+        return;
+      }
     }
     
     try {
       set({ isTemplateLoading: true, templateError: null });
       const response = await templateApi.getAllTemplates({ skip, limit }, limit, filter);
       if (response.data) {
-        // Update cache with new data
-        set((state) => {
-          // Create new cache entry
-          const newCache = { 
-            ...state.templateCache,
-            [cacheKey]: {
-              templates: response.data,
-              timestamp: now,
-              filter
-            }
-          };
-          
-          // Limit cache size by removing oldest entries if needed
-          const cacheKeys = Object.keys(newCache);
-          if (cacheKeys.length > MAX_CACHE_SIZE) {
-            const oldestKeys = cacheKeys
-              .map(key => ({ key, timestamp: newCache[key].timestamp }))
-              .sort((a, b) => a.timestamp - b.timestamp)
-              .slice(0, cacheKeys.length - MAX_CACHE_SIZE)
-              .map(item => item.key);
-              
-            oldestKeys.forEach(key => {
-              delete newCache[key];
-            });
-          }
-          
-          return {
-            templates: response.data,
-            templateCache: newCache,
-            lastTemplatesFetch: now
-          };
-        });
+        cacheManager.setTemplatesInCache(cacheKey, response.data, filter);
+        set({ templates: response.data });
       }
     } catch (error) {
       set({ templateError: error instanceof Error ? error.message : 'An error occurred' });
@@ -937,32 +818,23 @@ ${content}`;
   },
 
   fetchParameters: async () => {
-    // Check if we have recently fetched parameters
-    const now = Date.now();
-    const lastFetch = get().lastParametersFetch;
-    const parameters = get().parameters;
-
-    // If we have parameters and they were fetched recently, don't fetch again
-    if (parameters.length > 0 && now - lastFetch < PARAMETERS_CACHE_EXPIRY && !get().isParametersLoading) {
+    if (cacheManager.isParametersCacheValid() && !get().isParametersLoading) {
       return;
     }
 
     try {
       set({ isParametersLoading: true, parametersError: null });
       
-      // Use the '/parameters/all' endpoint that returns parameters with their values
       const response = await api.get('/parameters/all');
       
       if (response.data) {
-        // Store all parameters with their values
+        cacheManager.updateParametersFetchTimestamp();
         set((state) => ({
           parameters: response.data,
-          // Pre-populate the parameterValues map with values from each parameter
           parameterValues: response.data.reduce((acc: Record<string, any>, param: Parameter) => {
             acc[param.parameter_id] = param.values || [];
             return acc;
-          }, {...state.parameterValues}),
-          lastParametersFetch: now
+          }, {...state.parameterValues})
         }));
       }
     } catch (error) {
@@ -1001,7 +873,6 @@ ${content}`;
         // Update local state without full refetch
         set((state) => ({
           parameters: [...state.parameters, response.data],
-          lastParametersFetch: Date.now()
         }));
       }
     } catch (error) {
@@ -1019,7 +890,6 @@ ${content}`;
           parameters: state.parameters.map(p => 
             p.parameter_id === parameterId ? { ...p, ...response.data } : p
           ),
-          lastParametersFetch: Date.now()
         }));
       }
     } catch (error) {
@@ -1039,7 +909,6 @@ ${content}`;
           delete newValues[parameterId];
           return newValues;
         })(),
-        lastParametersFetch: Date.now()
       }));
     } catch (error) {
       console.error('Error deleting parameter:', error);
@@ -1185,5 +1054,43 @@ ${content}`;
       throw error;
     }
   },
+
+  // Update cleanup-related functions to use cacheManager
+  clearTemplateCache: () => {
+    cacheManager.clearTemplateCache();
+    set({ templates: [] });
+  },
+
+  clearContentCache: () => {
+    cacheManager.clearContentCache();
+    set({ posts: [], lastLoadedSkip: -1, hasReachedEnd: false });
+  },
+
+  clearAllCaches: () => {
+    cacheManager.clearAllCaches();
+    set({ 
+      templates: [], 
+      posts: [], 
+      lastLoadedSkip: -1,
+      hasReachedEnd: false,
+      trendingBlogTopics: [],
+    });
+  },
+
+  // Update image caching to use cacheManager
+  cacheTemplateImages: async (templates: Template[]) => {
+    const imageUrls = templates
+      .map(template => template.template_image_url)
+      .filter((url): url is string => !!url);
+    
+    if (imageUrls.length > 0) {
+      await cacheManager.preloadImages(imageUrls);
+    }
+  },
+
+  // Add cache statistics helper
+  getCacheStats: () => {
+    return cacheManager.getCacheStats();
+  }
 
 }));

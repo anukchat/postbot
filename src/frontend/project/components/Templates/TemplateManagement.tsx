@@ -5,6 +5,7 @@ import { TemplateActionButton } from './TemplateActionButton';
 import { TemplateDialog } from './TemplateDialog';
 import { DeleteConfirmationDialog } from './DeleteConfirmationDialog';
 import { toast } from 'react-hot-toast';
+import { cacheManager } from '../../services/cacheManager';
 
 export const TemplateManagement: React.FC = () => {
   const { 
@@ -18,7 +19,6 @@ export const TemplateManagement: React.FC = () => {
     createTemplate, 
     updateTemplate, 
     deleteTemplate,
-    lastTemplatesFetch 
   } = useEditorStore();
 
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
@@ -34,9 +34,7 @@ export const TemplateManagement: React.FC = () => {
   const needsFreshTemplateData = () => {
     // Check if we have templates in state already
     if (templates.length > 0) {
-      // If we have templates and they were loaded recently (within 5 minutes), no need to fetch
-      const TEMPLATE_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
-      return Date.now() - lastTemplatesFetch > TEMPLATE_REFRESH_INTERVAL;
+      return !cacheManager.isTemplatesCacheValid();
     }
     
     // If no templates, we need to fetch
@@ -59,8 +57,11 @@ export const TemplateManagement: React.FC = () => {
         await fetchTemplates();
       }
       
-      // Fetch parameters only once per session
-      await fetchParameters();
+      // Fetch parameters only if cache is invalid
+      if (!cacheManager.isParametersCacheValid()) {
+        await fetchParameters();
+        cacheManager.updateParametersFetchTimestamp();
+      }
       
       // Mark as fetched
       if (isMounted.current) {
@@ -76,9 +77,20 @@ export const TemplateManagement: React.FC = () => {
     };
   }, [fetchTemplates, fetchParameters, isTemplateLoading]);
 
+  // Handle manual refresh of templates
+  const handleRefreshTemplates = () => {
+    // Clear template cache before forcing refresh
+    cacheManager.clearTemplateCache();
+    fetchTemplates(undefined, undefined, undefined, true);
+    toast.success('Templates refreshed');
+  };
+
+  // Handle template creation/update/delete with proper cache invalidation
   const handleCreateTemplate = async (templateData: any) => {
     try {
       await createTemplate(templateData);
+      // Clear template cache after creation
+      cacheManager.clearTemplateCache();
       toast.success('Template created successfully');
       setIsEditDialogOpen(false);
       setSelectedTemplate(null);
@@ -93,6 +105,8 @@ export const TemplateManagement: React.FC = () => {
     if (selectedTemplate) {
       try {
         await updateTemplate(selectedTemplate, templateData);
+        // Clear template cache after update
+        cacheManager.clearTemplateCache();
         toast.success('Template updated successfully');
         setIsEditDialogOpen(false);
         setSelectedTemplate(null);
@@ -108,6 +122,8 @@ export const TemplateManagement: React.FC = () => {
     if (selectedTemplate) {
       try {
         await deleteTemplate(selectedTemplate);
+        // Clear template cache after deletion
+        cacheManager.clearTemplateCache();
         toast.success('Template deleted successfully');
         setIsDeleteDialogOpen(false);
         setSelectedTemplate(null);
@@ -129,12 +145,6 @@ export const TemplateManagement: React.FC = () => {
     setSelectedTemplateData(template);
     setSelectedTemplate(template.template_id);
     setIsDeleteDialogOpen(true);
-  };
-
-  // Handle manual refresh of templates
-  const handleRefreshTemplates = () => {
-    fetchTemplates(undefined, undefined, undefined, true);
-    toast.success('Templates refreshed');
   };
 
   return (
@@ -243,7 +253,10 @@ export const TemplateManagement: React.FC = () => {
           }}
           onSubmit={selectedTemplate ? handleUpdateTemplate : handleCreateTemplate}
           template={selectedTemplateData}
-          parameters={parameters}
+          parameters={parameters.map(p => ({
+            ...p,
+            values: p.values?.[0] || { value_id: '', value: '' }
+          }))}
           parameterValues={parameterValues}
           isLoading={isTemplateActionLoading}
         />

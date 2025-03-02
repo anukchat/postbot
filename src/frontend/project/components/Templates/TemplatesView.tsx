@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { Search, Filter, Sparkles, X, Loader2 } from 'lucide-react';
 import { TemplateCard } from './TemplateCard';
 import { useEditorStore } from '../../store/editorStore';
-import { cacheService } from '../../services/cacheService';
+import { cacheManager } from '../../services/cacheManager';
 
 interface Template {
   id: string;
@@ -42,7 +42,7 @@ export const TemplatesView = ({ onTemplateSelect }: TemplatesViewProps) => {
         setCacheError('Failed to load templates. Retrying...');
         // Retry once after cache failure
         try {
-          cacheService.clearCache();
+          cacheManager.clearAllCaches();
           await fetchTemplates();
           setCacheError(null);
         } catch (retryError) {
@@ -57,7 +57,7 @@ export const TemplatesView = ({ onTemplateSelect }: TemplatesViewProps) => {
   // Add cache stats monitoring (for development)
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
-      const stats = cacheService.getCacheStats();
+      const stats = cacheManager.getCacheStats();
       console.log('Cache stats:', stats);
     }
   }, [templates]);

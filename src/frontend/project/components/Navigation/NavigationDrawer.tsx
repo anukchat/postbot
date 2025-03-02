@@ -4,6 +4,7 @@ import { Loader, Search, Filter, X, RefreshCw, Trash2 } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import { Post } from '../../types/editor';
 import toast from 'react-hot-toast';
+import { cacheManager } from '../../services/cacheManager';
 
 interface NavigationDrawerProps {
   isOpen: boolean;
@@ -44,7 +45,6 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
     isLoading,
     hasReachedEnd,
     deletePost,
-    contentCache,
     isContentUpdated
   } = useEditorStore();
   
@@ -120,11 +120,6 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
 
   // Improved logic to check if we need to fetch data
   const shouldFetchData = useCallback(() => {
-    const now = Date.now();
-    const timeSinceLastFetch = now - lastFetchRef.current;
-    
-    // Check for different scenarios when we should fetch:
-    
     // 1. If content has been updated (new blog generated)
     if (isContentUpdated) {
       console.log('Fetching due to content update');
@@ -139,22 +134,16 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
     
     // 3. Check if we have a valid cache entry for empty filters (default list)
     const defaultCacheKey = JSON.stringify({ filters: {}, skip: 0, limit });
-    const hasCachedData = Object.keys(contentCache).some(key => key.includes(defaultCacheKey));
+    const cachedData = cacheManager.getContentFromCache(defaultCacheKey);
     
-    if (!hasCachedData) {
+    if (!cachedData) {
       console.log('Fetching because no cached data found');
-      return true;
-    }
-    
-    // 4. Allow fetch if it's been more than the cooldown period
-    if (timeSinceLastFetch > FETCH_COOLDOWN) {
-      console.log('Fetching due to cooldown period passed');
       return true;
     }
     
     console.log('Using cached data, not fetching');
     return false;
-  }, [posts.length, isContentUpdated, contentCache, limit]);
+  }, [posts.length, isContentUpdated, limit]);
 
   // Optimize the handleLoadMore callback
   const handleLoadMore = useCallback(async () => {
@@ -207,7 +196,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
       
       // Always check cache for default query when drawer opens
       const defaultCacheKey = JSON.stringify({ filters: {}, skip: 0, limit });
-      const hasCachedData = Object.keys(contentCache).some(key => key.includes(defaultCacheKey));
+      const cachedData = cacheManager.getContentFromCache(defaultCacheKey);
       
       // Counter to prevent excessive attempts in a session
       const fetchCount = fetchCounterRef.current;
@@ -220,13 +209,12 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
         
         // Mark initial fetch done and update last fetch time
         initialFetchDoneRef.current = true;
-        lastFetchRef.current = Date.now();
         fetchCounterRef.current += 1;
         
         // Fetch data with minimum parameters to maximize cache hits
         fetchPosts({
           timestamp: Date.now(),
-          noCache: !hasCachedData // Only bypass cache if we don't have cached data
+          noCache: !cachedData // Only bypass cache if we don't have cached data
         }, 0, limit);
       }
     }
@@ -235,7 +223,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
     if (!isOpen) {
       drawerOpenedRef.current = false;
     }
-  }, [isOpen, fetchPosts, isListLoading, limit, shouldFetchData, contentCache]);
+  }, [isOpen, fetchPosts, isListLoading, limit, shouldFetchData]);
 
   // Debounced search that uses client-side filtering when possible
   const debouncedSearch = useMemo(() => {
@@ -433,11 +421,11 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
     
     // Apply the quick filter if it changed
     if (newValue !== selectedQuickFilter) {
-      // Check if we have this filter cached, otherwise fetch from API
+      // Check if we have this filter cached
       const cacheKey = JSON.stringify({ filters: { status: newValue }, skip: 0, limit });
-      const hasCachedData = Object.keys(contentCache).some(key => key.includes(cacheKey));
+      const cachedData = cacheManager.getContentFromCache(cacheKey);
       
-      if (!hasCachedData) {
+      if (!cachedData) {
         lastFetchRef.current = Date.now();
         // Structure the filter object properly for the API
         const apiFilters = newValue ? { status: newValue } : {};
