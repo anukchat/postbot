@@ -1,6 +1,6 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
-from src.backend.api.datamodel import Content, ContentUpdate, ContentListResponse, ContentListItem, SaveContentRequest, ScheduleContentRequest, GeneratePostRequestModel
+from src.backend.api.datamodel import BlogResponse, Content, ContentUpdate, ContentListResponse, ContentListItem, SaveContentRequest, ScheduleContentRequest, GeneratePostRequestModel
 from src.backend.db.repositories import ContentRepository, ProfileRepository, ContentTypeRepository, TemplateRepository
 from dependencies import get_current_user_profile, get_workflow
 from uuid import UUID
@@ -36,7 +36,7 @@ async def create_content(
         raise HTTPException(status_code=400, detail=str(e))
 
 #TODO: Define response model for generate
-@router.post("/generate", response_model=Dict)
+@router.post("/generate", response_model=BlogResponse)
 async def generate_generic_blog(
     payload: GeneratePostRequestModel,
     workflow: AgentWorkflow = Depends(get_workflow),
@@ -221,10 +221,10 @@ async def save_content(
         )
         if not result:
             raise HTTPException(status_code=404, detail="Content not found")
-        return ContentListItem(**result)
+        return format_content_list_item(result)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
+    
 @router.put("/thread/{thread_id}/schedule")
 async def schedule_thread_content(
     thread_id: UUID, 

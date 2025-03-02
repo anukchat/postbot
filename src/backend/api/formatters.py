@@ -19,14 +19,32 @@ def format_content_list_item(content: Any) -> ContentListItem:
         content_type = content.content_type.name if hasattr(content, 'content_type') else None
         
         # Format data
+        # Extract URLs and media from all sources
+        urls = []
+        media = []
+        for source in getattr(content, 'sources', []):
+            if source:
+                # Add URLs from url_references
+                urls.extend([
+                    {"url": ref.url, "type": ref.type, "domain": ref.domain}
+                    for ref in getattr(source, 'url_references', [])
+                    if hasattr(ref, 'url')
+                ])
+                # Add media from media array
+                media.extend([
+                    {"url": m.media_url, "type": m.media_type}
+                    for m in getattr(source, 'media', [])
+                    if hasattr(m, 'media_url')
+                ])
+
         result = ContentListItem(
             id=str(getattr(content, 'content_id', '')),
             thread_id=str(getattr(content, 'thread_id', '')),
             source_identifier=next(
-                (source.source_identifier
-                for source in getattr(content, 'sources', [])
-                if source and hasattr(source, 'source_identifier')),
-                ""
+            (source.source_identifier
+            for source in getattr(content, 'sources', [])
+            if source and hasattr(source, 'source_identifier')),
+            ""
             ),
             title=getattr(content, 'title', ''),
             content=getattr(content, 'body', ''),
@@ -36,13 +54,13 @@ def format_content_list_item(content: Any) -> ContentListItem:
             status=getattr(content, 'status', ''),
             twitter_post=getattr(content, 'body', '') if content_type == "twitter_post" else "",
             linkedin_post=getattr(content, 'body', '') if content_type == "linkedin_post" else "",
-            urls=[],
-            media=[],
+            urls=urls,
+            media=media,
             source_type=next(
-                (source.source_type.name
-                for source in getattr(content, 'sources', [])
-                if source and hasattr(source, 'source_type')),
-                None
+            (source.source_type.name
+            for source in getattr(content, 'sources', [])
+            if source and hasattr(source, 'source_type')),
+            None
             )
         )
         

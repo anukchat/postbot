@@ -534,7 +534,7 @@ class AgentWorkflow:
                 'name': payload["template"].name,
                 'description': payload["template"].description,
                 'parameters': {
-                    param.name: param.value
+                    param.name: param.values.value
                     for param in payload["template"].parameters
                 }
             }

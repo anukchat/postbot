@@ -58,7 +58,9 @@ class ContentRepository(SQLAlchemyRepository[Content]):
             
             if content:
                 for key, value in data.items():
-                    if hasattr(content, key):
+                    if key in ['content', 'twitter_post', 'linkedin_post'] and value:
+                        setattr(content, 'body', value)
+                    elif hasattr(content, key):
                         setattr(content, key, value)
                 session.commit()
                 return content

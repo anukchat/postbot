@@ -559,3 +559,15 @@ class UserProfileResponse(BaseModel):
     id: str  # Original user_id from auth
     profile_id: str  # Profile ID for database relations
     role: str = "free"
+
+
+class BlogResponse(BaseModel):
+    final_blog: Optional[str]
+    reviewed_blog: Optional[str]
+    blog_title: Optional[str]
+    twitter_post: Optional[str]
+    linkedin_post: Optional[str]
+    tags: Optional[List[str]]
+    feedback_applied: Optional[bool]
+    linkedin_post_generated: Optional[bool]
+    twitter_post_generated: Optional[bool]
