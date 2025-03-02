@@ -3,7 +3,7 @@ from datetime import datetime
 from uuid import UUID
 from ..db.connection import DatabaseConnectionManager
 from .datamodel import (
-    Content, Source, Tag, TemplateParameter, TemplateParameterValue, URLReference, Media, ContentSource,
+    Content, ParameterValueModel, Source, Tag, TemplateParameter, TemplateParameterValue, URLReference, Media, ContentSource,
     ContentListItem, ContentListResponse,
     SourceListResponse, TemplateResponse,
     RedditResponse
@@ -118,11 +118,21 @@ def format_source_list_response(items: List[Any], total: int, page: int, size: i
 def format_template_parameter(parameter: Any) -> Dict[str, Any]:
     """Format a template parameter"""
     try:
-        # Create a valid TemplateParaßmeterValue instance if value exists
-        parameter_values = []
-        if hasattr(parameter, 'values'):
-            parameter_values = [format_parameter_value(value) for value in parameter.values]
-
+        # Check if parameter has a selected_value attribute first (for a specific template)
+        if hasattr(parameter, 'selected_value') and parameter.selected_value:
+            # This is a parameter from a specific template with a selected value
+            parameter_values = [format_parameter_value(parameter.selected_value)] if parameter.selected_value else []
+        elif hasattr(parameter, 'values') and parameter.values:
+            # Handle different value structures based on what comes from the database
+            if isinstance(parameter.values, list):
+                # Case where values is a list of parameter values
+                parameter_values = [format_parameter_value(value) for value in parameter.values if value]
+            else:
+                # Case where values is a single parameter value object
+                parameter_values = [format_parameter_value(parameter.values)]
+        else:
+            parameter_values = []
+            
         result = TemplateParameter(
             parameter_id=getattr(parameter, 'parameter_id', ''),
             name=getattr(parameter, 'name', ''),
@@ -142,7 +152,7 @@ def format_parameter_value(value: Any) -> Dict[str, Any]:
         return None
 
     try:
-        result = TemplateParameterValue(
+        result = ParameterValueModel(
             value_id=getattr(value, 'value_id', None),
             value=getattr(value, 'value', ''),
             display_order=getattr(value, 'display_order', 0),

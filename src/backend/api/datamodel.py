@@ -440,7 +440,7 @@ class CallbackResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: Optional[int] = None
 
-# Model for a single parameter value
+# Model for a Templates
 class TemplateParameterValue(BaseModel):
     value_id: UUID
     value: str
@@ -454,7 +454,6 @@ class TemplateParameterValueCreate(BaseModel):
     value_id: UUID
     value: str
 
-# Model for a single parameter
 class TemplateParameter(BaseModel):
     parameter_id: UUID
     name: str  # Parameter name (e.g., "persona")
@@ -462,7 +461,7 @@ class TemplateParameter(BaseModel):
     description: Optional[str] = ''
     is_required: bool = True
     created_at: datetime
-    values: List[Optional[TemplateParameterValue]] 
+    values: Optional[TemplateParameterValue]=None
 
     class Config:
         from_attributes = True
@@ -484,6 +483,7 @@ class TemplateResponse(BaseModel):
     parameters: Optional[List[TemplateParameter]]
     created_at: datetime
     updated_at: datetime
+    is_deleted: bool = False
 
     class Config:
         from_attributes = True
@@ -502,23 +502,24 @@ class TemplateUpdate(BaseModel):
     description: Optional[str] = None
     template_type: Optional[str] = None
     template_image_url: Optional[str] = None
-    parameters: Optional[List[TemplateParameter]] = None  # Optional list of updated parameters
+    parameters: Optional[List[TemplateParameterCreate]] = None  # Optional list of updated parameters
 
-# Model for filtering templates
-class TemplateFilter(BaseModel):
-    name: Optional[str] = None
-    template_type: Optional[str] = None
-    parameter_id: Optional[UUID] = None
-    value_id: Optional[UUID] = None
-
-class ParameterFilter(BaseModel):
-    parameter_id: UUID
+# Model for parameters
+class ParameterValueModel(BaseModel):
     value_id: UUID
+    value: str
+    display_order: int
+    created_at: datetime
 
-class AdvancedTemplateFilter(BaseModel):
-    parameters: List[ParameterFilter]
-    template_type: Optional[str] = None
-    is_deleted: Optional[bool] = False
+class ParameterModel(BaseModel):
+    parameter_id: UUID
+    name: str
+    display_name: str
+    description: Optional[str]
+    is_required: bool
+    created_at: datetime
+    values: List[ParameterValueModel]
+
 
 class SaveContentRequest(BaseModel):
     # thread_id: UUID

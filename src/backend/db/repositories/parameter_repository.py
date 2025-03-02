@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy.orm import joinedload
 from sqlalchemy import desc
 
-from src.backend.api.datamodel import TemplateParameter, TemplateParameterValue
+from src.backend.api.datamodel import ParameterModel, ParameterValueModel, TemplateParameter, TemplateParameterValue
 from ..models import Parameter, ParameterValue
 from ..sqlalchemy_repository import SQLAlchemyRepository
 
@@ -27,7 +27,7 @@ class ParameterRepository(SQLAlchemyRepository[Parameter]):
             if not parameter:
                 return None
                 
-            return TemplateParameter(
+            return ParameterModel(
                 parameter_id= parameter.parameter_id,
                 name= parameter.name,
                 display_name= parameter.display_name,
@@ -35,7 +35,7 @@ class ParameterRepository(SQLAlchemyRepository[Parameter]):
                 is_required= parameter.is_required,
                 created_at= parameter.created_at,
                 values= [
-                    TemplateParameterValue(
+                    ParameterValueModel(
                         value_id= value.value_id,
                         value= value.value,
                         display_order= value.display_order,

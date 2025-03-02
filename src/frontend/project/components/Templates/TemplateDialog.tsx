@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Dialog } from '@headlessui/react';
-import { Parameter, ParameterValue, Template, TemplateParameter } from '../../store/editorStore';
+import { Template, TemplateParameter, TemplateParameterValue } from '../../store/editorStore';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { useEditorStore } from '../../store/editorStore';
 
 interface TemplateDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (templateData: any) => Promise<void>;
+  onSubmit: (templateData: Partial<Template>) => Promise<void>;
   template: Template | null;
-  parameters: Parameter[];
-  parameterValues: Record<string, ParameterValue[]>;
+  parameters: TemplateParameter[];
+  parameterValues: Record<string, TemplateParameterValue[]>;
   isLoading: boolean;
 }
 
@@ -77,7 +77,10 @@ export const TemplateDialog: React.FC<TemplateDialogProps> = ({
             p.parameter_id === parameterId 
               ? {
                   ...p,
-                  values: { parameter_id: parameterId, value_id: valueId, value }
+                  values: { 
+                    value_id: valueId, 
+                    value: value
+                  }
                 }
               : p
           )
@@ -88,7 +91,10 @@ export const TemplateDialog: React.FC<TemplateDialogProps> = ({
               name: parameters.find(p => p.parameter_id === parameterId)?.name || '',
               display_name: parameters.find(p => p.parameter_id === parameterId)?.display_name || '',
               is_required: parameters.find(p => p.parameter_id === parameterId)?.is_required || false,
-              values: { parameter_id: parameterId, value_id: valueId, value }
+              values: {
+                value_id: valueId,
+                value: value
+              }
             }
           ]
     }));
@@ -102,20 +108,7 @@ export const TemplateDialog: React.FC<TemplateDialogProps> = ({
   // Helper function to get parameter value ID from template parameters
   const getParameterValueId = (parameterId: string) => {
     const parameter = formData.parameters.find(p => p.parameter_id === parameterId);
-    if (!parameter) return '';
-    
-    // Handle different structures that might exist in the data
-    if (parameter.values) {
-      if (typeof parameter.values === 'object' && 'value_id' in parameter.values) {
-        // Handle case where values is a single object
-        return parameter.values.value_id;
-      } else if (Array.isArray(parameter.values) && parameter.values.length > 0) {
-        // Handle case where values is an array
-        return parameter.values[0].value_id;
-      }
-    }
-    
-    return '';
+    return parameter?.values?.value_id || '';
   };
 
   return (

@@ -212,10 +212,12 @@ export const TemplateManagement: React.FC = () => {
               <div className="mt-2">
                 <p className="text-sm text-gray-500 dark:text-gray-300">Parameters:</p>
                 <div className="flex flex-wrap gap-2 mt-1">
-                  {template.parameters?.map((param: any) => (
-                    <span key={param.parameter_id} className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">
-                      {param.display_name}: {param.values?.value || (param.values && param.values.length > 0 ? param.values[0].value : 'N/A')}
-                    </span>
+                  {template.parameters?.sort((a: any, b: any) => 
+                  a.display_name.localeCompare(b.display_name)
+                  ).map((param: any) => (
+                  <span key={param.parameter_id} className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">
+                    {param.display_name}: {param.values?.value || (param.values && param.values.length > 0 ? param.values.value : 'N/A')}
+                  </span>
                   ))}
                 </div>
               </div>

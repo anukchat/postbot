@@ -28,7 +28,7 @@ export interface TemplateParameter {
   description?: string;
   is_required: boolean;
   created_at?: string;
-  values: TemplateParameterValue[] | TemplateParameterValue;
+  values: TemplateParameterValue;
 }
 
 export interface Template {
@@ -1053,14 +1053,19 @@ ${content}`;
       if (response.data) {
         // Update local state directly
         set((state) => {
+          // Find and update the parameter
           const parameterIndex = state.parameters.findIndex(p => p.parameter_id === parameterId);
+          const updatedParameters = [...state.parameters];
+          
           if (parameterIndex >= 0) {
-            const updatedParameters = [...state.parameters];
+            const parameter = updatedParameters[parameterIndex];
+            const values = Array.isArray(parameter.values) ? parameter.values : [];
             updatedParameters[parameterIndex] = {
-              ...updatedParameters[parameterIndex],
-              values: [...(updatedParameters[parameterIndex].values || []), response.data]
+              ...parameter,
+              values: [...values, response.data]
             };
             
+            // Return updated state
             return {
               parameters: updatedParameters,
               parameterValues: {

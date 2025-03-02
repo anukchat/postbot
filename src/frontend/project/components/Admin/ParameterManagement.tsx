@@ -70,7 +70,7 @@ export const ParameterManagement = () => {
       await updateParameter(editingParameter.parameter_id, newParameter);
       // Don't need to fetch parameters again since updateParameter updates the local state
       setEditingParameter(null);
-      setNewParameter({ name: '', display_name: '', description: '', is_required: false, values: [] });
+      // setNewParameter({ name: '', display_name: '', description: '', is_required: false, values: [] });
       toast.success('Parameter updated successfully');
     } catch (error) {
       console.error('Error updating parameter:', error);
@@ -175,7 +175,9 @@ export const ParameterManagement = () => {
 
       {/* Parameter list */}
       <div className="divide-y divide-gray-200 dark:divide-gray-700">
-        {parameters.map((parameter) => (
+        {parameters
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .map((parameter) => (
           <div key={parameter.parameter_id} className="p-6">
             <div className="mb-4">
               <div className="flex justify-between items-start">
@@ -225,9 +227,14 @@ export const ParameterManagement = () => {
                   onClick={() => {
                     setSelectedParameterId(parameter.parameter_id);
                     setIsValueModalOpen(true);
+                    // Calculate next display order by finding max and adding 1
+                    const maxDisplayOrder = Math.max(
+                      0,
+                      ...(parameter.values || []).map(v => v.display_order)
+                    );
                     setNewValue({
                       value: '',
-                      display_order: 0
+                      display_order: maxDisplayOrder + 1
                     });
                   }}
                   className="inline-flex items-center px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600"

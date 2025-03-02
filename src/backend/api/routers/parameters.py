@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from src.backend.api.formatters import format_parameter_value
 from src.backend.db.repositories import template_repository
-from src.backend.api.datamodel import TemplateParameter, SourceListResponse, TemplateParameterValue, TemplateResponse
+from src.backend.api.datamodel import ParameterModel, ParameterValueModel, TemplateParameter, SourceListResponse, TemplateParameterValue, TemplateResponse
 from src.backend.db.repositories import ParameterRepository, SourceRepository
 from src.backend.api.dependencies import get_current_user_profile
 from uuid import UUID
@@ -17,7 +17,7 @@ parameter_repository = ParameterRepository()
 source_repository = SourceRepository()
 
 
-@router.get("/all", response_model=List[TemplateParameter])
+@router.get("/all", response_model=List[ParameterModel])
 def get_all_parameters_with_values(
     skip: int = 0,
     limit: int = 100,
@@ -31,7 +31,7 @@ def get_all_parameters_with_values(
         # Convert raw parameters into ParameterWithValues schema
         formatted_parameters = []
         for param in parameters:
-            formatted_param = TemplateParameter(
+            formatted_param = ParameterModel(
                 parameter_id=str(param.parameter_id),
                 name=param.name,
                 display_name=param.display_name,
@@ -39,7 +39,7 @@ def get_all_parameters_with_values(
                 is_required=param.is_required,
                 created_at=param.created_at,
                 values=[
-                    TemplateParameterValue(
+                    ParameterValueModel(
                         value_id=str(value.value_id),
                         value=value.value, 
                         display_order=value.display_order,
@@ -53,7 +53,7 @@ def get_all_parameters_with_values(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/{parameter_id}", response_model=TemplateParameter)
+@router.get("/{parameter_id}", response_model=ParameterModel)
 def get_parameter(
     parameter_id: UUID,
     current_user: dict = Depends(get_current_user_profile)
@@ -67,25 +67,25 @@ def get_parameter(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/{parameter_id}/values", response_model=List[TemplateParameterValue])
+@router.get("/{parameter_id}/values", response_model=List[ParameterValueModel])
 async def get_parameter_values(
     parameter_id: UUID,
     current_user: Dict = Depends(get_current_user_profile)
 ):
     try:
         values = parameter_repository.get_parameter_values(parameter_id)
-        return [TemplateParameterValue(value_id=str(value.value_id),value=value.value,display_order=value.display_order,created_at=value.created_at) for value in values]
+        return [ParameterValueModel(value_id=str(value.value_id),value=value.value,display_order=value.display_order,created_at=value.created_at) for value in values]
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 # Parameter management endpoints
-@router.post("/", response_model=TemplateParameter)
+@router.post("/", response_model=ParameterModel)
 def create_parameter(
     name: str = Body(...),
     display_name: str = Body(...),
     description: Optional[str] = Body(None),
     is_required: bool = Body(True),
-    current_user: dict = Depends(get_current_user_profile)
+    current_user: dict = Depends(get_current_user_profile),
 ):
     """Create a new parameter."""
     try:
@@ -97,12 +97,25 @@ def create_parameter(
         })
         if not result:
             raise HTTPException(status_code=400, detail="Failed to create parameter")
-
-        return result
+        return ParameterModel(
+            parameter_id=result.parameter_id,
+            name=result.name,
+            display_name=result.display_name,
+            description=result.description,
+            is_required=result.is_required,
+            created_at=result.created_at,
+            values=[ParameterValueModel(
+                value_id=value.value_id,
+                value=value.value,
+                display_order=value.display_order,
+                created_at=value.created_at
+            ) for value in result.values
+            ]
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.put("/{parameter_id}", response_model=TemplateParameter)
+@router.put("/{parameter_id}", response_model=ParameterModel)
 def update_parameter(
     parameter_id: UUID,
     name: Optional[str] = Body(None),
@@ -123,7 +136,20 @@ def update_parameter(
         result = parameter_repository.update_parameter(parameter_id, update_data)
         if not result:
             raise HTTPException(status_code=404, detail="Parameter not found")
-        return result
+        return ParameterModel(
+            parameter_id=str(result.parameter_id),
+            name=result.name,
+            display_name=result.display_name,
+            description=result.description,
+            is_required=result.is_required,
+            created_at=result.created_at,
+            values=[ParameterValueModel(
+                value_id=str(value.value_id),
+                value=value.value,
+                display_order=value.display_order,
+                created_at=value.created_at
+            ) for value in result.values]
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -142,7 +168,7 @@ def delete_parameter(
         raise HTTPException(status_code=400, detail=str(e))
 
 # Parameter values management endpoints
-@router.post("/{parameter_id}/values", response_model=TemplateParameterValue)
+@router.post("/{parameter_id}/values", response_model=ParameterValueModel)
 def create_parameter_value(
     parameter_id: UUID,
     value: str = Body(...),
@@ -161,7 +187,7 @@ def create_parameter_value(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.put("/{parameter_id}/values/{value_id}", response_model=TemplateParameterValue)
+@router.put("/{parameter_id}/values/{value_id}", response_model=ParameterValueModel)
 def update_parameter_value(
     parameter_id: UUID,
     value_id: UUID,
@@ -179,7 +205,12 @@ def update_parameter_value(
         result = parameter_repository.update_parameter_value(value_id, parameter_id, update_data)
         if not result:
             raise HTTPException(status_code=404, detail="Parameter value not found")
-        return result
+        return ParameterValueModel(
+            value_id=str(result.value_id),
+            value=result.value,
+            display_order=result.display_order,
+            created_at=result.created_at
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -215,20 +246,3 @@ def duplicate_template(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
-@router.put("/{parameter_id}/values/{value_id}", response_model=TemplateParameterValue)
-async def update_parameter_value(
-    parameter_id: UUID,
-    value_id: UUID,
-    update_data: Dict[str, Any],
-    current_user: Dict = Depends(get_current_user_profile)
-):
-    try:
-        result = parameter_repository.update_parameter_value(value_id, parameter_id, update_data)
-        if not result:
-            raise HTTPException(status_code=404, detail="Parameter value not found")
-        return result
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))

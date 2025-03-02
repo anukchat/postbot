@@ -118,11 +118,10 @@ export const TemplatesView = ({ onTemplateSelect }: TemplatesViewProps) => {
   const availableCategories = useMemo(() => {
     const categories = new Set<string>();
     templates.forEach(template => {
-      template.parameters.forEach(param => {
-        if (param.name === 'content_type' && param.values) {
-          categories.add(param.values.value);
-        }
-      });
+      const contentTypeParam = template.parameters.find(p => p.name === 'content_type');
+      if (contentTypeParam?.values?.value) {
+        categories.add(contentTypeParam.values.value);
+      }
     });
     return Array.from(categories);
   }, [templates]);
@@ -356,7 +355,7 @@ export const TemplatesView = ({ onTemplateSelect }: TemplatesViewProps) => {
                       title={template.name}
                       description={template.description || ''}
                       thumbnail={template.template_image_url || ''} // You might want to add a default image
-                      category={template.parameters.find(p => p.name === 'content_type')?.values.value || ''}
+                      category={template.parameters.find(p => p.name === 'content_type')?.values?.value || ''}
                     />
                   </div>
                 ))}
