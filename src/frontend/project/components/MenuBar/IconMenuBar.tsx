@@ -260,12 +260,14 @@ export const IconMenuBar: React.FC<IconMenuBarProps> = ({ selectedTab, onCommand
 
       {/* Existing modals */}
       {showFeedbackModal && (
-        <FeedbackModal
-          feedback={feedback}
-          setFeedback={setFeedback}
-          handleFeedbackSubmit={handleFeedbackSubmit}
-          setShowFeedbackModal={setShowFeedbackModal}
-        />
+        <div className="relative z-[9999]">
+          <FeedbackModal
+            feedback={feedback}
+            setFeedback={setFeedback}
+            handleFeedbackSubmit={handleFeedbackSubmit}
+            setShowFeedbackModal={setShowFeedbackModal}
+          />
+        </div>
       )}
     </>
   );

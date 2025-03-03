@@ -35,16 +35,16 @@ from src.backend.agents.tools import ImageSearch, RedditSearch, WebSearch
 from src.backend.clients.llm import LLMClient, HumanMessage, SystemMessage
 from src.backend.agents.state import BlogState, BlogStateInput, BlogStateOutput, SectionState
 from src.backend.agents.utils import *
-from src.backend.db.supabaseclient import supabase_client
 from src.backend.extraction.factory import ConverterRegistry, ExtracterRegistry
 import atexit
 from src.backend.utils.logger import setup_logger
 from src.backend.utils.general import safe_json_loads, shorten_link
+from src.backend.db.repositories import URLReferencesRepository, MediaRepository, SourceMetadataRepository
+from src.backend.db.repositories import *
 
 # Setup logger
 logger = setup_logger(__name__)
 
-supabase: Client = supabase_client()
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,7 @@ class AgentWorkflow:
         self.websearcher = WebSearch(provider='google', num_results=15)
         self.imagesearch=ImageSearch()
         self.reddit_searcher=RedditSearch()
+        # Initialize repositories
         self.builder = StateGraph(
             BlogState,
             input=BlogStateInput,
@@ -84,6 +85,22 @@ class AgentWorkflow:
         self.arxiv_extracter=ExtracterRegistry.get_extractor("arxiv")
         self.github_extracter=ExtracterRegistry.get_extractor("github")
         self.reddit_extracter=ExtracterRegistry.get_extractor("reddit")
+
+        # repositories
+        self.content_repo = ContentRepository()
+        self.profile_repo = ProfileRepository()
+        self.source_repo = SourceRepository()
+        self.source_type_repo = SourceTypeRepository()
+        self.content_type_repo = ContentTypeRepository()
+        self.tag_repo = TagRepository()
+        self.template_repo = TemplateRepository()
+        self.parameter_repo = ParameterRepository()
+        self.auth_repo = AuthRepository()
+        self.subscription_repo = SubscriptionRepository()
+        self.url_references_repo = URLReferencesRepository()
+        self.media_repo = MediaRepository()
+        self.source_metadata_repo = SourceMetadataRepository()
+
 
     def _cleanup(self):
         """Close database connection on exit"""
@@ -312,7 +329,10 @@ class AgentWorkflow:
         User feedback:
         {state.feedback}
         
-        Please modify the content according to the feedback while maintaining the technical accuracy and quality."""
+        Modify the content according to the feedback while maintaining the quality.
+        
+        Stricly return only the modified content in markdown format and do not include any additional text including introductory phrases like conversation starters e.g. Do not include 'Here's is the modified content etc.'.
+        """
 
         # Invoke the LLM to modify the content
         modified_content = self.llm.invoke(
@@ -349,15 +369,7 @@ class AgentWorkflow:
     def fetch_urls_and_media(self, tweet_id):
         """
         Fetches URLs and media associated with a tweet from the database.
-        
-        Args:
-            tweet_id (str): The ID of the tweet to fetch data for
-            
-        Returns:
-            dict: Contains source_id, urls and media data
-            
-        Raises:
-            ValueError: If no source is found for the tweet_id
+
         """
         try:
             # Get source record
@@ -380,40 +392,29 @@ class AgentWorkflow:
 
     def _get_source_id(self, tweet_id):
         """Helper method to get source_id for a tweet"""
-        source = (supabase.table("sources")
-                 .select("source_id")
-                 .eq("source_identifier", tweet_id)
-                 .single()
-                 .execute())
+        source =self.source_repo.find_by_field("source_identifier",tweet_id)
                  
         if not source.data:
             raise ValueError(f"No source found for tweet_id: {tweet_id}")
             
-        return source.data["source_id"]
+        return source.source_id
 
     def _fetch_url_references(self, source_id):
         """Helper method to fetch URL references"""
-        response = (supabase.table("url_references")
-                   .select("*")
-                   .eq("source_id", source_id)
-                   .execute())
-        return response.data
+                   
+        response = self.url_references_repo.filter({"source_id",source_id})
+        
+        return [ref.url for ref in response]
 
     def _fetch_media(self, source_id):
         """Helper method to fetch media"""
-        response = (supabase.table("media")
-                   .select("*")
-                   .eq("source_id", source_id)
-                   .execute())
-        return response.data
+        response = self.media_repo.filter({"source_id",source_id})
+        return [ref.media_url for ref in response]
 
     def _fetch_content_metadata(self, source_id):
         """Helper method to fetch content metadata"""
-        response = (supabase.table("source_metadata")
-                   .select("*")
-                   .eq("source_id", source_id)
-                   .execute())
-        return response.data
+        response = self.source_metadata_repo.filter({"source_id",source_id})
+        return response
 #-------------Agent main workflow----------------
 
     def _summarize_websearch_results(self, urls, search_query):
@@ -530,11 +531,11 @@ class AgentWorkflow:
     def get_template_details(self, payload):
         if payload.get('template'):
             template_dict = {
-                'name': payload['template'].get('name', ''),
-                'description': payload['template'].get('description', ''),
+                'name': payload["template"].name,
+                'description': payload["template"].description,
                 'parameters': {
-                    param.get('name', ''): param.get('value', {}).get('value', '')
-                    for param in payload['template'].get('parameters', [])
+                    param.name: param.values.value
+                    for param in payload["template"].parameters
                 }
             }
         else:
@@ -731,32 +732,26 @@ class AgentWorkflow:
 
     def _validate_existing_content(self, source_id, payload):
         """Check if content already exists for given source"""
-        existing_content = (
-            supabase.table("content_sources")
-            .select("*")
-            .eq("source_id", source_id)
-            .execute()
-        )
-        if existing_content.data:
+
+        existing_content = self.content_repo.find_by_field("source_id",source_id)
+        
+        if existing_content:
             raise ValueError(f"Content already exists for this {payload.get('url', 'tweet')}")
         return True
 
     def _create_source_record(self, url, thread_id, source_type_name, user):
         """Create a new source record"""
-        source_type = (
-            supabase.table("source_types")
-            .select("*")
-            .eq("name", source_type_name)
-            .execute()
-        )
+
+        source_type = self.source_type_repo.find_by_field("name",source_type_name)
         source_data = {
-            "source_type_id": source_type.data[0]["source_type_id"],
+            "source_type_id": source_type.source_type_id,
             "source_identifier": url,
             "batch_id": thread_id,
-            "profile_id": user["id"]
+            "profile_id": user.profile_id
         }
-        source = supabase.table("sources").insert(source_data).execute()
-        return source.data[0]["source_id"]
+
+        source = self.source_repo.create(source_data)
+        return source.source_id
 
     def _handle_url_references(self, source_id, url_meta):
         """Handle URL reference storage"""
@@ -768,33 +763,21 @@ class AgentWorkflow:
             "content_type": url_meta["content_type"],
             "file_category": url_meta["file_category"],
         }
-        supabase.table("url_references").insert(url_ref_data).execute()
+        self.url_references_repo.create(url_ref_data)
 
     def _handle_media_storage(self, source_id, media_meta):
         """Handle media storage"""
-        if media_meta:
-            for media in media_meta:
-                media_data = {
-                    "source_id": source_id,
-                    "media_url": media["original_url"],
-                    "media_type": media["type"],
-                }
-                supabase.table("media").insert(media_data).execute()
+        self.media_repo.bulk_insert_media(source_id, media_meta)
 
     def _setup_topic_source(self, payload,urls, thread_id, user):
         """Setup source records for web URL"""
-        existing_source = (
-            supabase.table("sources")
-            .select("*")
-            .eq("source_identifier", payload["topic"])
-            .eq("profile_id", user["id"])
-            .execute()
-        )
+
+        existing_source = self.source_repo.filter({"source_identifier":payload["topic"],"profile_id":user.profile_id})
 
         url_meta=[]
-        if existing_source.data:
-            source_id = existing_source.data[0]["source_id"]
-            self._validate_existing_content(source_id, payload)
+        if existing_source:
+            source_id = existing_source[0].source_id
+            # self._validate_existing_content(source_id, payload)
             for url in urls:
                 meta= get_url_metadata(url)
                 if meta:
@@ -813,16 +796,11 @@ class AgentWorkflow:
 
     def _setup_reddit_source(self, payload, thread_id, user):
         """Setup source records for web URL"""
-        existing_source = (
-            supabase.table("sources")
-            .select("*")
-            .eq("source_identifier", payload["reddit_query"])
-            .eq("profile_id", user["id"])
-            .execute()
-        )
 
-        if existing_source.data:
-            source_id = existing_source.data[0]["source_id"]
+        existing_source = self.source_repo.filter({"source_identifier":payload["reddit_query"],"profile_id":user.profile_id})
+
+        if existing_source:
+            source_id = existing_source[0].source_id
             self._validate_existing_content(source_id, payload)
             
             return source_id
@@ -833,16 +811,10 @@ class AgentWorkflow:
     
     def _setup_web_url_source(self, payload, thread_id, user):
         """Setup source records for web URL"""
-        existing_source = (
-            supabase.table("sources")
-            .select("*")
-            .eq("source_identifier", payload["url"])
-            .eq("profile_id", user["id"])
-            .execute()
-        )
 
-        if existing_source.data:
-            source_id = existing_source.data[0]["source_id"]
+        existing_source = self.source_repo.filter({"source_identifier":payload["url"],"profile_id":user.profile_id})
+        if existing_source:
+            source_id = existing_source[0].source_id
             self._validate_existing_content(source_id, payload)
             url_meta = get_url_metadata(payload["url"])
             media_meta = get_media_links(payload["url"])
@@ -859,33 +831,24 @@ class AgentWorkflow:
 
     def _setup_tweet_source(self, payload, thread_id, user):
         """Setup source records for tweet"""
-        existing_source = (
-            supabase.table("sources")
-            .select("*")
-            .eq("source_identifier", payload["tweet_id"])
-            .eq("profile_id", user["id"])
-            .execute()
-        )
 
-        if existing_source.data:
-            source_id = existing_source.data[0]["source_id"]
+        existing_source = self.source_repo.filter({"source_identifier":payload["tweet_id"],"profile_id":user.profile_id})
+
+        if existing_source:
+            source_id = existing_source[0].source_id
             self._validate_existing_content(source_id, payload)
             tweet_data = self.fetch_urls_and_media(payload["tweet_id"])
             tweet_meta = self._fetch_content_metadata(source_id)
-            tweet_text = [meta['value'] for meta in tweet_meta if meta.get("key",'')=='full_text']
+            tweet_text = [meta.value for meta in tweet_meta if meta.key=='full_text']
             return source_id, tweet_data.get("urls", []), tweet_data.get("media", []),tweet_text[0]
 
         return None, None, None, None
 
     def _handle_social_post_generation(self, thread_id, payload, user):
         """Handle generation of social media posts"""
-        content = (
-            supabase.table("content")
-            .select("*")
-            .eq("thread_id", thread_id)
-            .execute()
-        )
-        if not content.data:
+
+        content = self.content_repo.exists("thread_id",thread_id)
+        if not content:
             raise ValueError("No content found for thread_id")
 
         config = {"configurable": {"thread_id": thread_id}}
@@ -901,12 +864,8 @@ class AgentWorkflow:
     def _handle_feedback(self, thread_id, payload):
         """Handle feedback processing"""
         # Check if content exists for thread_id
-        existing_content = (
-            supabase.table("content")
-            .select("*")
-            .eq("thread_id", thread_id)
-            .execute()
-        )
+
+        existing_content = self.content_repo.find_by_field("thread_id",thread_id)
         
         if not existing_content.data:
             raise ValueError(f"No content found for thread_id: {thread_id}")
@@ -929,33 +888,25 @@ class AgentWorkflow:
     def _store_social_content(self, thread_id, payload, result, user):
         """Store generated social media content"""
         for post_type in payload.get("post_types", ["twitter", "linkedin"]):
-            content_type = (
-                supabase.table("content_types")
-                .select("*")
-                .eq("name", post_type)
-                .execute()
-            )
-            existing_content = (
-                supabase.table("content")
-                .select("*")
-                .eq("thread_id", thread_id)
-                .eq("content_type_id", content_type.data[0]["content_type_id"])
-                .execute()
-            )
 
-            if not existing_content.data:
+            content_type = self.content_type_repo.find_by_field("name",post_type)
+
+            existing_content = self.content_repo.filter({"thread_id":thread_id,"content_type_id":content_type.content_type_id})
+
+            if not existing_content:
                 content_body = result.get(
                     "final_blog" if post_type == "blog" else f"{post_type}_post"
                 )
                 if content_body:
                     content_data = {
-                        "profile_id": user["id"],
-                        "content_type_id": content_type.data[0]["content_type_id"],
+                        "profile_id": user.profile_id,
+                        "content_type_id": content_type.content_type_id,
                         "body": content_body,
                         "status": "Draft",
                         "thread_id": thread_id,
                     }
-                    supabase.table("content").insert(content_data).execute()
+
+                    self.content_repo.create(content_data)
 
     def _update_content_with_feedback(self, thread_id, payload, result):
         """Update existing content with feedback"""
@@ -964,32 +915,19 @@ class AgentWorkflow:
                 "final_blog" if post_type == "blog" else f"{post_type}_post"
             )
             if content_body:
-                content_type = (
-                    supabase.table("content_types")
-                    .select("*")
-                    .eq("name", post_type)
-                    .execute()
-                )
-                content_data = {"body": content_body, "status": "Draft"}
-                supabase.table("content").update(content_data).eq(
-                    "thread_id", thread_id
-                ).eq(
-                    "content_type_id", content_type.data[0]["content_type_id"]
-                ).execute()
+                content_type = self.content_type_repo.find_by_field("name",post_type)
+                content_data = {"body": content_body, "status": "Draft", "thread_id": thread_id, "content_type_id": content_type.content_type_id}
+                self.content_repo.update(content_data)
 
     def _store_new_content(self, result, thread_id, source_id, payload, user):
         """Store newly generated content"""
         try:
             for post_type in payload.get("post_types", ["blog"]):
                 # Validate post type exists
-                content_type_result = (
-                    supabase.table("content_types")
-                    .select("*")
-                    .eq("name", post_type)
-                    .execute()
-                )
+
+                content_type_result = self.content_type_repo.find_by_field("name",post_type)
                 
-                if not content_type_result.data:
+                if not content_type_result:
                     logging.error(f"Content type {post_type} not found")
                     continue
 
@@ -1001,8 +939,8 @@ class AgentWorkflow:
                     blog_body = blog_body.strip()
 
                 content_data = {
-                    "profile_id": user["id"],
-                    "content_type_id": content_type_result.data[0]["content_type_id"],
+                    "profile_id": user.profile_id,
+                    "content_type_id": content_type_result.content_type_id,
                     "title": blog_title,
                     "body": blog_body.strip(),
                     "status": "Draft",
@@ -1011,16 +949,13 @@ class AgentWorkflow:
 
                 # Insert content with error handling
                 try:
-                    content = supabase.table("content").insert(content_data).execute()
-                    content_id = content.data[0]["content_id"]
+                    content = self.content_repo.create(content_data)
+                    content_id = content.content_id
 
                     # Store source reference if provided
                     if source_id:
-                        content_source_data = {
-                            "content_id": content_id,
-                            "source_id": source_id,
-                        }
-                        supabase.table("content_sources").insert(content_source_data).execute()
+                        self.content_repo.add_content_source(content_id,source_id)
+                        # supabase.table("content_sources").insert(content_source_data).execute()
 
                     # Store tags
                     if result:
@@ -1038,16 +973,17 @@ class AgentWorkflow:
         """Store tags for content"""
         if result.get("tags"):
             for tag_name in result["tags"]:
-                tag = supabase.table("tags").select("*").eq("name", tag_name).execute()
-                if not tag.data:
-                    tag = supabase.table("tags").insert({"name": tag_name}).execute()
-                tag_id = tag.data[0]["tag_id"]
-
-                content_tag_data = {
-                    "content_id": content_id,
-                    "tag_id": tag_id,
-                }
-                supabase.table("content_tags").insert(content_tag_data).execute()
+                # Use tag repository to find or create tag
+                tag = self.tag_repo.find_by_field("name", tag_name)
+                if not tag:
+                    tag = self.tag_repo.create({"name": tag_name})
+                
+                # Store content-tag relationship using content_tags repository
+                # content_tag_data = {
+                #     "content_id": content_id,
+                #     "tag_id": tag.tag_id,
+                # }
+                self.content_repo.add_content_tag(content_id,tag.tag_id)
 
     def _process_url_content(self, url_meta):
         """Helper to process URL content based on type"""
@@ -1106,10 +1042,10 @@ class AgentWorkflow:
             ["write_final_sections"],
         )
         self.builder.add_edge("write_final_sections", "compile_final_blog")
-        self.builder.add_edge("compile_final_blog", "generate_tags")
+        # self.builder.add_edge("compile_final_blog", "generate_tags")
 
         # Post-tags routing logic
-        def route_after_tags(state: BlogState):
+        def route_after_generation(state: BlogState):
             if state.feedback:
                 return "handle_feedback"
             if "linkedin" in state.post_types and not state.linkedin_post:
@@ -1136,8 +1072,8 @@ class AgentWorkflow:
 
         # Add routing edges
         self.builder.add_conditional_edges(
-            "generate_tags",
-            route_after_tags,
+            "compile_final_blog",
+            route_after_generation,
             ["write_linkedin_post", "write_twitter_post", "handle_feedback", END],
         )
 
@@ -1173,7 +1109,7 @@ class AgentWorkflow:
         graph = self.builder.compile(
             checkpointer=self.checkpointer,
             interrupt_after=[
-                "generate_tags",
+                "compile_final_blog",
                 # "review_blog",
                 "write_linkedin_post",
                 "write_twitter_post",
@@ -1190,7 +1126,6 @@ if __name__ == "__main__":
         {
             "thread_id": "8f38abae-4085-41bd-bc23-022b5320313d",
             "url": "https://huggingface.co/Qwen/QVQ-72B-Preview",
-            "post_types": ["linkedin"],
-            "feedback": "Remove the introductory phrases and add more examples",
+            "post_types": ["blog"],
         }
     )

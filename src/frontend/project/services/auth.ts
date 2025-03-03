@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { cacheManager } from './cacheManager';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -36,15 +37,20 @@ export const authService = {
     password?: string;
   }) {
     try {
+      let response;
+      
       if (provider === 'google') {
-        return await this.signInWithGoogle();
+        response = await this.signInWithGoogle();
+      } else if (provider === 'email' && options?.email && options?.password) {
+        response = await this.signInWithEmail(options.email, options.password);
+      } else {
+        throw new Error('Invalid sign in method');
       }
 
-      if (provider === 'email' && options?.email && options?.password) {
-        return await this.signInWithEmail(options.email, options.password);
-      }
+      // After successful sign in, clean up any cached data from previous session
+      cacheManager.clearAllCaches();
 
-      throw new Error('Invalid sign in method');
+      return response;
     } catch (error) {
       console.error('Sign in error:', error);
       throw error;
@@ -141,6 +147,9 @@ export const authService = {
     try {
       const { error } = await supabaseClient.auth.signOut();
       if (error) throw error;
+      
+      // Clear all caches when signing out
+      cacheManager.clearAllCaches();
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
@@ -160,6 +169,10 @@ export const authService = {
 
   onAuthStateChange(callback: (session: any) => void) {
     return supabaseClient.auth.onAuthStateChange((_, session) => {
+      if (!session) {
+        // Clear all caches when auth state changes to signed out
+        cacheManager.clearAllCaches();
+      }
       callback(session);
     });
   },

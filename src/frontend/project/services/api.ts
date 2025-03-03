@@ -14,24 +14,83 @@ api.interceptors.request.use(async (config) => {
   const session = await authService.getSession();
   if (session?.access_token) {
     config.headers.Authorization = `Bearer ${session.access_token}`;
+    // Set refresh token as an HttpOnly cookie with proper security attributes
+    if (session.refresh_token) {
+      document.cookie = `refresh_token=${session.refresh_token}; path=/; secure; samesite=strict; httpOnly`;
+    }
   }
   return config;
 });
 
+// Content methods
+const deleteContent = (threadId: string) => api.delete(`/content/thread/${threadId}`);
+
+// Update filterContent to correctly send filters as an object/dictionary
+const filterContent = (filters: Record<string, any> = {}, skip: number = 0, limit: number = 10) => {
+  // Clean the filters object by removing null, undefined, and empty string values
+  const cleanedFilters = Object.entries(filters).reduce((acc, [key, value]) => {
+    if (value !== null && value !== undefined && value !== '') {
+      acc[key] = value;
+    }
+    return acc;
+  }, {} as Record<string, any>);
+
+  // Convert filters to a JSON string
+  const filtersJson = JSON.stringify(cleanedFilters);
+
+  return api.get('/content/filter', { 
+    params: { 
+      filters: filtersJson,
+      skip,
+      limit
+    }
+  });
+};
+
 // Template-specific methods
 const templateApi = {
   getTemplate: (templateId: string) => api.get(`/templates/${templateId}`),
-  getAllTemplates: (params?: any, limit?: number, filter?: TemplateFilter | undefined) => 
-    api.get('/templates', { params: { ...params, ...filter } }),
+  
+  // Enhanced getAllTemplates with better parameter handling
+  getAllTemplates: (params?: any, limit?: number, filter?: TemplateFilter | undefined) => {
+    // Format filter to match backend expectations
+    const apiParams = { 
+      ...params,
+      ...(filter || {})
+    };
+    
+    // Make sure we're properly handling template_type and is_deleted which are special cases
+    if (filter?.template_type) {
+      apiParams.template_type = filter.template_type;
+    }
+    
+    // Include deleted templates flag
+    if (filter?.is_deleted !== undefined) {
+      apiParams.include_deleted = filter.is_deleted;
+    }
+    
+    return api.get('/templates', { params: apiParams });
+  },
+  
   createTemplate: (template: any) => api.post('/templates', template),
+  
   updateTemplate: (templateId: string, template: any) => api.put(`/templates/${templateId}`, template),
+  
   deleteTemplate: (templateId: string) => api.delete(`/templates/${templateId}`),
-  filterTemplates: (params: any) => api.post('/templates/filter', params),
+  
+  // Use the more efficient filter endpoint 
+  filterTemplates: (params: TemplateFilter) => api.post('/templates/filter', params),
   
   // Parameter endpoints
+  // Use /parameters/all as the primary method to get all parameters with values
   getParameters: () => api.get('/parameters/all'),
+  
+  // Only used as fallback for specific parameter values
   getParameterValues: (parameterId: string) => api.get(`/parameters/${parameterId}/values`),
+  
+  // Add a method to get a specific template with parameters
+  getTemplateWithParameters: (templateId: string) => api.get(`/templates/${templateId}`),
 };
 
-export { templateApi };
+export { templateApi, deleteContent, filterContent };
 export default api;

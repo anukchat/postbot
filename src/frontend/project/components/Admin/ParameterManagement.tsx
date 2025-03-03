@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { useEditorStore,Parameter,ParameterValue } from '../../store/editorStore';
+import React, { useState, useEffect } from 'react';
+import { useEditorStore, Parameter, ParameterValue } from '../../store/editorStore';
 import { PlusCircle, Edit, Trash2, Plus } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Dialog } from '@headlessui/react';
@@ -18,7 +18,7 @@ export const ParameterManagement = () => {
     isParametersLoading,
     parametersError
   } = useEditorStore();
-
+  
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingParameter, setEditingParameter] = useState<Parameter | null>(null);
   const [newParameter, setNewParameter] = useState<Omit<Parameter, 'parameter_id' | 'created_at'>>({
@@ -28,7 +28,7 @@ export const ParameterManagement = () => {
     is_required: false,
     values: []
   });
-
+  
   const [isValueModalOpen, setIsValueModalOpen] = useState(false);
   const [selectedParameterId, setSelectedParameterId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<ParameterValue | null>(null);
@@ -37,9 +37,11 @@ export const ParameterManagement = () => {
     display_order: 0
   });
 
-  React.useEffect(() => {
+  // Fetch parameters only once on component mount
+  useEffect(() => {
     fetchParameters();
-  }, [fetchParameters]);
+    // We don't include fetchParameters in the dependency array to avoid unnecessary refetches
+  }, []);
 
   const handleCreateParameter = async () => {
     try {
@@ -48,7 +50,7 @@ export const ParameterManagement = () => {
         return;
       }
       await createParameter(newParameter);
-      await fetchParameters(); // Fetch all parameters after creation
+      // Don't need to fetch parameters again since createParameter updates the local state
       setIsCreateModalOpen(false);
       setNewParameter({ name: '', display_name: '', description: '', is_required: false, values: [] });
       toast.success('Parameter created successfully');
@@ -66,9 +68,9 @@ export const ParameterManagement = () => {
         return;
       }
       await updateParameter(editingParameter.parameter_id, newParameter);
-      await fetchParameters(); // Fetch all parameters after update
+      // Don't need to fetch parameters again since updateParameter updates the local state
       setEditingParameter(null);
-      setNewParameter({ name: '', display_name: '', description: '', is_required: false, values: [] });
+      // setNewParameter({ name: '', display_name: '', description: '', is_required: false, values: [] });
       toast.success('Parameter updated successfully');
     } catch (error) {
       console.error('Error updating parameter:', error);
@@ -79,7 +81,7 @@ export const ParameterManagement = () => {
   const handleDeleteParameter = async (parameterId: string) => {
     try {
       await deleteParameter(parameterId);
-      await fetchParameters(); // Fetch all parameters after deletion
+      // Don't need to fetch parameters again since deleteParameter updates the local state
       toast.success('Parameter deleted successfully');
     } catch (error) {
       console.error('Error deleting parameter:', error);
@@ -95,7 +97,7 @@ export const ParameterManagement = () => {
         return;
       }
       await createParameterValue(selectedParameterId, newValue);
-      await fetchParameters(); // Fetch all parameters after value creation
+      // Don't need to fetch parameters again since createParameterValue updates the local state
       setIsValueModalOpen(false);
       setNewValue({ value: '', display_order: 0 });
       toast.success('Value added successfully');
@@ -113,7 +115,7 @@ export const ParameterManagement = () => {
         return;
       }
       await updateParameterValue(selectedParameterId, editingValue.value_id, newValue);
-      await fetchParameters(); // Fetch all parameters after value update
+      // Don't need to fetch parameters again since updateParameterValue updates the local state
       setEditingValue(null);
       setIsValueModalOpen(false);
       setNewValue({ value: '', display_order: 0 });
@@ -127,7 +129,7 @@ export const ParameterManagement = () => {
   const handleDeleteValue = async (parameterId: string, valueId: string) => {
     try {
       await deleteParameterValue(parameterId, valueId);
-      await fetchParameters(); // Fetch all parameters after value deletion
+      // Don't need to fetch parameters again since deleteParameterValue updates the local state
       toast.success('Value deleted successfully');
     } catch (error) {
       console.error('Error deleting value:', error);
@@ -135,7 +137,7 @@ export const ParameterManagement = () => {
     }
   };
 
-  if (isParametersLoading) {
+  if (isParametersLoading && parameters.length === 0) {
     return (
       <div className="flex items-center justify-center h-48">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -157,6 +159,7 @@ export const ParameterManagement = () => {
     );
   }
 
+  // Rest of the component remains unchanged
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
       <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
@@ -170,8 +173,11 @@ export const ParameterManagement = () => {
         </button>
       </div>
 
+      {/* Parameter list */}
       <div className="divide-y divide-gray-200 dark:divide-gray-700">
-        {parameters.map((parameter) => (
+        {parameters
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .map((parameter) => (
           <div key={parameter.parameter_id} className="p-6">
             <div className="mb-4">
               <div className="flex justify-between items-start">
@@ -213,6 +219,7 @@ export const ParameterManagement = () => {
               </div>
             </div>
             
+            {/* Parameter values table */}
             <div className="mt-4">
               <div className="flex justify-between items-center mb-2">
                 <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Parameter Values</h4>
@@ -220,9 +227,14 @@ export const ParameterManagement = () => {
                   onClick={() => {
                     setSelectedParameterId(parameter.parameter_id);
                     setIsValueModalOpen(true);
+                    // Calculate next display order by finding max and adding 1
+                    const maxDisplayOrder = Math.max(
+                      0,
+                      ...(parameter.values || []).map(v => v.display_order)
+                    );
                     setNewValue({
                       value: '',
-                      display_order: 0
+                      display_order: maxDisplayOrder + 1
                     });
                   }}
                   className="inline-flex items-center px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600"
@@ -276,19 +288,31 @@ export const ParameterManagement = () => {
                         </td>
                       </tr>
                     ))}
+                    
+                    {/* Show empty state if no values */}
+                    {(!parameter.values || parameter.values.length === 0) && (
+                      <tr>
+                        <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                          No values added yet
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
           </div>
         ))}
+        
+        {/* Empty state for no parameters */}
+        {parameters.length === 0 && !isParametersLoading && (
+          <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+            No parameters found. Create your first parameter to get started.
+          </div>
+        )}
       </div>
 
-      {/* Modal Backdrop */}
-      {(isCreateModalOpen || !!editingParameter || isValueModalOpen) && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" aria-hidden="true" />
-      )}
-
+      {/* Modals */}
       {/* Parameter Create/Edit Modal */}
       <Dialog 
         as="div"
@@ -304,7 +328,6 @@ export const ParameterManagement = () => {
             <Dialog.Title className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
               {editingParameter ? 'Edit Parameter' : 'Create Parameter'}
             </Dialog.Title>
-
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Name</label>
@@ -315,7 +338,6 @@ export const ParameterManagement = () => {
                   className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Display Name</label>
                 <input
@@ -325,7 +347,6 @@ export const ParameterManagement = () => {
                   className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Description</label>
                 <textarea
@@ -335,7 +356,6 @@ export const ParameterManagement = () => {
                   rows={3}
                 />
               </div>
-
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -347,7 +367,6 @@ export const ParameterManagement = () => {
                 <label htmlFor="isRequired" className="ml-2 text-sm text-gray-900 dark:text-gray-100">Required</label>
               </div>
             </div>
-
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => {
@@ -386,7 +405,6 @@ export const ParameterManagement = () => {
             <Dialog.Title className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
               {editingValue ? 'Edit Value' : 'Add Value'}
             </Dialog.Title>
-
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Value</label>
@@ -399,7 +417,6 @@ export const ParameterManagement = () => {
                   autoFocus
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Display Order</label>
                 <input
@@ -411,7 +428,6 @@ export const ParameterManagement = () => {
                 />
               </div>
             </div>
-
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => {

@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-import { cacheService } from '../../services/cacheService';
+import { cacheManager } from '../../services/cacheManager';
 
 interface TemplateProps {
   id: string;
@@ -21,37 +21,47 @@ export const TemplateCard: React.FC<TemplateProps> = ({
   const navigate = useNavigate();
   const [imageUrl, setImageUrl] = useState<string>('');
 
-  useEffect(() => {
-    const loadImage = async () => {
-      if (!thumbnail) return;
+  const loadImage = useCallback(async () => {
+    if (!thumbnail) return;
 
-      // Try to get from cache first
-      const cachedImage = cacheService.getCachedImage(thumbnail);
-      if (cachedImage) {
-        setImageUrl(URL.createObjectURL(cachedImage));
-        return;
-      }
+    // Try to get from cache first
+    const cachedImage = cacheManager.getCachedImage(thumbnail);
+    if (cachedImage) {
+      const url = URL.createObjectURL(cachedImage);
+      setImageUrl(url);
+      return url; // Return URL for cleanup
+    }
 
-      // If not in cache, fetch and cache it
-      try {
-        const response = await fetch(thumbnail);
-        const blob = await response.blob();
-        await cacheService.cacheImage(thumbnail, blob);
-        setImageUrl(URL.createObjectURL(blob));
-      } catch (error) {
-        console.error('Failed to load template image:', error);
-      }
-    };
-
-    loadImage();
-
-    // Cleanup URL on unmount
-    return () => {
-      if (imageUrl) {
-        URL.revokeObjectURL(imageUrl);
-      }
-    };
+    // If not in cache, fetch and cache it
+    try {
+      const response = await fetch(thumbnail);
+      const blob = await response.blob();
+      await cacheManager.cacheImage(thumbnail, blob);
+      const url = URL.createObjectURL(blob);
+      setImageUrl(url);
+      return url; // Return URL for cleanup
+    } catch (error) {
+      console.error('Failed to load template image:', error);
+      return null;
+    }
   }, [thumbnail]);
+
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    
+    loadImage().then(url => {
+      if (url !== undefined) {
+        objectUrl = url;
+      }
+    });
+
+    // Cleanup function
+    return () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [loadImage]);
 
   const handleTemplateSelect = () => {
     navigate('/dashboard', { 

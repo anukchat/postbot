@@ -1,32 +1,24 @@
 import { create } from 'zustand';
-import { templateApi } from '../services/api';
+import { templateApi, deleteContent, filterContent } from '../services/api';
 import { Post } from '../types/editor';
 import api from '../services/api';
-import { cacheService } from '../services/cacheService';
-import { toast } from 'react-hot-toast';
-
-// import {
-//   Template,
-//   CreateTemplatePayload,
-//   TemplateFilter,
-//   getTemplate,
-//   getTemplates,
-//   createTemplate as createTemplateApi,
-//   updateTemplate as updateTemplateApi,
-//   deleteTemplate as deleteTemplateApi,
-// } from '../services/api';
+import { cacheManager } from '../services/cacheManager';
 
 export interface TemplateParameterValue {
-  parameter_id: string;
   value_id: string;
   value: string;
+  display_order?: number;
+  created_at?: string;
 }
 
 export interface TemplateParameter {
   parameter_id: string;
   name: string;
   display_name: string;
-  value: TemplateParameterValue;
+  description?: string;
+  is_required: boolean;
+  created_at?: string;
+  values: TemplateParameterValue;
 }
 
 export interface Template {
@@ -38,7 +30,7 @@ export interface Template {
   parameters: TemplateParameter[];
   created_at: string;
   updated_at: string;
-  is_deleted: boolean;
+  is_deleted?: boolean;
 }
 
 export interface CreateTemplatePayload {
@@ -50,10 +42,10 @@ export interface CreateTemplatePayload {
 }
 
 export interface TemplateFilter {
-  persona?: string;
-  age_group?: string;
-  content_type?: string;
+  name?: string;
   template_type?: string;
+  parameter_id?: string;
+  value_id?: string;
   is_deleted?: boolean;
 }
 
@@ -77,6 +69,7 @@ export interface ParameterValue {
 export interface CachedTemplateData {
   templates: Template[];
   timestamp: number;
+  filter?: TemplateFilter;
 }
 
 interface GeneratePayload {
@@ -103,8 +96,6 @@ interface EditorState {
   hasReachedEnd: boolean;
   lastRefreshTimestamp: number;
   trendingBlogTopics: string[];
-  lastBlogTopicsFetch: Record<string, number>;
-  trendingTopicsCache: Record<string, { topics: string[], timestamp: number }>;
   isListLoading: boolean;
   currentTab: 'blog' | 'twitter' | 'linkedin';
   setCurrentTab: (tab: 'blog' | 'twitter' | 'linkedin') => void;
@@ -129,6 +120,7 @@ interface EditorState {
   fetchContentByThreadId: (thread_id: string, post_type?: string) => Promise<void>;
   generatePost: (post_types: string[], thread_id: string, payload?: GeneratePayload) => Promise<void>;
   fetchTrendingBlogTopics: (subreddits?: string[], limit?: number) => Promise<void>;
+  deletePost: (threadId: string) => Promise<void>;
 }
 
 // Separate admin state interface
@@ -162,10 +154,7 @@ interface AdminState {
 
 interface CombinedState extends EditorState, AdminState {}
 
-const MAX_CACHE_SIZE = 250;
-
 export const useEditorStore = create<CombinedState>((set, get) => ({
-  // Editor State Implementation
   posts: [],
   currentPost: null,
   isDarkMode: false,
@@ -183,12 +172,7 @@ export const useEditorStore = create<CombinedState>((set, get) => ({
   lastRefreshTimestamp: Date.now(),
   isListLoading: false,
   trendingBlogTopics: [],
-  lastBlogTopicsFetch: {},
-  trendingTopicsCache: {},
-
-  // Admin State Implementation
   templates: [],
-  currentTemplate: null,
   isTemplateLoading: false,
   parameters: [],
   parameterValues: {},
@@ -197,56 +181,72 @@ export const useEditorStore = create<CombinedState>((set, get) => ({
   isAdminView: false,
   isTemplateActionLoading: false,
   templateError: null,
+  currentTemplate: null,
 
-  // Editor Actions
   setCurrentTab: (tab) => set({ currentTab: tab }),
-  setCurrentPost: (post) => {
-    const { currentTab, fetchContentByThreadId } = get();
-    set({ currentPost: post, history: [], future: [], isContentUpdated: false });
-    
-    if (post && currentTab !== 'blog') {
-      fetchContentByThreadId(post.thread_id, currentTab);
-    }
-  },
+  setCurrentPost: (post) => set({ currentPost: post }),
   toggleTheme: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
   setPosts: (posts) => set({ posts }),
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
-
+  
   fetchPosts: async (filters, skip = 0, limit = 20) => {
     console.log('fetchPosts called', { filters, skip, limit });
-    const { isLoading, posts, hasReachedEnd, currentPost } = get();
+    const { isLoading, hasReachedEnd } = get();
     
-    if (isLoading || (!filters.reset && hasReachedEnd)) {
+    // Do not fetch if already loading or reached end (unless explicitly requested to refresh)
+    if (isLoading || (!filters.forceRefresh && !filters.reset && hasReachedEnd)) {
       console.log('Skip fetch - loading or reached end:', { isLoading, hasReachedEnd });
       return;
+    }
+
+    // Remove control flags from filters before sending to API
+    const {
+      forceRefresh,
+      reset,
+      noCache,
+      timestamp,
+      ...apiFilters
+    } = filters;
+
+    // Ensure apiFilters is a plain object without undefined/null values
+    const cleanedFilters = Object.entries(apiFilters).reduce((acc, [key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        // Handle special cases like dates
+        if (value instanceof Date) {
+          acc[key] = value.toISOString();
+        } else {
+          acc[key] = value;
+        }
+      }
+      return acc;
+    }, {} as Record<string, any>);
+
+    // Create a cache key based on filters and pagination
+    const cacheKey = JSON.stringify({ filters: cleanedFilters, skip, limit });
+    
+    // Check if we have a valid cache entry and no force refresh requested
+    if (!forceRefresh && !noCache) {
+      const cachedData = cacheManager.getContentFromCache(cacheKey);
+      if (cachedData) {
+        console.log('Using cached content data');
+        set({ 
+          posts: cachedData.posts,
+          totalPosts: cachedData.totalPosts,
+          lastLoadedSkip: skip + cachedData.posts.length,
+          hasReachedEnd: cachedData.posts.length < limit,
+          isListLoading: false
+        });
+        return;
+      }
     }
 
     // Set list loading instead of general loading
     set({ isListLoading: true });
 
     try {
-      const cleanedFilters = Object.entries(filters).reduce((acc, [key, value]) => {
-        if ((['created_after', 'created_before', 'updated_after', 'updated_before'].includes(key)) && !value) {
-          return acc;
-        }
-        if (value === '') {
-          return acc;
-        }
-        if (['created_after', 'created_before', 'updated_after', 'updated_before'].includes(key) && value && (typeof value === 'string' || value instanceof Date)) {
-          acc[key] = new Date(value).toISOString();
-          return acc;
-        }
-        acc[key] = value;
-        return acc;
-      }, {} as Record<string, any>);
-
-      const params: Record<string, any> = { ...cleanedFilters, skip, limit, timestamp: Date.now() };
-      if (params.status === 'All') {
-        delete params.status;
-      }
-      
-      const response = await api.get('/content/filter', { params });
+      // Use the dedicated filterContent function with cleaned filters
+      const response = await filterContent(cleanedFilters, skip, limit);
       console.log('API Response:', response.data);
       
       if (response.data && response.data.items) {
@@ -268,53 +268,24 @@ export const useEditorStore = create<CombinedState>((set, get) => ({
         }));
 
         console.log('Formatted blogs:', formattedBlogs);
-
-        const isLastPage = formattedBlogs.length < limit;
-        const currentTotal = Math.max(
-          posts.length + formattedBlogs.length,
-          skip + formattedBlogs.length
-        );
-
-        set((state) => {
-          const existingPosts = skip === 0 ? [] : state.posts;
-          const mergedPosts = [...existingPosts, ...formattedBlogs];
-          
-          // Create a map for quick lookups
-          const postsMap = new Map(mergedPosts.map(post => [post.id, post]));
-          
-          // Preserve current post data if it exists
-          if (currentPost) {
-            // Only update non-content related fields from new data
-            const newPostData = postsMap.get(currentPost.id);
-            if (newPostData) {
-              postsMap.set(currentPost.id, {
-                ...newPostData,
-                content: currentPost.content,
-                twitter_post: currentPost.twitter_post,
-                linkedin_post: currentPost.linkedin_post
-              });
-            } else {
-              postsMap.set(currentPost.id, currentPost);
-            }
-          }
-
-          const sortedPosts = Array.from(postsMap.values())
-            .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-
+        
+        // Set hasReachedEnd if we got fewer items than requested
+        const newHasReachedEnd = formattedBlogs.length < limit;
+        
+        // Cache this result
+        cacheManager.setContentInCache(cacheKey, formattedBlogs, response.data.total || formattedBlogs.length);
+        
+        set(state => {
           return {
-            posts: sortedPosts,
-            totalPosts: isLastPage ? currentTotal : currentTotal + limit,
-            skip: skip + formattedBlogs.length,
-            lastLoadedSkip: skip,
-            hasReachedEnd: isLastPage,
-            limit,
-            isListLoading: false,  // Update list loading
-            isLoading: false,
-            error: null,
+            posts: filters.reset ? formattedBlogs : 
+                  skip === 0 ? formattedBlogs : 
+                  [...state.posts, ...formattedBlogs],
+            totalPosts: response.data.total || formattedBlogs.length,
+            lastLoadedSkip: skip + formattedBlogs.length,
+            hasReachedEnd: newHasReachedEnd,
+            isListLoading: false
           };
         });
-
-        return formattedBlogs;
       }
     } catch (error: any) {
       console.error('Error fetching blogs:', error);
@@ -699,26 +670,17 @@ ${content}`;
   },
 
   fetchTrendingBlogTopics: async (subreddits?: string[], limit: number = 15) => {
+    set({ trendingBlogTopics: [] });
+
+    const cacheKey = subreddits ? subreddits.join(',') : 'all';
+    const cachedTopics = cacheManager.getTrendingTopicsFromCache(cacheKey);
+    
+    if (cachedTopics) {
+      set({ trendingBlogTopics: cachedTopics });
+      return;
+    }
+
     try {
-      // Clear topics immediately
-      set({ trendingBlogTopics: [] });
-
-      const now = Date.now();
-      const cacheKey = subreddits ? subreddits.join(',') : 'all';
-      const cachedData = get().trendingTopicsCache[cacheKey];
-      
-      if (cachedData && now - cachedData.timestamp < 24 * 60 * 60 * 1000) {
-        // Use cached data after clearing
-        set({ 
-          trendingBlogTopics: cachedData.topics,
-          lastBlogTopicsFetch: {
-            ...get().lastBlogTopicsFetch,
-            [cacheKey]: cachedData.timestamp
-          }
-        });
-        return;
-      }
-
       const params: Record<string, any> = { limit };
       if (subreddits && subreddits.length > 0) {
         params.subreddits = subreddits.join(',');
@@ -726,35 +688,8 @@ ${content}`;
 
       const response = await api.get('/reddit/topic-suggestions', { params });
       if (response.data?.blog_topics) {
-        set((state) => {
-          const newCache = {
-            ...state.trendingTopicsCache,
-            [cacheKey]: {
-              topics: response.data.blog_topics,
-              timestamp: now
-            }
-          };
-
-          // Clean up cache if too large
-          if (Object.keys(newCache).length > MAX_CACHE_SIZE) {
-            const oldestEntries = Object.entries(newCache)
-              .sort(([, a], [, b]) => a.timestamp - b.timestamp)
-              .slice(0, Object.keys(newCache).length - MAX_CACHE_SIZE);
-
-            oldestEntries.forEach(([key]) => {
-              delete newCache[key];
-            });
-          }
-
-          return {
-            trendingBlogTopics: response.data.blog_topics,
-            trendingTopicsCache: newCache,
-            lastBlogTopicsFetch: {
-              ...state.lastBlogTopicsFetch,
-              [cacheKey]: now
-            }
-          };
-        });
+        cacheManager.setTrendingTopicsInCache(cacheKey, response.data.blog_topics);
+        set({ trendingBlogTopics: response.data.blog_topics });
       }
     } catch (error) {
       console.error('Error fetching trending blog topics:', error);
@@ -793,10 +728,22 @@ ${content}`;
   },
 
   fetchTemplates: async (skip = 0, limit = 10, filter?: TemplateFilter, forceRefresh = false) => {
+    const cacheKey = JSON.stringify({ skip, limit, filter: filter || {} });
+    
+    if (!forceRefresh) {
+      const cachedData = cacheManager.getTemplatesFromCache(cacheKey);
+      if (cachedData) {
+        console.log('Using cached templates data');
+        set({ templates: cachedData.templates });
+        return;
+      }
+    }
+    
     try {
       set({ isTemplateLoading: true, templateError: null });
       const response = await templateApi.getAllTemplates({ skip, limit }, limit, filter);
       if (response.data) {
+        cacheManager.setTemplatesInCache(cacheKey, response.data, filter);
         set({ templates: response.data });
       }
     } catch (error) {
@@ -860,11 +807,24 @@ ${content}`;
   },
 
   fetchParameters: async () => {
+    if (cacheManager.isParametersCacheValid() && !get().isParametersLoading) {
+      return;
+    }
+
     try {
       set({ isParametersLoading: true, parametersError: null });
-      const response = await templateApi.getParameters();
+      
+      const response = await api.get('/parameters/all');
+      
       if (response.data) {
-        set({ parameters: response.data });
+        cacheManager.updateParametersFetchTimestamp();
+        set((state) => ({
+          parameters: response.data,
+          parameterValues: response.data.reduce((acc: Record<string, any>, param: Parameter) => {
+            acc[param.parameter_id] = param.values || [];
+            return acc;
+          }, {...state.parameterValues})
+        }));
       }
     } catch (error) {
       set({ parametersError: error instanceof Error ? error.message : 'An error occurred' });
@@ -874,8 +834,14 @@ ${content}`;
   },
 
   fetchParameterValues: async (parameterId: string) => {
+    // Check if we already have values for this parameter
+    const existingValues = get().parameterValues[parameterId];
+    if (existingValues && existingValues.length > 0) {
+      return; // We already have the values, no need to fetch
+    }
+
     try {
-      const response = await templateApi.getParameterValues(parameterId);
+      const response = await api.get(`/parameters/${parameterId}/values`);
       if (response.data) {
         set((state) => ({
           parameterValues: {
@@ -893,8 +859,10 @@ ${content}`;
     try {
       const response = await api.post('/parameters', parameter);
       if (response.data) {
-        const { fetchParameters } = get();
-        await fetchParameters();
+        // Update local state without full refetch
+        set((state) => ({
+          parameters: [...state.parameters, response.data],
+        }));
       }
     } catch (error) {
       console.error('Error creating parameter:', error);
@@ -906,8 +874,12 @@ ${content}`;
     try {
       const response = await api.put(`/parameters/${parameterId}`, parameter);
       if (response.data) {
-        const { fetchParameters } = get();
-        await fetchParameters();
+        // Update the parameter in local state
+        set((state) => ({
+          parameters: state.parameters.map(p => 
+            p.parameter_id === parameterId ? { ...p, ...response.data } : p
+          ),
+        }));
       }
     } catch (error) {
       console.error('Error updating parameter:', error);
@@ -918,8 +890,15 @@ ${content}`;
   deleteParameter: async (parameterId) => {
     try {
       await api.delete(`/parameters/${parameterId}`);
-      const { fetchParameters } = get();
-      await fetchParameters();
+      // Update local state directly
+      set((state) => ({
+        parameters: state.parameters.filter(p => p.parameter_id !== parameterId),
+        parameterValues: (() => {
+          const newValues = {...state.parameterValues};
+          delete newValues[parameterId];
+          return newValues;
+        })(),
+      }));
     } catch (error) {
       console.error('Error deleting parameter:', error);
       throw error;
@@ -930,8 +909,31 @@ ${content}`;
     try {
       const response = await api.post(`/parameters/${parameterId}/values`, value);
       if (response.data) {
-        const { fetchParameterValues } = get();
-        await fetchParameterValues(parameterId);
+        // Update local state directly
+        set((state) => {
+          // Find and update the parameter
+          const parameterIndex = state.parameters.findIndex(p => p.parameter_id === parameterId);
+          const updatedParameters = [...state.parameters];
+          
+          if (parameterIndex >= 0) {
+            const parameter = updatedParameters[parameterIndex];
+            const values = Array.isArray(parameter.values) ? parameter.values : [];
+            updatedParameters[parameterIndex] = {
+              ...parameter,
+              values: [...values, response.data]
+            };
+            
+            // Return updated state
+            return {
+              parameters: updatedParameters,
+              parameterValues: {
+                ...state.parameterValues,
+                [parameterId]: [...(state.parameterValues[parameterId] || []), response.data]
+              }
+            };
+          }
+          return state;
+        });
       }
     } catch (error) {
       console.error('Error creating parameter value:', error);
@@ -943,8 +945,38 @@ ${content}`;
     try {
       const response = await api.put(`/parameters/${parameterId}/values/${valueId}`, value);
       if (response.data) {
-        const { fetchParameterValues } = get();
-        await fetchParameterValues(parameterId);
+        // Update the value in local state
+        set((state) => {
+          // Update in parameters array
+          const parameterIndex = state.parameters.findIndex(p => p.parameter_id === parameterId);
+          let updatedParameters = [...state.parameters];
+          
+          if (parameterIndex >= 0) {
+            const parameter = updatedParameters[parameterIndex];
+            const updatedValues = parameter.values?.map(v => 
+              v.value_id === valueId ? { ...v, ...response.data } : v
+            ) || [];
+            
+            updatedParameters[parameterIndex] = {
+              ...parameter,
+              values: updatedValues
+            };
+          }
+          
+          // Also update in parameterValues map
+          const currentValues = state.parameterValues[parameterId] || [];
+          const updatedValues = currentValues.map(v => 
+            v.value_id === valueId ? { ...v, ...response.data } : v
+          );
+          
+          return {
+            parameters: updatedParameters,
+            parameterValues: {
+              ...state.parameterValues,
+              [parameterId]: updatedValues
+            }
+          };
+        });
       }
     } catch (error) {
       console.error('Error updating parameter value:', error);
@@ -955,12 +987,99 @@ ${content}`;
   deleteParameterValue: async (parameterId, valueId) => {
     try {
       await api.delete(`/parameters/${parameterId}/values/${valueId}`);
-      const { fetchParameterValues } = get();
-      await fetchParameterValues(parameterId);
+      
+      // Update local state directly
+      set((state) => {
+        // Update in parameters array
+        const parameterIndex = state.parameters.findIndex(p => p.parameter_id === parameterId);
+        let updatedParameters = [...state.parameters];
+        
+        if (parameterIndex >= 0) {
+          const parameter = updatedParameters[parameterIndex];
+          const updatedValues = parameter.values?.filter(v => v.value_id !== valueId) || [];
+          
+          updatedParameters[parameterIndex] = {
+            ...parameter,
+            values: updatedValues
+          };
+        }
+        
+        // Also update in parameterValues map
+        const currentValues = state.parameterValues[parameterId] || [];
+        const updatedValues = currentValues.filter(v => v.value_id !== valueId);
+        
+        return {
+          parameters: updatedParameters,
+          parameterValues: {
+            ...state.parameterValues,
+            [parameterId]: updatedValues
+          }
+        };
+      });
     } catch (error) {
       console.error('Error deleting parameter value:', error);
       throw error;
     }
   },
+
+  deletePost: async (threadId: string) => {
+    const { fetchPosts } = get();
+    try {
+      set({ isLoading: true });
+      await deleteContent(threadId);
+      
+      // Update local state
+      set(state => ({
+        posts: state.posts.filter(post => post.thread_id !== threadId),
+        currentPost: state.currentPost?.thread_id === threadId ? null : state.currentPost
+      }));
+      
+      // Refresh the list
+      await fetchPosts({});
+      set({ isLoading: false, error: null });
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      set({ isLoading: false, error: 'Failed to delete post' });
+      throw error;
+    }
+  },
+
+  // Update cleanup-related functions to use cacheManager
+  clearTemplateCache: () => {
+    cacheManager.clearTemplateCache();
+    set({ templates: [] });
+  },
+
+  clearContentCache: () => {
+    cacheManager.clearContentCache();
+    set({ posts: [], lastLoadedSkip: -1, hasReachedEnd: false });
+  },
+
+  clearAllCaches: () => {
+    cacheManager.clearAllCaches();
+    set({ 
+      templates: [], 
+      posts: [], 
+      lastLoadedSkip: -1,
+      hasReachedEnd: false,
+      trendingBlogTopics: [],
+    });
+  },
+
+  // Update image caching to use cacheManager
+  cacheTemplateImages: async (templates: Template[]) => {
+    const imageUrls = templates
+      .map(template => template.template_image_url)
+      .filter((url): url is string => !!url);
+    
+    if (imageUrls.length > 0) {
+      await cacheManager.preloadImages(imageUrls);
+    }
+  },
+
+  // Add cache statistics helper
+  getCacheStats: () => {
+    return cacheManager.getCacheStats();
+  }
 
 }));

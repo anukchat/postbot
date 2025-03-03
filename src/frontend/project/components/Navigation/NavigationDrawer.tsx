@@ -1,12 +1,15 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useEditorStore } from '../../store/editorStore';
-import { Loader, Search, Filter, X, RefreshCw } from 'lucide-react';
+import { Loader, Search, Filter, X, RefreshCw, Trash2 } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import { Post } from '../../types/editor';
+import toast from 'react-hot-toast';
+import { cacheManager } from '../../services/cacheManager';
 
 interface NavigationDrawerProps {
   isOpen: boolean;
   onClose: () => void;
+  onNavigateToEditor?: () => void; // New prop for navigation handling
 }
 
 interface FilterState {
@@ -14,8 +17,8 @@ interface FilterState {
   status: string;
   domain: string;
   tag_name: string;
-  created_after: string;
-  created_before: string;
+  updated_after: string;
+  updated_before: string;
 }
 
 const QUICK_FILTERS = [
@@ -24,7 +27,15 @@ const QUICK_FILTERS = [
   { label: 'Drafts', value: 'Draft' },
 ];
 
-export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onClose }) => {
+// Cache control constants
+const DRAWER_SESSION_KEY = 'navigation_drawer_last_fetch';
+const FETCH_COOLDOWN = 5 * 60 * 1000; // 5 minute cooldown between fetches
+
+export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ 
+  isOpen, 
+  onClose,
+  onNavigateToEditor 
+}) => {
   const { 
     posts, 
     currentPost, 
@@ -33,6 +44,8 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
     limit, 
     isLoading,
     hasReachedEnd,
+    deletePost,
+    isContentUpdated
   } = useEditorStore();
   
   const isListLoading = useEditorStore(state => state.isListLoading);
@@ -44,15 +57,30 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
     status: '',
     domain: '',
     tag_name: '',
-    created_after: '',
-    created_before: ''
+    updated_after: '',
+    updated_before: ''
   });
   const [selectedQuickFilter, setSelectedQuickFilter] = useState('');
   const [isResetting, setIsResetting] = useState(false);
+  const [isServerFiltered, setIsServerFiltered] = useState(false);
+  const [activeFilterCount, setActiveFilterCount] = useState(0);
 
-  // Move filteredPosts before its usage and optimize memoization
+  // Track if initial fetch has been done
+  const initialFetchDoneRef = useRef(false);
+  const isFetchingRef = useRef(false);
+  const scrollPositionRef = useRef(0);
+  const drawerOpenedRef = useRef(false);
+  const lastFetchRef = useRef(0);
+  const fetchCounterRef = useRef(0); // Counter to track fetch attempts
+
+  // Filter posts client-side when possible
   const filteredPosts = useMemo(() => {
     if (!posts || posts.length === 0) return [];
+    
+    // If server-side filters are active, don't filter client-side
+    if (isServerFiltered) {
+      return posts;
+    }
     
     // Only filter if we have search term or quick filter
     if (!searchTerm && !selectedQuickFilter) {
@@ -80,7 +108,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
 
         return titleMatch;
       });
-  }, [posts, searchTerm, selectedQuickFilter]);
+  }, [posts, searchTerm, selectedQuickFilter, isServerFiltered]);
 
   // Add latestDate calculation for post indicators
   const latestDate = useMemo(() => {
@@ -89,9 +117,33 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
   }, [filteredPosts]);
 
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const initialFetchDoneRef = useRef(false);
-  const isFetchingRef = useRef(false);
-  const scrollPositionRef = useRef(0);
+
+  // Improved logic to check if we need to fetch data
+  const shouldFetchData = useCallback(() => {
+    // 1. If content has been updated (new blog generated)
+    if (isContentUpdated) {
+      console.log('Fetching due to content update');
+      return true;
+    }
+    
+    // 2. If there's no data yet
+    if (posts.length === 0) {
+      console.log('Fetching because posts are empty');
+      return true;
+    }
+    
+    // 3. Check if we have a valid cache entry for empty filters (default list)
+    const defaultCacheKey = JSON.stringify({ filters: {}, skip: 0, limit });
+    const cachedData = cacheManager.getContentFromCache(defaultCacheKey);
+    
+    if (!cachedData) {
+      console.log('Fetching because no cached data found');
+      return true;
+    }
+    
+    console.log('Using cached data, not fetching');
+    return false;
+  }, [posts.length, isContentUpdated, limit]);
 
   // Optimize the handleLoadMore callback
   const handleLoadMore = useCallback(async () => {
@@ -136,20 +188,75 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
     };
   }, [handleLoadMore, isLoading, hasReachedEnd]);
 
+  // Enhanced data fetching logic for when drawer opens
   useEffect(() => {
-    if (!initialFetchDoneRef.current && !isLoading) {
-      initialFetchDoneRef.current = true;
-      fetchPosts({
-        timestamp: Date.now(),
-        forceRefresh: true
-      }, 0, limit);
+    if (isOpen && !isListLoading && !isFetchingRef.current) {
+      const justOpened = !drawerOpenedRef.current;
+      drawerOpenedRef.current = true;
+      
+      // Always check cache for default query when drawer opens
+      const defaultCacheKey = JSON.stringify({ filters: {}, skip: 0, limit });
+      const cachedData = cacheManager.getContentFromCache(defaultCacheKey);
+      
+      // Counter to prevent excessive attempts in a session
+      const fetchCount = fetchCounterRef.current;
+      
+      // Check if we should fetch data
+      if ((justOpened && shouldFetchData()) || 
+          (!initialFetchDoneRef.current && fetchCount < 3)) {
+        
+        console.log('Fetching posts on drawer open', { justOpened, fetchCount });
+        
+        // Mark initial fetch done and update last fetch time
+        initialFetchDoneRef.current = true;
+        fetchCounterRef.current += 1;
+        
+        // Fetch data with minimum parameters to maximize cache hits
+        fetchPosts({
+          timestamp: Date.now(),
+          noCache: !cachedData // Only bypass cache if we don't have cached data
+        }, 0, limit);
+      }
     }
-  }, [fetchPosts, isLoading, limit]);
+    
+    // Reset the drawer opened state when it closes
+    if (!isOpen) {
+      drawerOpenedRef.current = false;
+    }
+  }, [isOpen, fetchPosts, isListLoading, limit, shouldFetchData]);
+
+  // Debounced search that uses client-side filtering when possible
+  const debouncedSearch = useMemo(() => {
+    return debounce((term: string) => {
+      setSearchTerm(term);
+      // If search term is long enough, we need to filter server-side
+      if (term.length > 3) {
+        fetchPosts({
+          title_contains: term,
+          timestamp: Date.now()
+        }, 0, limit);
+      }
+    }, 500);
+  }, [fetchPosts, limit]);
+
+  // Clean up the debounce on unmount
+  useEffect(() => {
+    return () => {
+      debouncedSearch.cancel();
+    };
+  }, [debouncedSearch]);
 
   // Client-side search handler
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
+    // Immediately update UI with the new value
     setSearchTerm(value);
+    
+    // Reset server-side filters when searching
+    if (isServerFiltered) {
+      setIsServerFiltered(false);
+      setActiveFilterCount(0);
+    }
     
     // Reset filters and quick filters when searching
     if (!showFilters) {
@@ -158,10 +265,37 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
         status: '',
         domain: '',
         tag_name: '',
-        created_after: '',
-        created_before: ''
+        updated_after: '',
+        updated_before: ''
       });
       setSelectedQuickFilter('');
+    }
+    
+    // Debounce the actual search operation
+    debouncedSearch(value);
+  };
+
+  // Force refresh data manually
+  const handleManualRefresh = async () => {
+    setIsResetting(true);
+    
+    try {
+      // Update last fetch time and reset fetch counter
+      lastFetchRef.current = Date.now();
+      fetchCounterRef.current = 0;
+      
+      // Force fetch with clean state
+      await fetchPosts({
+        timestamp: Date.now(),
+        forceRefresh: true
+      }, 0, limit);
+      
+      toast.success('Posts refreshed successfully');
+    } catch (error) {
+      console.error('Error refreshing posts:', error);
+      toast.error('Failed to refresh posts');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -177,11 +311,13 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
         status: '',
         domain: '',
         tag_name: '',
-        created_after: '',
-        created_before: ''
+        updated_after: '',
+        updated_before: ''
       });
       setSelectedQuickFilter('');
       setShowFilters(false);
+      setIsServerFiltered(false);
+      setActiveFilterCount(0);
       
       // Clear the posts in the store
       useEditorStore.setState(state => ({
@@ -193,43 +329,66 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
       // Reset ref to allow fresh fetch
       initialFetchDoneRef.current = false;
       isFetchingRef.current = false;
+      lastFetchRef.current = Date.now();
+      fetchCounterRef.current = 0;
 
       // Force fresh fetch with clean state
       await fetchPosts({
         timestamp: Date.now(),
-        forceRefresh: true,
-        noCache: true
+        forceRefresh: true
       }, 0, limit);
-
     } catch (error) {
       console.error('Error resetting posts:', error);
+      toast.error('Failed to reset posts');
     } finally {
       setIsResetting(false);
     }
   };
 
-  // API-based filter application
   const handleApplyFilters = async () => {
     setIsResetting(true);
     
     try {
-      const cleanedFilters = Object.entries(filters).reduce((acc, [key, value]) => {
+      // Clean and structure filters for API
+      const apiFilters = Object.entries(filters).reduce((acc, [key, value]) => {
         if (value && value !== 'All') {
-          acc[key] = value;
+          // Handle date filters specially to ensure proper ISO format
+          if (key === 'updated_after' || key === 'updated_before') {
+            acc[key] = new Date(value).toISOString();
+          } else {
+            acc[key] = value;
+          }
         }
         return acc;
       }, {} as Record<string, any>);
 
-      await fetchPosts({
-        ...cleanedFilters,
-        timestamp: Date.now(),
-        forceRefresh: true,
-        noCache: true
-      }, 0, limit);
+      // Count active filters for UI indicator
+      const filterCount = Object.keys(apiFilters).length;
+      setActiveFilterCount(filterCount);
+      
+      // Set server filtered flag if we have any filters
+      setIsServerFiltered(filterCount > 0);
+
+      // Update last fetch time
+      lastFetchRef.current = Date.now();
+
+      // Clear search term and quick filters when applying advanced filters
+      setSearchTerm('');
+      setSelectedQuickFilter('');
+
+      // Ensure filters are properly structured for the API
+      const fetchFilters = {
+        ...apiFilters,
+        timestamp: Date.now()
+      };
+
+      console.log('Applying filters:', fetchFilters);
+      await fetchPosts(fetchFilters, 0, limit);
 
       setShowFilters(false);
     } catch (error) {
       console.error('Error applying filters:', error);
+      toast.error('Failed to apply filters');
     } finally {
       setIsResetting(false);
     }
@@ -245,36 +404,61 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
     const newValue = value === selectedQuickFilter ? '' : value;
     setSelectedQuickFilter(newValue);
 
-    // Reset other filters when using quick filters
+    // Reset server-side filters when using quick filters
+    setIsServerFiltered(false);
+    setActiveFilterCount(0);
+    
+    // Reset other filters
     setFilters({
       post_type: '',
       status: '',
       domain: '',
       tag_name: '',
-      created_after: '',
-      created_before: ''
+      updated_after: '',
+      updated_before: ''
     });
     setSearchTerm('');
+    
+    // Apply the quick filter if it changed
+    if (newValue !== selectedQuickFilter) {
+      // Check if we have this filter cached
+      const cacheKey = JSON.stringify({ filters: { status: newValue }, skip: 0, limit });
+      const cachedData = cacheManager.getContentFromCache(cacheKey);
+      
+      if (!cachedData) {
+        lastFetchRef.current = Date.now();
+        // Structure the filter object properly for the API
+        const apiFilters = newValue ? { status: newValue } : {};
+        fetchPosts({
+          ...apiFilters,
+          timestamp: Date.now()
+        }, 0, limit);
+      }
+    }
   };
 
   const handlePostSelect = (post: Post) => {
     setCurrentPost(post);
+    // Navigate to editor if provided
+    if (onNavigateToEditor) {
+      onNavigateToEditor();
+    }
     onClose();
   };
 
-  // Reset filters when drawer is closed
-  useEffect(() => {
-    if (!isOpen) {
-      // Reset the filter panel state
-      setShowFilters(false);
-      
-      // Only reset filters if they're not actively being used
-      if (!searchTerm && !selectedQuickFilter && !Object.values(filters).some(val => val)) {
-        handleReset();
+  const handleDelete = async (e: React.MouseEvent, threadId: string) => {
+    e.stopPropagation(); // Prevent post selection when clicking delete
+    if (window.confirm('Are you sure you want to delete this post?')) {
+      try {
+        await deletePost(threadId);
+        toast.success('Post deleted successfully');
+      } catch (error) {
+        toast.error('Failed to delete post');
       }
     }
-  }, [isOpen]);
+  };
 
+  // Don't reset filters when drawer is closed to maintain state between openings
   return (
     <>
       {/* Add backdrop overlay */}
@@ -318,12 +502,28 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
                 onChange={handleSearchChange}
                 className="w-full pl-9 pr-12 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg border-0 focus:ring-2 focus:ring-blue-500"
               />
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-full transition-colors"
-              >
-                <Filter className={`w-4 h-4 ${showFilters ? 'text-blue-500' : 'text-gray-400'}`} />
-              </button>
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
+                {isServerFiltered && (
+                  <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-blue-500 rounded-full">
+                    {activeFilterCount}
+                  </span>
+                )}
+                {/* Add manual refresh button */}
+                <button
+                  onClick={handleManualRefresh}
+                  disabled={isListLoading || isResetting}
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-full transition-colors"
+                  title="Refresh posts"
+                >
+                  <RefreshCw className={`w-4 h-4 text-gray-400 ${isListLoading || isResetting ? 'animate-spin text-blue-500' : ''}`} />
+                </button>
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-full transition-colors"
+                >
+                  <Filter className={`w-4 h-4 ${showFilters || isServerFiltered ? 'text-blue-500' : 'text-gray-400'}`} />
+                </button>
+              </div>
             </div>
 
             {/* Filter Panel Overlay */}
@@ -378,8 +578,8 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
                       <label className="block text-sm font-medium mb-1">From</label>
                       <input
                         type="date"
-                        name="created_after"
-                        value={filters.created_after}
+                        name="updated_after"
+                        value={filters.updated_after}
                         onChange={handleFilterChange}
                         className="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-700 border-0"
                       />
@@ -388,8 +588,8 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
                       <label className="block text-sm font-medium mb-1">To</label>
                       <input
                         type="date"
-                        name="created_before"
-                        value={filters.created_before}
+                        name="updated_before"
+                        value={filters.updated_before}
                         onChange={handleFilterChange}
                         className="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-700 border-0"
                       />
@@ -438,6 +638,29 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
               </div>
             )}
             
+            {/* Server filter indicator */}
+            {isServerFiltered && (
+              <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/30 border-b dark:border-gray-700 flex justify-between items-center">
+                <span className="text-sm text-blue-700 dark:text-blue-300">
+                  {activeFilterCount} {activeFilterCount === 1 ? 'filter' : 'filters'} applied
+                </span>
+                <button
+                  onClick={async () => {
+                    setIsResetting(true);
+                    try {
+                      await handleReset();
+                    } finally {
+                      setIsResetting(false);
+                    }
+                  }}
+                  disabled={isResetting}
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+                >
+                  {isResetting ? 'Clearing...' : 'Clear'}
+                </button>
+              </div>
+            )}
+            
             <div className="min-h-full">
               {filteredPosts.length > 0 ? (
                 <div className="relative">
@@ -450,15 +673,24 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
                     >
                       <button
                         onClick={() => handlePostSelect(post)}
-                        className="w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700"
+                        className="w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 group"
                       >
-                        <h3 className={`mb-1 break-words leading-snug line-clamp-2 ${
-                          latestDate && new Date(post.updatedAt).getDate() === latestDate.getDate() 
-                            ? 'font-medium' 
-                            : 'font-normal'
-                        }`}>
-                          {post.title}
-                        </h3>
+                        <div className="flex justify-between items-start">
+                          <h3 className={`mb-1 break-words leading-snug line-clamp-2 flex-1 ${
+                            latestDate && new Date(post.updatedAt).getDate() === latestDate.getDate() 
+                              ? 'font-medium' 
+                              : 'font-normal'
+                          }`}>
+                            {post.title}
+                          </h3>
+                          <button
+                            onClick={(e) => handleDelete(e, post.thread_id)}
+                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-opacity ml-2 -mr-1"
+                            title="Delete post"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                        </div>
                         <div className="flex justify-between items-center">
                           <p className="text-sm text-gray-500 dark:text-gray-400">
                             {new Date(post.updatedAt).toLocaleDateString()}

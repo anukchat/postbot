@@ -11,8 +11,9 @@ export const Navbar: React.FC = () => {
     <nav
       className={`fixed w-full bg-gradient-to-r ${theme.colors.navbar.bg} bg-blend-overlay backdrop-blur-md border-b ${theme.colors.navbar.border} z-50 font-sans`}
       style={{ backgroundBlendMode: 'overlay' }}
+      data-testid="main-navbar"
     >
-      <div className="x-auto">
+      <div className="mx-auto">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link to="/" className="flex items-center">

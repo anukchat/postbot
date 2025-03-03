@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useEditorStore } from '../../store/editorStore';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { TemplateActionButton } from './TemplateActionButton';
 import { TemplateDialog } from './TemplateDialog';
 import { DeleteConfirmationDialog } from './DeleteConfirmationDialog';
 import { toast } from 'react-hot-toast';
+import { cacheManager } from '../../services/cacheManager';
 
 export const TemplateManagement: React.FC = () => {
   const { 
@@ -17,23 +18,79 @@ export const TemplateManagement: React.FC = () => {
     fetchParameters,
     createTemplate, 
     updateTemplate, 
-    deleteTemplate 
+    deleteTemplate,
   } = useEditorStore();
 
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedTemplateData, setSelectedTemplateData] = useState<any>(null);
+  
+  // Keep track of mount status
+  const isMounted = useRef(false);
+  const hasFetchedInitialData = useRef(false);
 
-  // Load templates and parameters on component mount
+  // Check if we need to fetch templates based on cache
+  const needsFreshTemplateData = () => {
+    // Check if we have templates in state already
+    if (templates.length > 0) {
+      return !cacheManager.isTemplatesCacheValid();
+    }
+    
+    // If no templates, we need to fetch
+    return true;
+  };
+
+  // Load templates and parameters on component mount - optimized to use cache
   useEffect(() => {
-    fetchTemplates();
-    fetchParameters();
-  }, [fetchTemplates, fetchParameters]);
+    // Mark component as mounted
+    isMounted.current = true;
+    
+    const loadInitialData = async () => {
+      // Don't load if we've already loaded or another fetch is in progress
+      if (hasFetchedInitialData.current || isTemplateLoading) {
+        return;
+      }
+      
+      // Only fetch templates if needed
+      if (needsFreshTemplateData()) {
+        await fetchTemplates();
+      }
+      
+      // Fetch parameters only if cache is invalid
+      if (!cacheManager.isParametersCacheValid()) {
+        await fetchParameters();
+        cacheManager.updateParametersFetchTimestamp();
+      }
+      
+      // Mark as fetched
+      if (isMounted.current) {
+        hasFetchedInitialData.current = true;
+      }
+    };
+    
+    loadInitialData();
+    
+    // Cleanup function
+    return () => {
+      isMounted.current = false;
+    };
+  }, [fetchTemplates, fetchParameters, isTemplateLoading]);
 
+  // Handle manual refresh of templates
+  const handleRefreshTemplates = () => {
+    // Clear template cache before forcing refresh
+    cacheManager.clearTemplateCache();
+    fetchTemplates(undefined, undefined, undefined, true);
+    toast.success('Templates refreshed');
+  };
+
+  // Handle template creation/update/delete with proper cache invalidation
   const handleCreateTemplate = async (templateData: any) => {
     try {
       await createTemplate(templateData);
+      // Clear template cache after creation
+      cacheManager.clearTemplateCache();
       toast.success('Template created successfully');
       setIsEditDialogOpen(false);
       setSelectedTemplate(null);
@@ -48,6 +105,8 @@ export const TemplateManagement: React.FC = () => {
     if (selectedTemplate) {
       try {
         await updateTemplate(selectedTemplate, templateData);
+        // Clear template cache after update
+        cacheManager.clearTemplateCache();
         toast.success('Template updated successfully');
         setIsEditDialogOpen(false);
         setSelectedTemplate(null);
@@ -63,6 +122,8 @@ export const TemplateManagement: React.FC = () => {
     if (selectedTemplate) {
       try {
         await deleteTemplate(selectedTemplate);
+        // Clear template cache after deletion
+        cacheManager.clearTemplateCache();
         toast.success('Template deleted successfully');
         setIsDeleteDialogOpen(false);
         setSelectedTemplate(null);
@@ -95,17 +156,26 @@ export const TemplateManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Header with create button */}
+      {/* Header with create button and refresh option */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Template Management</h2>
-        <TemplateActionButton
-          onClick={() => openEditDialog()}
-          isLoading={isTemplateActionLoading}
-          variant="primary"
-          className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
-        >
-          Create Template
-        </TemplateActionButton>
+        <div className="flex gap-2">
+          <button 
+            onClick={handleRefreshTemplates}
+            disabled={isTemplateLoading}
+            className="px-3 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
+          >
+            Refresh
+          </button>
+          <TemplateActionButton
+            onClick={() => openEditDialog()}
+            isLoading={isTemplateActionLoading}
+            variant="primary"
+            className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+          >
+            Create Template
+          </TemplateActionButton>
+        </div>
       </div>
 
       {/* Template list */}
@@ -152,10 +222,12 @@ export const TemplateManagement: React.FC = () => {
               <div className="mt-2">
                 <p className="text-sm text-gray-500 dark:text-gray-300">Parameters:</p>
                 <div className="flex flex-wrap gap-2 mt-1">
-                  {template.parameters?.map((param: any) => (
-                    <span key={param.parameter_id} className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">
-                      {param.display_name}: {param.value.value}
-                    </span>
+                  {template.parameters?.sort((a: any, b: any) => 
+                  a.display_name.localeCompare(b.display_name)
+                  ).map((param: any) => (
+                  <span key={param.parameter_id} className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">
+                    {param.display_name}: {param.values?.value || (param.values && param.values.length > 0 ? param.values.value : 'N/A')}
+                  </span>
                   ))}
                 </div>
               </div>
@@ -181,7 +253,10 @@ export const TemplateManagement: React.FC = () => {
           }}
           onSubmit={selectedTemplate ? handleUpdateTemplate : handleCreateTemplate}
           template={selectedTemplateData}
-          parameters={parameters}
+          parameters={parameters.map(p => ({
+            ...p,
+            values: p.values?.[0] || { value_id: '', value: '' }
+          }))}
           parameterValues={parameterValues}
           isLoading={isTemplateActionLoading}
         />

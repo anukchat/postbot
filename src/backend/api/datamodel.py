@@ -1,9 +1,9 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional, List, Dict, Union
+from typing import Any, Optional, List, Dict, Union
 from uuid import UUID
 
-# Profile Pydantic Model
+#region Profile Pydantic Model
 class ProfileBase(BaseModel):
     user_id: UUID
     full_name: Optional[str] = None
@@ -31,7 +31,9 @@ class Profile(ProfileBase):
     class Config:
         from_attributes = True
 
-# ContentType Pydantic Model
+#endregion
+
+#region ContentType Pydantic Model
 class ContentTypeBase(BaseModel):
     name: str
 
@@ -47,8 +49,9 @@ class ContentType(ContentTypeBase):
 
     class Config:
         from_attributes = True
+#endregion
 
-# Content Pydantic Model
+#region Content Pydantic Model
 class ContentBase(BaseModel):
     profile_id: UUID  # Changed from Optional[UUID] to required UUID
     content_type_id: UUID
@@ -76,8 +79,9 @@ class Content(ContentBase):
 
     class Config:
         from_attributes = True
+#endregion
 
-# SourceType Pydantic Model
+#region SourceType Pydantic Model
 class SourceTypeBase(BaseModel):
     name: str
 
@@ -94,7 +98,9 @@ class SourceType(SourceTypeBase):
     class Config:
         from_attributes = True
 
-# Source Pydantic Model
+#endregion
+
+#region Source Pydantic Model
 class SourceBase(BaseModel):
     batch_id: Optional[UUID] = None
     source_type_id: UUID
@@ -116,7 +122,9 @@ class Source(SourceBase):
     class Config:
         from_attributes = True
 
-# ContentSource Pydantic Model
+#endregion
+
+#region ContentSource Pydantic Model
 class ContentSourceBase(BaseModel):
     content_id: UUID
     source_id: UUID
@@ -135,7 +143,9 @@ class ContentSource(ContentSourceBase):
     class Config:
         from_attributes = True
 
-# URLReference Pydantic Model
+#endregion
+
+#region URLReference Pydantic Model
 class URLReferenceBase(BaseModel):
     source_id: UUID
     url: str
@@ -164,7 +174,9 @@ class URLReference(URLReferenceBase):
     class Config:
         from_attributes = True
 
-# Media Pydantic Model
+#endregion
+
+#region Media Pydantic Model
 class MediaBase(BaseModel):
     source_id: UUID
     media_url: str
@@ -185,7 +197,9 @@ class Media(MediaBase):
     class Config:
         from_attributes = True
 
-# Tag Pydantic Model
+#endregion
+
+#region Tag Pydantic Model
 class TagBase(BaseModel):
     name: str
 
@@ -202,7 +216,9 @@ class Tag(TagBase):
     class Config:
         from_attributes = True
 
-# ContentTag Pydantic Model
+#endregion
+
+#region ContentTag Pydantic Model
 class ContentTagBase(BaseModel):
     content_id: UUID
     tag_id: UUID
@@ -221,7 +237,9 @@ class ContentTag(ContentTagBase):
     class Config:
         from_attributes = True
 
-# SourceMetadata Pydantic Model
+#endregion
+
+#region SourceMetadata Pydantic Model
 class SourceMetadataBase(BaseModel):
     source_id: UUID
     key: str
@@ -242,49 +260,9 @@ class SourceMetadata(SourceMetadataBase):
     class Config:
         from_attributes = True
 
-# CustomField Pydantic Model
-class CustomFieldBase(BaseModel):
-    source_type_id: UUID
-    field_name: str
-    field_type: str
+#endregion
 
-class CustomFieldCreate(CustomFieldBase):
-    pass
-
-class CustomFieldUpdate(BaseModel):
-    source_type_id: Optional[UUID] = None
-    field_name: Optional[str] = None
-    field_type: Optional[str] = None
-
-class CustomField(CustomFieldBase):
-    custom_field_id: UUID
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-# CustomFieldValue Pydantic Model
-class CustomFieldValueBase(BaseModel):
-    source_id: UUID
-    custom_field_id: UUID
-    value: Optional[str] = None
-
-class CustomFieldValueCreate(CustomFieldValueBase):
-    pass
-
-class CustomFieldValueUpdate(BaseModel):
-    source_id: Optional[UUID] = None
-    custom_field_id: Optional[UUID] = None
-    value: Optional[str] = None
-
-class CustomFieldValue(CustomFieldValueBase):
-    custom_field_value_id: UUID
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-# ContentAnalytics Pydantic Model
+#region ContentAnalytics Pydantic Model
 class ContentAnalyticsBase(BaseModel):
     content_id: UUID
     views: int = 0
@@ -308,7 +286,9 @@ class ContentAnalytics(ContentAnalyticsBase):
     class Config:
         from_attributes = True
 
-# UserActivity Pydantic Model
+#endregion
+
+#region UserActivity Pydantic Model
 class UserActivityBase(BaseModel):
     profile_id: UUID
     activity_type: str
@@ -329,7 +309,9 @@ class UserActivity(UserActivityBase):
     class Config:
         from_attributes = True
 
-# Plan Pydantic Model
+#endregion
+
+#region Plan Pydantic Model
 class PlanBase(BaseModel):
     name: str
     price: float
@@ -350,7 +332,9 @@ class Plan(PlanBase):
     class Config:
         from_attributes = True
 
-# Subscription Pydantic Model
+#endregion
+
+#region Subscription Pydantic Model
 class SubscriptionBase(BaseModel):
     profile_id: UUID
     plan_id: UUID
@@ -375,7 +359,9 @@ class Subscription(SubscriptionBase):
     class Config:
         from_attributes = True
 
-# Payment Pydantic Model
+#endregion
+
+#region Payment Pydantic Model
 class PaymentBase(BaseModel):
     subscription_id: UUID
     amount: float
@@ -398,21 +384,190 @@ class Payment(PaymentBase):
     class Config:
         from_attributes = True
 
-# UserSelectedSource Pydantic Model
-class UserSelectedSourceBase(BaseModel):
-    profile_id: UUID
-    source_id: UUID
+#endregion
 
-class UserSelectedSourceCreate(UserSelectedSourceBase):
-    pass
+# Response Models (moved from api.py)
+class ContentListItem(BaseModel):
+    id: str
+    thread_id: str
+    source_identifier: Optional[str] = None
+    title: Optional[str] = None
+    content: str
+    tags: List[str]
+    createdAt: str
+    updatedAt: str
+    status: str
+    twitter_post: Optional[str]
+    linkedin_post: Optional[str]
+    urls: List[dict]
+    media: List[dict]
+    source_type: Optional[str]
 
-class UserSelectedSourceUpdate(BaseModel):
-    profile_id: Optional[UUID] = None
-    source_id: Optional[UUID] = None
+class ContentListResponse(BaseModel):
+    items: List[ContentListItem]
+    total: int
+    page: int
+    size: int
 
-class UserSelectedSource(UserSelectedSourceBase):
-    selection_id: UUID
-    selected_at: datetime
+class SourceListResponse(BaseModel):
+    items: List[Dict]
+    total: int
+    page: int
+    size: int
+
+class RedditResponse(BaseModel):
+    data: Dict[str, Any]
+    status: str
+    error: Optional[str] = None
+
+# Token Generation Models
+class TokenRequest(BaseModel):
+    grant_type: str
+    code: Optional[str] = None
+    refresh_token: Optional[str] = None
+    provider: Optional[str] = None
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: Optional[str] = None
+    token_type: str = "bearer"
+    expires_in: Optional[int] = None
+    provider: Optional[str] = None
+
+class CallbackResponse(BaseModel):
+    access_token: str
+    refresh_token: Optional[str] = None
+    token_type: str = "bearer"
+    expires_in: Optional[int] = None
+
+# Model for a Templates
+class TemplateParameterValue(BaseModel):
+    value_id: UUID
+    value: str
+    display_order: Optional[int] = None
+    created_at: datetime
 
     class Config:
         from_attributes = True
+
+class TemplateParameterValueCreate(BaseModel):
+    value_id: UUID
+    value: str
+
+class TemplateParameter(BaseModel):
+    parameter_id: UUID
+    name: str  # Parameter name (e.g., "persona")
+    display_name: str  # Friendly name for UI
+    description: Optional[str] = ''
+    is_required: bool = True
+    created_at: datetime
+    values: Optional[TemplateParameterValue]=None
+
+    class Config:
+        from_attributes = True
+
+class TemplateParameterCreate(BaseModel):
+    parameter_id: UUID
+    name: str
+    display_name: str
+    is_required: bool = True
+    values: Optional[TemplateParameterValueCreate] = None
+
+# Model for a single template
+class TemplateResponse(BaseModel):
+    template_id: UUID
+    name: str
+    description: Optional[str] = ''
+    template_type: str
+    template_image_url: Optional[str] = ''
+    parameters: Optional[List[TemplateParameter]]
+    created_at: datetime
+    updated_at: datetime
+    is_deleted: bool = False
+
+    class Config:
+        from_attributes = True
+
+# Model for creating a template
+class TemplateCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    template_type: Optional[str] = "default"
+    template_image_url: Optional[str] = None
+    parameters: Optional[List[TemplateParameterCreate]] = None
+
+# Model for updating a template
+class TemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    template_type: Optional[str] = None
+    template_image_url: Optional[str] = None
+    parameters: Optional[List[TemplateParameterCreate]] = None  # Optional list of updated parameters
+
+# Model for parameters
+class ParameterValueModel(BaseModel):
+    value_id: UUID
+    value: str
+    display_order: int
+    created_at: datetime
+
+class ParameterModel(BaseModel):
+    parameter_id: UUID
+    name: str
+    display_name: str
+    description: Optional[str]
+    is_required: bool
+    created_at: datetime
+    values: List[ParameterValueModel]
+
+
+class SaveContentRequest(BaseModel):
+    # thread_id: UUID
+    title: Optional[str] = None
+    content: Optional[str] = None
+    twitter_post: Optional[str] = None
+    linkedin_post: Optional[str] = None
+    status: str = "Draft"
+
+class ScheduleContentRequest(BaseModel):
+    thread_id: UUID
+    status: str = "scheduled"
+    schedule_date: datetime
+    platform: str
+
+class GeneratePostRequestModel(BaseModel):
+    thread_id: str = None
+    post_types: List[str]
+    tweet_id: Optional[str] = None
+    url: Optional[str] = None
+    topic: Optional[str] = None
+    feedback: Optional[str] = None  # Add this field
+    reddit_query: Optional[str] = None
+    subreddit: Optional[str] = None
+    template_id: Optional[str] = None
+
+class RedditRequest(BaseModel):
+    subreddits: Optional[List[str]] = None
+    category: Optional[str] = None
+    timeframe: Optional[str] = 'day'
+    limit: Optional[int] = 10
+
+class RedditSuggestionsResponse(BaseModel):
+    blog_topics: List[str]
+
+class UserProfileResponse(BaseModel):
+    id: str  # Original user_id from auth
+    profile_id: str  # Profile ID for database relations
+    role: str = "free"
+
+
+class BlogResponse(BaseModel):
+    final_blog: Optional[str]
+    reviewed_blog: Optional[str]
+    blog_title: Optional[str]
+    twitter_post: Optional[str]
+    linkedin_post: Optional[str]
+    tags: Optional[List[str]]
+    feedback_applied: Optional[bool]
+    linkedin_post_generated: Optional[bool]
+    twitter_post_generated: Optional[bool]
