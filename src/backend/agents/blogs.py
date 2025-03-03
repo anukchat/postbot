@@ -11,7 +11,6 @@ from langgraph.constants import Send
 from langgraph.graph import START, END, StateGraph
 # from langchain_core.messages import HumanMessage, SystemMessage
 from psycopg import Connection
-from supabase import Client
 
 # from src.agents import configuration
 from src.backend.agents.prompts import (
@@ -33,7 +32,7 @@ from src.backend.agents.prompts import (
 )
 from src.backend.agents.tools import ImageSearch, RedditSearch, WebSearch
 from src.backend.clients.llm import LLMClient, HumanMessage, SystemMessage
-from src.backend.agents.state import BlogState, BlogStateInput, BlogStateOutput, SectionState
+from src.backend.agents.state import BlogState, BlogStateInput, BlogStateOutput, SectionState, StreamUpdate
 from src.backend.agents.utils import *
 from src.backend.extraction.factory import ConverterRegistry, ExtracterRegistry
 import atexit
@@ -243,7 +242,7 @@ class AgentWorkflow:
 
         all_sections = "\n\n".join([s.content for s in sections])
         #ToDO: Add title to the final blog
-        blog_title_matches = re.findall(r"^#\s+(.*)$", all_sections, re.MULTILINE)
+        blog_title_matches = re.findall(r"^#{1,3}\s+(.*)$", all_sections, re.MULTILINE)
         blog_title = blog_title_matches[0] if blog_title_matches else ""
         return {"final_blog": all_sections, "blog_title": blog_title}
     
@@ -1116,6 +1115,104 @@ class AgentWorkflow:
             ],
         )
         return graph
+    
+    async def stream_generic_workflow(self, payload, thread_id, user):
+        """Stream workflow execution with real-time updates"""
+        logger.info(f"Starting streaming workflow with payload type: {type(payload).__name__}")
+        try:
+            thread_id, source_id, url_meta, media_meta = self._initialize_workflow(payload, thread_id)
+            logger.debug(f"Initialized workflow: thread_id={thread_id}, source_id={source_id}")
+
+            # check thread_id is not existent
+            existing_content = self.content_repo.exists("thread_id",thread_id)
+            # Handle existing thread with no feedback
+            if existing_content and not payload.get("feedback"):
+                logger.info("Handling existing thread without feedback")
+                config = {"configurable": {"thread_id": thread_id}}
+                async for event in self.graph.astream(None, config=config):
+                    yield self._format_event(event)
+                return
+
+            # Handle new content generation
+            logger.info("Handling new content generation")
+            if payload.get("url"):
+                test_input, source_id = self._handle_url_workflow(payload, thread_id, user)
+            elif payload.get("tweet_id"):
+                test_input, source_id = self._handle_tweet_workflow(payload, thread_id, user)
+            elif payload.get("topic"):
+                test_input, source_id = self._handle_topic_workflow(payload, thread_id, user)
+            elif payload.get("reddit_query"):
+                test_input, source_id = self._handle_reddit_workflow(payload, thread_id, user)
+            else:
+                raise ValueError("Invalid payload - missing required fields")
+
+            config = {"configurable": {"thread_id": thread_id}}
+            final_state = None
+            for event in self.graph.stream(test_input, config=config):
+                # Pass through the event
+                yield self._format_event(event)
+                
+                if ('compile_final_blog' or 'write_linkedin_post' or 'write_twitter_post') in str(event):
+                    final_state = event
+                # Alternatively, LangGraph might emit an event with specific markers for end state
+                if '__end__' in str(event) or '__interrupt__' in str(event):
+                    logger.info("End of workflow detected")
+                
+            # Store the final state after the workflow completes
+            if final_state:
+                self._store_new_content(final_state['compile_final_blog'], thread_id, source_id, payload, user)
+                
+        except Exception as e:
+            logger.error(f"Error in streaming workflow: {str(e)}", exc_info=True)
+            yield {"error": str(e)}
+            raise HTTPException(status_code=500, detail=str(e))
+
+    def _format_event(self, event):
+        """Format LangGraph event for streaming"""
+        import json
+        
+        # Convert LangGraph event to StreamUpdate format
+        if hasattr(event, 'type') and event.type == 'start':
+            update = StreamUpdate(
+                node=event.node,
+                progress=self._calculate_progress(event.state) if hasattr(event, 'state') and event.state else 0,
+                status="started",
+                message=f"Starting {event.node}"
+            )
+        elif hasattr(event, 'type') and event.type == 'end':
+            update = StreamUpdate(
+                node=event.node,
+                progress=self._calculate_progress(event.state) if hasattr(event, 'state') and event.state else 100,
+                status="completed",
+                message=f"Completed {event.node}"
+            )
+        else:
+            # For other event types or formats, provide a default structure
+            node_name = next(iter(event)) if isinstance(event, dict) else str(event)
+            update = StreamUpdate(
+                node=node_name,
+                progress=50,
+                status="processing",
+                message=f"Processing {node_name}"
+            )
+        
+        # Convert the StreamUpdate object to a JSON string that can be encoded
+        return json.dumps(update.__dict__)
+    
+    def _calculate_progress(self, state):
+        """Calculate completion percentage based on workflow steps"""
+        total_steps = 8  # Total number of main nodes in workflow
+        completed = sum([
+            len(state.sections) > 0,
+            len(state.completed_sections) > 0,
+            bool(state.blog_main_body_sections),
+            bool(state.final_blog),
+            bool(state.twitter_post),
+            bool(state.linkedin_post),
+            bool(state.tags),
+            bool(state.reviewed_blog)
+        ])
+        return min(100, int((completed / total_steps) * 100))
 
 
 if __name__ == "__main__":

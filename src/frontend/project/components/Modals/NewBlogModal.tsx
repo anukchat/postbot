@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog } from '@headlessui/react';
-import { Twitter, Globe, X, Loader, Search, ChevronLeft, Grid2X2, LayoutList, MessageCircle, Loader2 } from 'lucide-react';
+import { Twitter, Globe, X, Loader, Search, ChevronLeft, Grid2X2, LayoutList, MessageCircle, Loader2, CheckCircle } from 'lucide-react';
 import { Tweet } from 'react-tweet';
 import { useEditorStore } from '../../store/editorStore';
 import Masonry from 'react-masonry-css';
@@ -13,6 +13,7 @@ import Tippy from '@tippyjs/react';
 import MicrolinkCard from '@microlink/react';
 import { toast } from 'react-hot-toast';
 import Select from 'react-select';
+import { v4 as uuid } from 'uuid';
 
 // Remove unused LOADING_MESSAGES constant
 const MASONRY_BREAKPOINTS = {
@@ -143,22 +144,25 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
     fetchTrendingBlogTopics: state.fetchTrendingBlogTopics
   }));
 
-  // Use this effect at component level
-  // useEffect(() => {
-  //   if (selectedSource === 'reddit' && selectedSubreddit) {
-  //     setIsLoadingTrending(true);
-  //     fetchTrendingBlogTopics([selectedSubreddit], 15)
-  //       .then(() => {
-  //         setCurrentTopicsPage(1);
-  //       })
-  //       .finally(() => {
-  //         setIsLoadingTrending(false);
-  //       });
-  //   } else if (selectedSource === 'reddit') {
-  //     // Clear trending topics when no subreddit is selected
-  //     useEditorStore.getState().trendingBlogTopics = [];
-  //   }
-  // }, [selectedSource, selectedSubreddit, fetchTrendingBlogTopics]);
+  // Add new state from editorStore
+  const generationProgress = useEditorStore(state => state.generationProgress);
+
+  // Update effect to show progress toasts with center-right alignment
+  useEffect(() => {
+    if (generationProgress) {
+      toast(generationProgress, {
+        duration: Infinity, // This will stay until manually dismissed
+        position: 'bottom-right',
+        icon: <CheckCircle className="w-4 h-4 text-green-500" />, 
+        style: {
+          background: '#f0fdf4', // Light green background
+          color: '#166534', // Dark green text
+          border: '1px solid #dcfce7', // Lighter green border
+          textAlign: 'left',
+        },
+      });
+    }
+  }, [generationProgress]);
 
   // Update fetchSources to handle Reddit search
   const fetchSources = async () => {
@@ -306,8 +310,9 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
   const handleGenerate = async () => {
     try {
       setError(''); // Clear any existing errors
-      setIsGenerating(true);
+      // setIsGenerating(true);
 
+      const thread_id = uuid();
       let payload: {
         post_types: string[];
         topic?: string;
@@ -365,41 +370,115 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
         payload.template_id = selectedTemplate.id;
       }
 
-      const response = await api.post('/content/generate', payload);
-      
-      // Wait for a short time to ensure the post is generated
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Fetch latest posts to get the new blog
-      await fetchPosts({
-        forceRefresh: true,
-        timestamp: Date.now(),
-        reset: true
-      }, 0, 20);
-      
-      // Get the posts from the store
-      const posts = useEditorStore.getState().posts;
-      
-      // Get the most recent post (should be the one just generated)
-      if (posts.length > 0) {
-        const newPost = posts[0];
-        // Set the current post before navigating
-        useEditorStore.getState().setCurrentPost(newPost);
-        navigate('/dashboard');
+
+      // Create a persistent toast for ongoing generation at top center
+      const progressToastId = 'generation-progress';
+      toast.loading('Content generation in progress...', {
+        id: progressToastId,
+        duration: Infinity, // This will stay until manually dismissed
+        position: 'top-center',
+        style: {
+          background: '#f0f9ff', // Lighter blue background
+          color: '#0c4a6e', // Darker blue text
+          border: '1px solid #bae6fd', // Light blue border
+          fontWeight: 500,
+          textAlign: 'left',
+        }
+      });
+
+      try {
         onClose();
-      } else {
-        throw new Error('Generated post not found');
+        // Call the generatePost method which now handles streaming
+        await useEditorStore.getState().generatePost(['blog'], thread_id, payload);
+        
+        // Success toast positioned at top center
+        toast.success('Content generated successfully!', { 
+          id: 'generation-complete',
+          duration: 10000, // 10 seconds duration
+          position: 'top-center',
+          style: {
+            background: '#ecfdf5', // Light green background  
+            color: '#065f46', // Dark green text
+            border: '1px solid #d1fae5', // Lighter green border
+            fontWeight: 500,
+            textAlign: 'left',
+          }
+        });
+        
+        // Dismiss the persistent progress toast
+        toast.dismiss(progressToastId);
+
+        // Dismiss all event generation toasts using the react-hot-toast API
+        toast.dismiss();
+        
+        // Fetch the content for the new thread
+        await useEditorStore.getState().fetchContentByThreadId(thread_id);
+        
+        // Navigate to dashboard
+        navigate('/dashboard');
+        
+      } catch (err: any) {
+        // Dismiss the persistent progress toast
+        toast.dismiss(progressToastId);
+        
+        // Handle the error and show appropriate toast with improved styling and left alignment
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          toast.error('Session expired. Please log in again', { 
+            id: 'generation-error', 
+            duration: 10000,
+            position: 'bottom-right',
+            style: {
+              background: '#fef2f2', // Light red background
+              color: '#991b1b', // Dark red text
+              border: '1px solid #fee2e2', // Lighter red border
+              fontWeight: 500,
+              textAlign: 'left',
+            }
+          });
+          // Optionally redirect to login page or trigger re-authentication
+        } else if (err.response?.status === 429) {
+          toast.error('Generation limit reached. Please try again later', { 
+            id: 'generation-error',
+            duration: 10000,
+            position: 'bottom-right',
+            style: {
+              background: '#fef2f2', // Light red background
+              color: '#991b1b', // Dark red text
+              border: '1px solid #fee2e2', // Lighter red border
+              fontWeight: 500,
+              textAlign: 'left',
+            }
+          });
+        } else {
+          toast.error(err.message || 'Failed to generate content', { 
+            id: 'generation-error',
+            duration: 10000,
+            position: 'bottom-right',
+            style: {
+              background: '#fef2f2', // Light red background
+              color: '#991b1b', // Dark red text
+              border: '1px solid #fee2e2', // Lighter red border
+              fontWeight: 500,
+              textAlign: 'left',
+            }
+          });
+        }
+        throw err;
       }
 
     } catch (err: any) {
       console.error('Failed to generate blog:', err);
       if (err.response?.status === 403 && err.response?.data?.detail?.includes("Generation limit reached")) {
-        toast.error('User has exceeded the generation limit');
+        setError('User has exceeded the generation limit');
+      } else if (err.response?.status === 401 || err.response?.status === 403) {
+        setError('Authorization failed. Please try logging in again.');
       } else {
         setError(err.message || 'Failed to generate blog');
       }
     } finally {
       setIsGenerating(false);
+      // Ensure any remaining progress toasts are dismissed
+      toast.dismiss('generation-progress');
     }
   };
 

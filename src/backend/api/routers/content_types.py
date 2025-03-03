@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from src.backend.api.datamodel import ContentType, ContentTypeCreate, ContentTypeUpdate
 from src.backend.db.repositories import ContentTypeRepository
-from dependencies import get_current_user_profile
+from src.backend.api.dependencies import get_current_user_profile
 from uuid import UUID
 from typing import Optional
 

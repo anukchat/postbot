@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { templateApi, deleteContent, filterContent } from '../services/api';
+import { templateApi, deleteContent, filterContent, generatePostStream } from '../services/api';
 import { Post } from '../types/editor';
 import api from '../services/api';
 import { cacheManager } from '../services/cacheManager';
@@ -121,6 +121,8 @@ interface EditorState {
   generatePost: (post_types: string[], thread_id: string, payload?: GeneratePayload) => Promise<void>;
   fetchTrendingBlogTopics: (subreddits?: string[], limit?: number) => Promise<void>;
   deletePost: (threadId: string) => Promise<void>;
+  generationProgress: string;
+  setGenerationProgress: (progress: string) => void;
 }
 
 // Separate admin state interface
@@ -182,6 +184,8 @@ export const useEditorStore = create<CombinedState>((set, get) => ({
   isTemplateActionLoading: false,
   templateError: null,
   currentTemplate: null,
+  generationProgress: '',
+  setGenerationProgress: (progress) => set({ generationProgress: progress }),
 
   setCurrentTab: (tab) => set({ currentTab: tab }),
   setCurrentPost: (post) => set({ currentPost: post }),
@@ -632,10 +636,8 @@ ${content}`;
   },
 
   generatePost: async (post_types: string[], thread_id: string, payload?: GeneratePayload) => {
-    const { currentPost, fetchContentByThreadId } = get();
-    if (!currentPost) return;
-
-    set({ isLoading: true });
+    set({ isLoading: true, generationProgress: 'Initializing generation...' });
+    let reader;
     try {
       let payloadData: any = { 
         post_types: post_types.map(type => type === 'twitter' ? 'twitter' : type === 'linkedin' ? 'linkedin' : type),
@@ -643,31 +645,74 @@ ${content}`;
         ...payload
       };
 
-      if (currentPost.source_type === 'twitter') {
-        payloadData.tweet_id = currentPost.source_identifier;
-      } else if (currentPost.source_type === 'web_url') {
-        payloadData.url = currentPost.source_identifier;
+      // Use the streaming endpoint
+      reader = await generatePostStream(payloadData);
+      if (!reader) {
+        throw new Error('Failed to initialize content generation stream');
+      }
+      
+      // Process the stream
+      // Process the stream
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        // Convert the Uint8Array to text
+        const text = new TextDecoder().decode(value);
+        const lines = text.split('\n').filter(line => line.trim() !== '');
+        
+        for (const line of lines) {
+          try {
+            // Parse the JSON from the line
+            const eventData = JSON.parse(line);
+            
+            // Update progress based on StreamUpdate format
+            if (eventData.message) {
+              set({ generationProgress: eventData.message });
+            } else if (eventData.node) {
+              const progressInfo = eventData.progress ? ` (${eventData.progress}%)` : '';
+              set({ generationProgress: `${eventData.status} ${eventData.node}${progressInfo}` });
+            }
+          } catch (err) {
+            console.warn('Error parsing stream event:', err);
+            // If line is not valid JSON but has content, show it as progress
+            if (line.trim()) {
+              set({ generationProgress: line });
+            }
+          }
+        }
       }
 
-      const response = await api.post('/content/generate', payloadData);
-      if (response.status !== 200) {
-        throw new Error(`Generation failed: ${response.statusText}`);
-      }
-      if (response.data) {
-        await fetchContentByThreadId(thread_id, post_types[0]);
-        set({ isLoading: false, error: null });
-      }
+      // After streaming is complete, fetch the latest post
+      const { fetchContentByThreadId } = get();
+      await fetchContentByThreadId(thread_id);
+
     } catch (error: any) {
       console.error('Error generating post:', error);
-      if (
-        error.response?.status === 403 &&
-        error.response?.data?.detail?.includes("Generation limit reached")
-      ) {
-        throw error;
+      if (error.response?.status === 403) {
+        if (error.response?.data?.detail?.includes("Generation limit reached")) {
+          set({ error: "You've reached the generation limit. Please try again later." });
+        } else {
+          set({ error: "Authorization failed. Please try logging in again." });
+        }
+      } else if (error.response?.status === 401) {
+        set({ error: "Session expired. Please log in again." });
+      } else {
+        set({ error: error.message || 'Error generating post' });
       }
-      set({ isLoading: false, error: 'Error generating post' });
+      set({ isLoading: false, generationProgress: '' });
+      throw error;
+    } finally {
+      if (reader) {
+        try {
+          await reader.cancel();
+        } catch (e) {
+          console.error('Error canceling reader:', e);
+        }
+      }
+      set({ isLoading: false, generationProgress: '' });
     }
-  },
+},
 
   fetchTrendingBlogTopics: async (subreddits?: string[], limit: number = 15) => {
     set({ trendingBlogTopics: [] });

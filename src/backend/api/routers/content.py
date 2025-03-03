@@ -2,7 +2,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from src.backend.api.datamodel import BlogResponse, Content, ContentUpdate, ContentListResponse, ContentListItem, SaveContentRequest, ScheduleContentRequest, GeneratePostRequestModel
 from src.backend.db.repositories import ContentRepository, ProfileRepository, ContentTypeRepository, TemplateRepository
-from dependencies import get_current_user_profile, get_workflow
+from src.backend.api.dependencies import get_current_user_profile, get_workflow
 from uuid import UUID
 import json
 import uuid
@@ -11,6 +11,7 @@ from fastapi import Query
 from src.backend.agents.blogs import AgentWorkflow
 from src.backend.utils.logger import setup_logger
 from src.backend.api.formatters import format_content_list_response, format_content_list_item
+from fastapi.responses import StreamingResponse
 
 logger = setup_logger(__name__)
 
@@ -95,8 +96,43 @@ async def increment_generation_count(profile_id: UUID):
         if not success:
             raise HTTPException(status_code=500, detail="Failed to increment generation count")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to increment generation count: {str(e)}")
-    
+        raise HTTPException(status_code=500, detail=f"Failed to increment generation count: {str(e)}")    
+
+@router.post("/generate/stream", response_class=StreamingResponse)
+async def stream_generic_blog(
+    payload: GeneratePostRequestModel,
+    workflow: AgentWorkflow = Depends(get_workflow),
+    current_user: dict = Depends(get_current_user_profile),
+):
+    """Stream workflow execution in real-time"""
+    try:
+        thread_id = payload.thread_id or str(uuid.uuid4())
+        payload_dict = payload.model_dump()
+        
+        if payload.template_id:
+            template_data = template_repository.get_template_with_parameters(UUID(payload.template_id), UUID(current_user.profile_id))
+            payload_dict["template"] = template_data
+
+        # Check generation limit
+        limit_response = await check_generation_limit(current_user.profile_id)
+        if limit_response['generations_used'] >= limit_response['max_generations']:
+            raise HTTPException(status_code=403, detail="Generation limit reached")
+
+        # Return streaming response
+        return StreamingResponse(
+            workflow.stream_generic_workflow(payload_dict, thread_id, current_user),
+            media_type="text/event-stream",
+            headers={
+                "Content-Disposition": f"attachment; filename={thread_id}.stream",
+                "X-Thread-ID": thread_id
+            }
+        )
+    except HTTPException as e:
+        logger.error(f"HTTP Exception in stream_generic_blog: {str(e)}")
+        raise e
+    except Exception as e:
+        logger.error(f"Unexpected error in stream_generic_blog: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/filter", response_model=ContentListResponse)
 async def filter_content(
@@ -140,7 +176,7 @@ async def get_content(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.put("/{content_id}", response_model=Content) 
-def update_content(content_id: UUID, content: ContentUpdate, current_user: dict = Depends(get_current_user_profile)):
+async def update_content(content_id: UUID, content: ContentUpdate, current_user: dict = Depends(get_current_user_profile)):
     """Update content"""
     result = content_repository.update(
         id_field="content_id",

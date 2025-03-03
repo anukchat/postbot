@@ -2,7 +2,6 @@
 default_blog_structure = """The blog post should follow this structure, adapted for {content_type}:
 
 1. Introduction (max 1 section)
-   - Start with key Links containing user-provided links in form [Link1](URL1)
    - Brief main topic overview tailored for {age_group}
    - Include primary keyword in first paragraph
    - 150-200 words (flexible)
@@ -26,7 +25,7 @@ default_blog_structure = """The blog post should follow this structure, adapted 
 
 3. Conclusion (max 1 section)
    - Concise key point summary aligned with {content_type}
-   - Repeat Key Links
+   - Add Key Links
    - Natural call-to-action appropriate for {age_group}
    - Reinforce primary keyword
    - 100-150 words
@@ -204,6 +203,7 @@ Guidelines for writing:
 
 FOR INTRODUCTION (If writing introduction):
 - Use # Title (must be attention-grabbing but technical)
+- Always make sure that the Title starts with only one # and is followed by a space
 
 FOR CONCLUSION (if writing Conclusion):
 - Use ## Conclusion (crisp concluding statement)"""

@@ -47,6 +47,38 @@ const filterContent = (filters: Record<string, any> = {}, skip: number = 0, limi
   });
 };
 
+// Add streaming generate method
+const generatePostStream = async (payload: any) => {
+  try {
+    const session = await authService.getSession();
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/content/generate/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token}`,
+        'Accept': 'text/event-stream',
+      },
+      body: JSON.stringify(payload),
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    if (!response.body) {
+      throw new Error('No response body received');
+    }
+
+    const reader = response.body.getReader();
+    return reader;
+  } catch (error) {
+    console.error('Error in generatePostStream:', error);
+    throw error;
+  }
+};
+
 // Template-specific methods
 const templateApi = {
   getTemplate: (templateId: string) => api.get(`/templates/${templateId}`),
@@ -92,5 +124,5 @@ const templateApi = {
   getTemplateWithParameters: (templateId: string) => api.get(`/templates/${templateId}`),
 };
 
-export { templateApi, deleteContent, filterContent };
+export { templateApi, deleteContent, filterContent, generatePostStream };
 export default api;

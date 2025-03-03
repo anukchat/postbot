@@ -10,7 +10,6 @@ from uuid import UUID
 from src.backend.utils.logger import setup_logger
 from src.backend.db.repositories import AuthRepository
 from cachetools import TTLCache
-from dependencies import get_current_user_profile
 
 from routers import content, profiles, content_types, sources, templates, parameters, reddit
 # Auth cache to store token-to-user mappings with a TTL (Time To Live)

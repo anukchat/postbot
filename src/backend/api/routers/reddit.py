@@ -4,7 +4,7 @@ from typing import List, Dict, Optional
 from fastapi import APIRouter, Query, Body, Depends
 from src.backend.api.datamodel import RedditResponse, RedditSuggestionsResponse
 from src.backend.extraction.extractors.reddit import RedditExtractor
-from dependencies import get_current_user_profile
+from src.backend.api.dependencies import get_current_user_profile
 
 router = APIRouter(prefix="/reddit", tags=["Reddit"])
 

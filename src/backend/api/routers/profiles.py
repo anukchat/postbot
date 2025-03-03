@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from src.backend.api.datamodel import Profile
-from dependencies import get_current_user_profile
+from src.backend.api.dependencies import get_current_user_profile
 from src.backend.db.repositories import ProfileRepository
 import uuid
 from uuid import UUID
