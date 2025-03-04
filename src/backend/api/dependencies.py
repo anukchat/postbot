@@ -5,8 +5,8 @@ from cachetools import TTLCache
 from uuid import UUID
 from src.backend.agents.blogs import AgentWorkflow
 from src.backend.api.datamodel import UserProfileResponse
-from src.backend.db.repositories.auth_repository import AuthRepository
-from src.backend.db.repositories.profile_repository import ProfileRepository
+from backend.db.repositories.auth import AuthRepository
+from backend.db.repositories.profile import ProfileRepository
 
 
 auth_cache = TTLCache(maxsize=100, ttl=6000)  # 6000 seconds = 100 minutes
