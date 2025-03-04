@@ -1171,32 +1171,58 @@ class AgentWorkflow:
         """Format LangGraph event for streaming"""
         import json
         
-        # Convert LangGraph event to StreamUpdate format
-        if hasattr(event, 'type') and event.type == 'start':
-            update = StreamUpdate(
-                node=event.node,
-                progress=self._calculate_progress(event.state) if hasattr(event, 'state') and event.state else 0,
-                status="started",
-                message=f"Starting {event.node}"
-            )
-        elif hasattr(event, 'type') and event.type == 'end':
-            update = StreamUpdate(
-                node=event.node,
-                progress=self._calculate_progress(event.state) if hasattr(event, 'state') and event.state else 100,
-                status="completed",
-                message=f"Completed {event.node}"
-            )
-        else:
-            # For other event types or formats, provide a default structure
-            node_name = next(iter(event)) if isinstance(event, dict) else str(event)
-            update = StreamUpdate(
-                node=node_name,
-                progress=50,
-                status="processing",
-                message=f"Processing {node_name}"
-            )
+        # Define custom messages for each node
+        node_messages = {
+            "generate_blog_plan": "Planning blog structure and outline...",
+            "write_section": "Writing blog section content...",
+            "gather_completed_sections": "Compiling blog sections together...",
+            "write_final_sections": "Finalizing introduction and conclusion...",
+            "compile_final_blog": "Combining all sections into final blog post...",
+            "review_blog": "Reviewing blog for quality and coherence...",
+            "write_twitter_post": "Creating concise Twitter post from blog content...",
+            "write_linkedin_post": "Crafting professional LinkedIn post...",
+            "generate_tags": "Generating relevant tags for better discoverability..."
+        }
         
-        # Convert the StreamUpdate object to a JSON string that can be encoded
+        # Extract node name
+        if hasattr(event, 'node'):
+            node_name = event.node
+        elif isinstance(event, dict):
+            node_name = next(iter(event))
+        else:
+            node_name = str(event)
+        
+        # Get custom message or use default
+        custom_message = node_messages.get(node_name, f"Processing {node_name}")
+        
+        # Determine status and progress based on event type
+        if hasattr(event, 'type'):
+            if event.type == 'start':
+                status = "started"
+                progress = 10
+                message = f"Starting: {custom_message}"
+            elif event.type == 'end':
+                status = "completed"
+                progress = 100
+                message = f"Completed: {custom_message}"
+            else:
+                status = "processing"
+                progress = 50
+                message = custom_message
+        else:
+            status = "processing"
+            progress = 50
+            message = custom_message
+        
+        # Create update object
+        update = StreamUpdate(
+            node=node_name,
+            progress=progress,
+            status=status,
+            message=message
+        )
+        
+        # Convert the StreamUpdate object to a JSON string
         return json.dumps(update.__dict__)
     
     def _calculate_progress(self, state):
