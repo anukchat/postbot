@@ -3,7 +3,7 @@ import { MarkdownEditor } from './components/Editor/MarkdownEditor';
 import { CanvasView } from './components/Canvas/CanvasView';
 import { useEditorStore } from './store/editorStore';
 import { PostDetails } from './components/PostDetails';
-import { BrowserRouter, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, Link, useNavigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import Features from './pages/Features';
 import Pricing from './pages/Pricing';
@@ -11,7 +11,7 @@ import SignIn from './components/Auth/SignIn';
 import SignUp from './components/Auth/SignUp';
 import About from './pages/About';
 import Contact from './pages/Contact';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import Settings from './pages/Settings';
 import { Toaster } from 'react-hot-toast';
@@ -62,7 +62,15 @@ const MainAppLayout: React.FC = () => {
     category: string;
   } | null>(null);
   const location = useLocation();
-  
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!user && location.pathname === '/dashboard') {
+      navigate('/', { replace: true });
+    }
+  }, [user, location.pathname, navigate]);
+
   const { 
     currentPost, 
     isDarkMode, 
