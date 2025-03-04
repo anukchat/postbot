@@ -411,6 +411,11 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
         // Dismiss all event generation toasts using the react-hot-toast API
         toast.dismiss();
         
+        // Clear the content cache and force a refresh
+        const store = useEditorStore.getState();
+        // Clear cache and fetch fresh posts
+        await store.fetchPosts({ forceRefresh: true, reset: true });
+        
         // Fetch the content for the new thread
         await useEditorStore.getState().fetchContentByThreadId(thread_id);
         

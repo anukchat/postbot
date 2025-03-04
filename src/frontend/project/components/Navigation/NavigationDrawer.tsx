@@ -27,9 +27,12 @@ const QUICK_FILTERS = [
   { label: 'Drafts', value: 'Draft' },
 ];
 
-// Cache control constants
-const DRAWER_SESSION_KEY = 'navigation_drawer_last_fetch';
-const FETCH_COOLDOWN = 5 * 60 * 1000; // 5 minute cooldown between fetches
+// Store cache keys for different filters
+const FILTER_CACHE_KEYS = {
+  ALL: 'all_posts',
+  PUBLISHED: 'published_posts',
+  DRAFTS: 'draft_posts'
+};
 
 export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ 
   isOpen, 
@@ -68,10 +71,23 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   // Track if initial fetch has been done
   const initialFetchDoneRef = useRef(false);
   const isFetchingRef = useRef(false);
-  const scrollPositionRef = useRef(0);
   const drawerOpenedRef = useRef(false);
   const lastFetchRef = useRef(0);
   const fetchCounterRef = useRef(0); // Counter to track fetch attempts
+
+  // Track last loaded position for each filter type
+  const filterScrollPositionsRef = useRef<Record<string, number>>({});
+  // Track loaded posts count for each filter
+  const filterPostsCountRef = useRef<Record<string, number>>({});
+  // Track if filter has reached end
+  const filterReachedEndRef = useRef<Record<string, boolean>>({});
+
+  // Get current filter cache key
+  const getCurrentFilterKey = useCallback(() => {
+    if (selectedQuickFilter === 'Published') return FILTER_CACHE_KEYS.PUBLISHED;
+    if (selectedQuickFilter === 'Draft') return FILTER_CACHE_KEYS.DRAFTS;
+    return FILTER_CACHE_KEYS.ALL;
+  }, [selectedQuickFilter]);
 
   // Filter posts client-side when possible
   const filteredPosts = useMemo(() => {
@@ -145,28 +161,30 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
     return false;
   }, [posts.length, isContentUpdated, limit]);
 
-  // Optimize the handleLoadMore callback
+  // Optimize the handleLoadMore callback - simplified version
   const handleLoadMore = useCallback(async () => {
-    if (isFetchingRef.current || hasReachedEnd || isLoading) return;
+    if (isFetchingRef.current || hasReachedEnd || isLoading) {
+      return;
+    }
     
+    console.log('Executing load more: posts.length =', posts.length);
     isFetchingRef.current = true;
-    // Store current scroll position
-    scrollPositionRef.current = loadMoreRef.current?.scrollTop || 0;
     
     try {
-      await fetchPosts({ timestamp: Date.now() }, posts.length, limit);
+      // Create appropriate filters based on quick filter selection
+      const filterParams: Record<string, any> = { timestamp: Date.now() };
+      if (selectedQuickFilter) {
+        filterParams.status = selectedQuickFilter;
+      }
+      
+      // Fetch more posts with current filter
+      await fetchPosts(filterParams, posts.length, limit);
     } catch (error) {
       console.error('Error loading more posts:', error);
     } finally {
       isFetchingRef.current = false;
-      // Restore scroll position after update
-      requestAnimationFrame(() => {
-        if (loadMoreRef.current) {
-          loadMoreRef.current.scrollTop = scrollPositionRef.current;
-        }
-      });
     }
-  }, [fetchPosts, posts.length, hasReachedEnd, limit, isLoading]);
+  }, [fetchPosts, posts.length, hasReachedEnd, limit, isLoading, selectedQuickFilter]);
 
   // Optimize scroll listener with proper cleanup and debounce
   useEffect(() => {
@@ -174,19 +192,35 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
     if (!scrollContainer) return;
     
     const handleScroll = debounce(() => {
+      if (!scrollContainer) return;
+      
       const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
-      // Trigger load more when within 200px of bottom
-      if (scrollHeight - (scrollTop + clientHeight) < 200 && !isLoading && !hasReachedEnd) {
+      
+      // Only log in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Scroll metrics:', {
+          distanceToBottom: scrollHeight - (scrollTop + clientHeight),
+          isLoading,
+          hasReachedEnd,
+          postsLength: posts.length
+        });
+      }
+      
+      const distanceToBottom = scrollHeight - (scrollTop + clientHeight);
+      const threshold = 100; // Smaller threshold for more reliable triggering
+      
+      if (distanceToBottom < threshold && !isLoading && !isFetchingRef.current && !hasReachedEnd && posts.length > 0) {
         handleLoadMore();
       }
-    }, 100, { leading: true, trailing: true });
+    }, 100);
     
     scrollContainer.addEventListener('scroll', handleScroll);
+    
     return () => {
       scrollContainer.removeEventListener('scroll', handleScroll);
       handleScroll.cancel();
     };
-  }, [handleLoadMore, isLoading, hasReachedEnd]);
+  }, [handleLoadMore, isLoading, hasReachedEnd, posts.length]);
 
   // Enhanced data fetching logic for when drawer opens
   useEffect(() => {
@@ -194,28 +228,38 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
       const justOpened = !drawerOpenedRef.current;
       drawerOpenedRef.current = true;
       
-      // Always check cache for default query when drawer opens
-      const defaultCacheKey = JSON.stringify({ filters: {}, skip: 0, limit });
-      const cachedData = cacheManager.getContentFromCache(defaultCacheKey);
+      const currentFilterKey = getCurrentFilterKey();
       
-      // Counter to prevent excessive attempts in a session
-      const fetchCount = fetchCounterRef.current;
+      // Check if we have content for this filter already
+      if (posts.length > 0 && filterPostsCountRef.current[currentFilterKey]) {
+        // We already have data for this filter, restore scroll position
+        requestAnimationFrame(() => {
+          if (loadMoreRef.current) {
+            const savedPos = filterScrollPositionsRef.current[currentFilterKey] || 0;
+            loadMoreRef.current.scrollTop = savedPos;
+          }
+        });
+        return;
+      }
       
-      // Check if we should fetch data
-      if ((justOpened && shouldFetchData()) || 
-          (!initialFetchDoneRef.current && fetchCount < 3)) {
+      // Check if we should fetch fresh data
+      if ((justOpened && shouldFetchData()) || !initialFetchDoneRef.current) {
+        console.log('Fetching posts on drawer open for filter:', currentFilterKey);
         
-        console.log('Fetching posts on drawer open', { justOpened, fetchCount });
-        
-        // Mark initial fetch done and update last fetch time
+        // Mark initial fetch done
         initialFetchDoneRef.current = true;
-        fetchCounterRef.current += 1;
         
-        // Fetch data with minimum parameters to maximize cache hits
-        fetchPosts({
-          timestamp: Date.now(),
-          noCache: !cachedData // Only bypass cache if we don't have cached data
-        }, 0, limit);
+        // Prepare filter params based on current filter
+        const filterParams: Record<string, any> = { timestamp: Date.now() };
+        if (selectedQuickFilter) {
+          filterParams.status = selectedQuickFilter;
+        }
+        
+        // Fetch data for current filter
+        fetchPosts(filterParams, 0, limit).then(() => {
+          // Update the filter's post count after fetch
+          filterPostsCountRef.current[currentFilterKey] = posts.length;
+        });
       }
     }
     
@@ -223,7 +267,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
     if (!isOpen) {
       drawerOpenedRef.current = false;
     }
-  }, [isOpen, fetchPosts, isListLoading, limit, shouldFetchData]);
+  }, [isOpen, fetchPosts, isListLoading, limit, shouldFetchData, posts.length, getCurrentFilterKey, selectedQuickFilter]);
 
   // Debounced search that uses client-side filtering when possible
   const debouncedSearch = useMemo(() => {
@@ -319,6 +363,11 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
       setIsServerFiltered(false);
       setActiveFilterCount(0);
       
+      // Reset filter-specific tracking
+      filterScrollPositionsRef.current = {};
+      filterPostsCountRef.current = {};
+      filterReachedEndRef.current = {};
+      
       // Clear the posts in the store
       useEditorStore.setState(state => ({
         ...state,
@@ -399,11 +448,15 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Simplified quick filter click handler
   const handleQuickFilterClick = (value: string) => {
     // Toggle filter if clicking the same one
     const newValue = value === selectedQuickFilter ? '' : value;
+    
+    // Always clear existing state before applying new filter
+    setSearchTerm('');
     setSelectedQuickFilter(newValue);
-
+    
     // Reset server-side filters when using quick filters
     setIsServerFiltered(false);
     setActiveFilterCount(0);
@@ -417,24 +470,28 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
       updated_after: '',
       updated_before: ''
     });
-    setSearchTerm('');
     
-    // Apply the quick filter if it changed
-    if (newValue !== selectedQuickFilter) {
-      // Check if we have this filter cached
-      const cacheKey = JSON.stringify({ filters: { status: newValue }, skip: 0, limit });
-      const cachedData = cacheManager.getContentFromCache(cacheKey);
-      
-      if (!cachedData) {
-        lastFetchRef.current = Date.now();
-        // Structure the filter object properly for the API
-        const apiFilters = newValue ? { status: newValue } : {};
-        fetchPosts({
-          ...apiFilters,
-          timestamp: Date.now()
-        }, 0, limit);
-      }
-    }
+    // Clear the posts in the store to prevent filter confusion
+    useEditorStore.setState(state => ({
+      ...state,
+      posts: [],
+      hasReachedEnd: false
+    }));
+    
+    // Set loading state to true to show loading indicator
+    useEditorStore.setState(state => ({ ...state, isListLoading: true }));
+    
+    // Always fetch fresh data for the new filter
+    const apiFilters = newValue ? { status: newValue } : {};
+    
+    // Short delay to allow UI to update before fetch
+    setTimeout(() => {
+      fetchPosts({
+        ...apiFilters,
+        timestamp: Date.now(),
+        forceRefresh: true // Always force refresh for reliable filter switching
+      }, 0, limit);
+    }, 50);
   };
 
   const handlePostSelect = (post: Post) => {
@@ -720,15 +777,31 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                 </div>
               )}
               
-              {/* Load more indicator */}
+              {/* Load more indicator - simplified */}
               {!isListLoading && !hasReachedEnd && posts.length > 0 && (
-                <div className="h-10 flex justify-center items-center">
-                  <Loader className="w-4 h-4 animate-spin text-blue-500" />
+                <div className="h-10 flex justify-center items-center" onClick={handleLoadMore}>
+                  <button className="text-sm text-blue-500 flex items-center gap-1">
+                    <Loader className="w-4 h-4 animate-spin text-blue-500" />
+                    Loading more...
+                  </button>
                 </div>
               )}
               {hasReachedEnd && posts.length > 0 && (
                 <div className="h-10 flex justify-center items-center">
                   <span className="text-sm text-gray-500">No more posts</span>
+                </div>
+              )}
+              
+              {/* Use a scroll-to-bottom helper button when less than 10 items to help trigger pagination */}
+              {!isListLoading && !hasReachedEnd && 
+                posts.length > 0 && posts.length < 10 && (
+                <div className="h-12 flex justify-center items-center">
+                  <button 
+                    onClick={handleLoadMore}
+                    className="text-sm text-blue-500 flex items-center gap-1 px-3 py-1 border border-blue-200 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                  >
+                    Load more posts
+                  </button>
                 </div>
               )}
             </div>

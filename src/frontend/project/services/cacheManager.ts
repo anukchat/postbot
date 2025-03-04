@@ -6,7 +6,7 @@ const CONTENT_CACHE_EXPIRY = 24 * 1000 * 60 * 60; // 2 minutes
 const TEMPLATES_CACHE_EXPIRY = 24 * 1000 * 60 * 60; // 24 hours
 const TRENDING_TOPICS_CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
 const PARAMETERS_CACHE_EXPIRY = 24 * 1000 * 60 * 60; // 24 hours
-const MAX_CONTENT_CACHE_SIZE = 200;
+const MAX_CONTENT_CACHE_SIZE = 250;
 const MAX_CACHE_SIZE = 250;
 const LINK_PREVIEW_PREFIX = 'link_preview_';
 const LINK_PREVIEW_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
@@ -424,10 +424,6 @@ class CacheManager {
   }
 
   // Helper methods for cache management with improved reliability
-  private getEstimatedImageCacheSize(): number {
-    return this.totalImageCacheSize;
-  }
-
   private pruneCache<T>(cache: Record<string, T & { timestamp: number }>, maxSize: number): void {
     try {
       const keys = Object.keys(cache);
