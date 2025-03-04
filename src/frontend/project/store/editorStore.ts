@@ -1,8 +1,19 @@
 import { create } from 'zustand';
-import { templateApi, deleteContent, filterContent } from '../services/api';
+import { templateApi, deleteContent, filterContent, generatePostStream } from '../services/api';
 import { Post } from '../types/editor';
 import api from '../services/api';
 import { cacheManager } from '../services/cacheManager';
+
+// Add new interface for generation jobs
+interface GenerationJob {
+  thread_id: string;
+  progress: string;
+  status: 'initializing' | 'running' | 'completed' | 'failed' | 'cancelled';
+  startTime: number;
+  reader?: ReadableStreamDefaultReader<Uint8Array>;
+  post_types: string[];
+  notificationShown?: boolean; // Add this field to track notification state
+}
 
 export interface TemplateParameterValue {
   value_id: string;
@@ -98,6 +109,11 @@ interface EditorState {
   trendingBlogTopics: string[];
   isListLoading: boolean;
   currentTab: 'blog' | 'twitter' | 'linkedin';
+  
+  // New properties for non-blocking generation
+  runningGenerations: Record<string, GenerationJob>;
+  hasRunningGenerations: boolean;
+  
   setCurrentTab: (tab: 'blog' | 'twitter' | 'linkedin') => void;
   setCurrentPost: (post: Post | null) => void;
   toggleTheme: () => void;
@@ -118,9 +134,15 @@ interface EditorState {
   redo: (selected_tab: string) => void;
   schedulePost: (post: Post, platform: string, date: Date) => void;
   fetchContentByThreadId: (thread_id: string, post_type?: string) => Promise<void>;
-  generatePost: (post_types: string[], thread_id: string, payload?: GeneratePayload) => Promise<void>;
+  generatePost: (post_types: string[], thread_id: string, payload?: GeneratePayload) => Promise<string>;
+  cancelGeneration: (thread_id: string) => Promise<void>;
+  clearCompletedGenerations: () => void;
   fetchTrendingBlogTopics: (subreddits?: string[], limit?: number) => Promise<void>;
   deletePost: (threadId: string) => Promise<void>;
+
+  // Keep this but repurpose it for the most recent update from any generation
+  generationProgress: string;
+  setGenerationProgress: (progress: string) => void;
 }
 
 // Separate admin state interface
@@ -182,6 +204,13 @@ export const useEditorStore = create<CombinedState>((set, get) => ({
   isTemplateActionLoading: false,
   templateError: null,
   currentTemplate: null,
+  generationProgress: '',
+  
+  // Initialize new state for background generations
+  runningGenerations: {},
+  hasRunningGenerations: false,
+  
+  setGenerationProgress: (progress) => set({ generationProgress: progress }),
 
   setCurrentTab: (tab) => set({ currentTab: tab }),
   setCurrentPost: (post) => set({ currentPost: post }),
@@ -631,42 +660,206 @@ ${content}`;
     }
   },
 
+  // Updated generatePost method to be non-blocking
   generatePost: async (post_types: string[], thread_id: string, payload?: GeneratePayload) => {
-    const { currentPost, fetchContentByThreadId } = get();
-    if (!currentPost) return;
-
-    set({ isLoading: true });
+    // Create a unique ID for this generation if thread_id isn't provided
+    const generationId = thread_id || `gen_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    
+    // Add entry to running generations map
+    set((state: CombinedState) => {
+      const newRunningGenerations = { 
+        ...state.runningGenerations,
+        [generationId]: {
+          thread_id: generationId,
+          progress: 'Initializing generation...',
+          status: 'initializing' as const,
+          startTime: Date.now(),
+          post_types
+        }
+      };
+      
+      return { 
+        runningGenerations: newRunningGenerations,
+        hasRunningGenerations: true,
+        generationProgress: 'Initializing generation...'
+      };
+    });
+    
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
     try {
       let payloadData: any = { 
         post_types: post_types.map(type => type === 'twitter' ? 'twitter' : type === 'linkedin' ? 'linkedin' : type),
-        thread_id,
+        thread_id: generationId,
         ...payload
       };
 
-      if (currentPost.source_type === 'twitter') {
-        payloadData.tweet_id = currentPost.source_identifier;
-      } else if (currentPost.source_type === 'web_url') {
-        payloadData.url = currentPost.source_identifier;
+      // Use the streaming endpoint but don't block UI interaction
+      reader = await generatePostStream(payloadData);
+      if (!reader) {
+        throw new Error('Failed to initialize content generation stream');
+      }
+      
+      // Store reader reference to allow cancellation
+      set((state: CombinedState) => ({
+        runningGenerations: {
+          ...state.runningGenerations,
+          [generationId]: {
+            ...state.runningGenerations[generationId],
+            reader,
+            status: 'running' as const
+          }
+        }
+      }));
+      
+      // Process the stream in the background
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        // Convert the Uint8Array to text
+        const text = new TextDecoder().decode(value);
+        const lines = text.split('\n').filter(line => line.trim() !== '');
+        
+        for (const line of lines) {
+          try {
+            // Parse the JSON from the line
+            const eventData = JSON.parse(line);
+            
+            // Update progress for this specific generation
+            if (eventData.message) {
+              set((state: CombinedState) => ({
+                runningGenerations: {
+                  ...state.runningGenerations,
+                  [generationId]: {
+                    ...state.runningGenerations[generationId],
+                    progress: eventData.message
+                  }
+                },
+                generationProgress: eventData.message
+              }));
+            } else if (eventData.node) {
+              const progressInfo = eventData.progress ? ` (${eventData.progress}%)` : '';
+              const progressMessage = `${eventData.status} ${eventData.node}${progressInfo}`;
+              
+              set((state: CombinedState) => ({
+                runningGenerations: {
+                  ...state.runningGenerations,
+                  [generationId]: {
+                    ...state.runningGenerations[generationId],
+                    progress: progressMessage
+                  }
+                },
+                generationProgress: progressMessage
+              }));
+            }
+          } catch (err) {
+            console.warn('Error parsing stream event:', err);
+            // If line is not valid JSON but has content, show it as progress
+            if (line.trim()) {
+              const progressMessage = line;
+              set((state: CombinedState) => ({
+                runningGenerations: {
+                  ...state.runningGenerations,
+                  [generationId]: {
+                    ...state.runningGenerations[generationId],
+                    progress: progressMessage
+                  }
+                },
+                generationProgress: progressMessage
+              }));
+            }
+          }
+        }
       }
 
-      const response = await api.post('/content/generate', payloadData);
-      if (response.status !== 200) {
-        throw new Error(`Generation failed: ${response.statusText}`);
-      }
-      if (response.data) {
-        await fetchContentByThreadId(thread_id, post_types[0]);
-        set({ isLoading: false, error: null });
-      }
+      // After streaming is complete, mark as completed
+      set((state: CombinedState) => ({
+        runningGenerations: {
+          ...state.runningGenerations,
+          [generationId]: {
+            ...state.runningGenerations[generationId],
+            status: 'completed' as const,
+            progress: 'Generation completed successfully.'
+          }
+        }
+      }));
+      
+      // Return the generated post ID so it can be used for navigation
+      return generationId;
+
     } catch (error: any) {
       console.error('Error generating post:', error);
-      if (
-        error.response?.status === 403 &&
-        error.response?.data?.detail?.includes("Generation limit reached")
-      ) {
-        throw error;
-      }
-      set({ isLoading: false, error: 'Error generating post' });
+      
+      // Update the error state for this specific generation
+      set((state: CombinedState) => ({
+        runningGenerations: {
+          ...state.runningGenerations,
+          [generationId]: {
+            ...state.runningGenerations[generationId],
+            status: 'failed' as const,
+            progress: error.message || 'Error generating post'
+          }
+        },
+        error: error.message || 'Error generating post'
+      }));
+      
+      throw error;
     }
+  },
+  
+  // New method to cancel a generation in progress
+  cancelGeneration: async (thread_id: string) => {
+    const { runningGenerations } = get();
+    const generation = runningGenerations[thread_id];
+    
+    if (!generation) return;
+    
+    if (generation.reader) {
+      try {
+        await generation.reader.cancel();
+      } catch (e) {
+        console.error('Error canceling reader:', e);
+      }
+    }
+    
+    set((state: CombinedState) => {
+      const updatedGenerations = {
+        ...state.runningGenerations,
+        [thread_id]: {
+          ...state.runningGenerations[thread_id],
+          status: 'cancelled' as const,
+          progress: 'Generation cancelled by user.'
+        }
+      };
+      
+      const hasActive = Object.values(updatedGenerations).some(g => 
+        g.status === 'initializing' || g.status === 'running'
+      );
+      
+      return {
+        runningGenerations: updatedGenerations,
+        hasRunningGenerations: hasActive
+      };
+    });
+  },
+  
+  // Method to clean up completed/failed/cancelled generations from the UI
+  clearCompletedGenerations: () => {
+    set((state: CombinedState) => {
+      const activeGenerations: Record<string, GenerationJob> = {};
+      
+      // Only keep active generations
+      Object.entries(state.runningGenerations).forEach(([id, gen]) => {
+        if (gen.status === 'initializing' || gen.status === 'running') {
+          activeGenerations[id] = gen;
+        }
+      });
+      
+      return {
+        runningGenerations: activeGenerations,
+        hasRunningGenerations: Object.keys(activeGenerations).length > 0
+      };
+    });
   },
 
   fetchTrendingBlogTopics: async (subreddits?: string[], limit: number = 15) => {
@@ -741,7 +934,7 @@ ${content}`;
     
     try {
       set({ isTemplateLoading: true, templateError: null });
-      const response = await templateApi.getAllTemplates({ skip, limit }, limit, filter);
+      const response = await templateApi.getAllTemplates({ skip, limit }, filter);
       if (response.data) {
         cacheManager.setTemplatesInCache(cacheKey, response.data, filter);
         set({ templates: response.data });
@@ -807,29 +1000,36 @@ ${content}`;
   },
 
   fetchParameters: async () => {
-    if (cacheManager.isParametersCacheValid() && !get().isParametersLoading) {
-      return;
-    }
+    const state = get();
+    
+    // Always set loading state when starting to fetch
+    set({ isParametersLoading: true, parametersError: null });
 
     try {
-      set({ isParametersLoading: true, parametersError: null });
-      
+      // Make API call regardless of cache state to ensure fresh data
       const response = await api.get('/parameters/all');
       
       if (response.data) {
+        // Update cache timestamp
         cacheManager.updateParametersFetchTimestamp();
-        set((state) => ({
+        
+        // Update state with fetched data
+        set({
           parameters: response.data,
           parameterValues: response.data.reduce((acc: Record<string, any>, param: Parameter) => {
             acc[param.parameter_id] = param.values || [];
             return acc;
-          }, {...state.parameterValues})
-        }));
+          }, {...state.parameterValues}),
+          isParametersLoading: false,
+          parametersError: null
+        });
       }
     } catch (error) {
-      set({ parametersError: error instanceof Error ? error.message : 'An error occurred' });
-    } finally {
-      set({ isParametersLoading: false });
+      console.error('Error fetching parameters:', error);
+      set({ 
+        parametersError: error instanceof Error ? error.message : 'An error occurred',
+        isParametersLoading: false 
+      });
     }
   },
 

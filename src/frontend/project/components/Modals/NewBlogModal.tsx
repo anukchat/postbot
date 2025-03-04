@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog } from '@headlessui/react';
-import { Twitter, Globe, X, Loader, Search, ChevronLeft, Grid2X2, LayoutList, MessageCircle, Loader2 } from 'lucide-react';
+import { Twitter, Globe, X, Loader, Search, ChevronLeft, Grid2X2, LayoutList, MessageCircle, Loader2, CheckCircle } from 'lucide-react';
 import { Tweet } from 'react-tweet';
 import { useEditorStore } from '../../store/editorStore';
 import Masonry from 'react-masonry-css';
@@ -13,10 +13,11 @@ import Tippy from '@tippyjs/react';
 import MicrolinkCard from '@microlink/react';
 import { toast } from 'react-hot-toast';
 import Select from 'react-select';
+import { v4 as uuid } from 'uuid';
 
 // Remove unused LOADING_MESSAGES constant
 const MASONRY_BREAKPOINTS = {
-  default: 2,
+  default: 2, // Changed from 2 to 3 columns
   1100: 2,
   700: 1
 };
@@ -143,22 +144,25 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
     fetchTrendingBlogTopics: state.fetchTrendingBlogTopics
   }));
 
-  // Use this effect at component level
+  // Add new state from editorStore
+  const generationProgress = useEditorStore(state => state.generationProgress);
+
+  // Update effect to show progress toasts with center-right alignment
   // useEffect(() => {
-  //   if (selectedSource === 'reddit' && selectedSubreddit) {
-  //     setIsLoadingTrending(true);
-  //     fetchTrendingBlogTopics([selectedSubreddit], 15)
-  //       .then(() => {
-  //         setCurrentTopicsPage(1);
-  //       })
-  //       .finally(() => {
-  //         setIsLoadingTrending(false);
-  //       });
-  //   } else if (selectedSource === 'reddit') {
-  //     // Clear trending topics when no subreddit is selected
-  //     useEditorStore.getState().trendingBlogTopics = [];
+  //   if (generationProgress) {
+  //     toast(generationProgress, {
+  //       duration: Infinity, // This will stay until manually dismissed
+  //       position: 'bottom-right',
+  //       icon: <CheckCircle className="w-4 h-4 text-green-500" />, 
+  //       style: {
+  //         background: '#f0fdf4', // Light green background
+  //         color: '#166534', // Dark green text
+  //         border: '1px solid #dcfce7', // Lighter green border
+  //         textAlign: 'left',
+  //       },
+  //     });
   //   }
-  // }, [selectedSource, selectedSubreddit, fetchTrendingBlogTopics]);
+  // }, [generationProgress]);
 
   // Update fetchSources to handle Reddit search
   const fetchSources = async () => {
@@ -306,8 +310,9 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
   const handleGenerate = async () => {
     try {
       setError(''); // Clear any existing errors
-      setIsGenerating(true);
+      // setIsGenerating(true);
 
+      const thread_id = uuid();
       let payload: {
         post_types: string[];
         topic?: string;
@@ -365,41 +370,120 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
         payload.template_id = selectedTemplate.id;
       }
 
-      const response = await api.post('/content/generate', payload);
-      
-      // Wait for a short time to ensure the post is generated
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Fetch latest posts to get the new blog
-      await fetchPosts({
-        forceRefresh: true,
-        timestamp: Date.now(),
-        reset: true
-      }, 0, 20);
-      
-      // Get the posts from the store
-      const posts = useEditorStore.getState().posts;
-      
-      // Get the most recent post (should be the one just generated)
-      if (posts.length > 0) {
-        const newPost = posts[0];
-        // Set the current post before navigating
-        useEditorStore.getState().setCurrentPost(newPost);
-        navigate('/dashboard');
+
+      // Create a persistent toast for ongoing generation at top center
+      // const progressToastId = 'generation-progress';
+      // toast.loading('Content generation in progress...', {
+      //   id: progressToastId,
+      //   duration: Infinity, // This will stay until manually dismissed
+      //   position: 'top-center',
+      //   style: {
+      //     background: '#f0f9ff', // Lighter blue background
+      //     color: '#0c4a6e', // Darker blue text
+      //     border: '1px solid #bae6fd', // Light blue border
+      //     fontWeight: 500,
+      //     textAlign: 'left',
+      //   }
+      // });
+
+      try {
         onClose();
-      } else {
-        throw new Error('Generated post not found');
+        // Call the generatePost method which now handles streaming
+        await useEditorStore.getState().generatePost(['blog'], thread_id, payload);
+        
+        // Success toast positioned at top center
+        // toast.success('Content generated successfully!', { 
+        //   id: 'generation-complete',
+        //   duration: 10000, // 10 seconds duration
+        //   position: 'top-center',
+        //   style: {
+        //     background: '#ecfdf5', // Light green background  
+        //     color: '#065f46', // Dark green text
+        //     border: '1px solid #d1fae5', // Lighter green border
+        //     fontWeight: 500,
+        //     textAlign: 'left',
+        //   }
+        // });
+        
+        // Dismiss the persistent progress toast
+        // toast.dismiss(progressToastId);
+
+        // Dismiss all event generation toasts using the react-hot-toast API
+        // toast.dismiss();
+        
+        // Clear the content cache and force a refresh
+        const store = useEditorStore.getState();
+        // Clear cache and fetch fresh posts
+        await store.fetchPosts({ forceRefresh: true, reset: true });
+        
+        // Fetch the content for the new thread
+        await useEditorStore.getState().fetchContentByThreadId(thread_id);
+        
+        // Navigate to dashboard
+        navigate('/dashboard');
+        
+      } catch (err: any) {
+        // Dismiss the persistent progress toast
+        // toast.dismiss(progressToastId);
+        
+        // Handle the error and show appropriate toast with improved styling and left alignment
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          toast.error('Session expired. Please log in again', { 
+            id: 'generation-error', 
+            duration: 10000,
+            position: 'bottom-right',
+            style: {
+              background: '#fef2f2', // Light red background
+              color: '#991b1b', // Dark red text
+              border: '1px solid #fee2e2', // Lighter red border
+              fontWeight: 500,
+              textAlign: 'left',
+            }
+          });
+          // Optionally redirect to login page or trigger re-authentication
+        } else if (err.response?.status === 429) {
+          toast.error('Generation limit reached. Please try again later', { 
+            id: 'generation-error',
+            duration: 10000,
+            position: 'bottom-right',
+            style: {
+              background: '#fef2f2', // Light red background
+              color: '#991b1b', // Dark red text
+              border: '1px solid #fee2e2', // Lighter red border
+              fontWeight: 500,
+              textAlign: 'left',
+            }
+          });
+        } else {
+          toast.error(err.message || 'Failed to generate content', { 
+            id: 'generation-error',
+            duration: 10000,
+            position: 'bottom-right',
+            style: {
+              background: '#fef2f2', // Light red background
+              color: '#991b1b', // Dark red text
+              border: '1px solid #fee2e2', // Lighter red border
+              fontWeight: 500,
+              textAlign: 'left',
+            }
+          });
+        }
+        throw err;
       }
 
     } catch (err: any) {
       console.error('Failed to generate blog:', err);
       if (err.response?.status === 403 && err.response?.data?.detail?.includes("Generation limit reached")) {
-        toast.error('User has exceeded the generation limit');
+        setError('User has exceeded the generation limit');
+      } else if (err.response?.status === 401 || err.response?.status === 403) {
+        setError('Authorization failed. Please try logging in again.');
       } else {
         setError(err.message || 'Failed to generate blog');
       }
     } finally {
       setIsGenerating(false);
+      // Ensure any remaining progress toasts are dismissed
+      // toast.dismiss('generation-progress');
     }
   };
 
@@ -409,19 +493,19 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
   const renderSourceContent = (source: Source) => {
     if (selectedSource === 'twitter') {
       return (
-        <div className="flex justify-center p-4">
-          <div className="w-full max-w-[400px]">
+        <div className="flex justify-center p-3">
+          <div className="w-full max-w-[380px] transform scale-90 origin-top">
             <Tweet id={source.source_identifier} />
           </div>
         </div>
       );
     }
-
+  
     // For web URLs, use MicrolinkCard with smaller size
     if (source.source_type === 'web_url' && source.source_identifier) {
       return (
         <div 
-          className="cursor-pointer w-full overflow-hidden p-2" // Added flex-[0.8]
+          className="cursor-pointer w-full overflow-hidden"
           onClick={() => setSelectedIdentifier(getUniqueId(source))}
         >
           <MicrolinkCard 
@@ -429,15 +513,14 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
             contrast
             fetchdata
             lazy={{ threshold: 0.2 }}
-            size="large" // Changed from large to small
+            size="large"
             media={['image', 'logo']}
-            className="!rounded-lg !border !border-gray-200 dark:!border-gray-700 pointer-events-none !max-w-full !transform !scale-90" // Added scale down
-            style={{ objectFit: 'contain' }} // Removed flex: 0.8
+            className="!rounded-lg !border !border-gray-200 dark:!border-gray-700 pointer-events-none !max-w-full !transform !scale-90"
           />
         </div>
       );
     }
-
+  
     return null;
   };
 
@@ -806,7 +889,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
           </button>
         </div>
       </div>
-      <div className="px-4 py-2">
+      <div className="max-h-[50vh] overflow-y-auto px-4 py-2 border border-gray-100 dark:border-gray-700 rounded-lg">
         {isLoading && !isGenerating ? ( // Only show normal loader when not generating
           <div className="flex justify-center py-8">
             <Loader className="h-6 w-6 animate-spin text-blue-500" />
@@ -816,8 +899,9 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
             {isGridView ? (
               <Masonry
                 breakpointCols={MASONRY_BREAKPOINTS}
-                className="flex w-auto -ml-4" // Add negative margin to offset column gap
-                columnClassName="pl-4" // Add padding to create gap between columns
+                className="flex w-auto -ml-4" 
+                columnClassName="pl-4"
+                style={{ transform: "scale(0.95)", transformOrigin: "top left" }}
               >
                 {sources.map((source) => (
                   <SourceCard
@@ -828,7 +912,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
                     hasExistingBlog={source.has_blog} // Use the has_blog property from the API
                     existingBlogId={source.thread_id} // Use thread_id from the API
                     onViewBlog={handleViewBlog}
-                    className="mb-4"  // Add bottom margin for vertical spacing
+                    className="mb-4" // Added scale and reduced margin
                   >
                     {renderSourceContent(source)}
                   </SourceCard>
@@ -938,7 +1022,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
       {/* Update container z-index */}
       <div className="fixed inset-0 overflow-y-auto z-[50]">
         <div className="flex min-h-full items-center justify-center p-4">
-          <Dialog.Panel className="w-full max-w-4xl rounded-xl bg-white dark:bg-gray-800 shadow-xl transition-all">
+          <Dialog.Panel className="w-full max-w-4xl rounded-xl bg-white dark:bg-gray-800 shadow-xl transition-all relative max-h-[90vh] flex flex-col">
             {/* Modal header */}
             <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
               <div className="flex items-center justify-between">
@@ -962,7 +1046,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
             </div>
 
             {/* Modal content - Remove fixed height constraints */}
-            <div className="px-6 py-4">
+            <div className="px-6 py-4 overflow-y-auto flex-1" style={{ maxHeight: "calc(80vh - 140px)" }}>
               {error && (
                 <div className="mb-4 p-4 bg-red-50 text-red-600 rounded-lg">
                   {error}
@@ -982,7 +1066,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
 
             {/* Modal footer */}
             {selectedSource && (
-              <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-end gap-3">
+              <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-end gap-3 flex-shrink-0">
                 <button
                   onClick={onClose}
                   className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-lg"

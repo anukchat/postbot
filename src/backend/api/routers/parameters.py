@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from src.backend.api.formatters import format_parameter_value
-from src.backend.db.repositories import template_repository
+from src.backend.db.repositories import template
 from src.backend.api.datamodel import ParameterModel, ParameterValueModel, TemplateParameter, SourceListResponse, TemplateParameterValue, TemplateResponse
 from src.backend.db.repositories import ParameterRepository, SourceRepository
 from src.backend.api.dependencies import get_current_user_profile
@@ -239,10 +239,10 @@ def duplicate_template(
 ):
     """Create a copy of an existing template."""
     try:
-        result = template_repository.duplicate_template(template_id, current_user.profile_id, new_name)
+        result = template.duplicate_template(template_id, current_user.profile_id, new_name)
         if not result:
             raise HTTPException(status_code=404, detail="Template not found")
-        return template_repository.get_template_with_parameters(result["template_id"], UUID(current_user.profile_id))
+        return template.get_template_with_parameters(result["template_id"], UUID(current_user.profile_id))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

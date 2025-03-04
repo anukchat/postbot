@@ -3,7 +3,7 @@ import { MarkdownEditor } from './components/Editor/MarkdownEditor';
 import { CanvasView } from './components/Canvas/CanvasView';
 import { useEditorStore } from './store/editorStore';
 import { PostDetails } from './components/PostDetails';
-import { BrowserRouter, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, Link, useNavigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import Features from './pages/Features';
 import Pricing from './pages/Pricing';
@@ -11,7 +11,7 @@ import SignIn from './components/Auth/SignIn';
 import SignUp from './components/Auth/SignUp';
 import About from './pages/About';
 import Contact from './pages/Contact';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import Settings from './pages/Settings';
 import { Toaster } from 'react-hot-toast';
@@ -25,6 +25,7 @@ import { FloatingNav } from './components/Navigation/FloatingNav';
 import { NavigationDrawer } from './components/Navigation/NavigationDrawer';
 import { TemplatesView } from './components/Templates/TemplatesView';
 import { NewBlogModal } from './components/Modals/NewBlogModal';
+import { GenerationStatusList } from './components/Generation/GenerationStatusList';
 import { Bell, Settings as SettingsIcon } from 'lucide-react';
 import Tippy from '@tippyjs/react';
 import 'tippy.js/dist/tippy.css';
@@ -62,7 +63,28 @@ const MainAppLayout: React.FC = () => {
     category: string;
   } | null>(null);
   const location = useLocation();
-  
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Check for threadId in location state to view a generated post
+  useEffect(() => {
+    const state = location.state as { threadId?: string };
+    if (state?.threadId) {
+      // Fetch and display the generated content
+      const { fetchContentByThreadId } = useEditorStore.getState();
+      fetchContentByThreadId(state.threadId);
+      
+      // Clear the state after using it
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
+
+  useEffect(() => {
+    if (!user && location.pathname === '/dashboard') {
+      navigate('/', { replace: true });
+    }
+  }, [user, location.pathname, navigate]);
+
   const { 
     currentPost, 
     isDarkMode, 
@@ -71,7 +93,6 @@ const MainAppLayout: React.FC = () => {
     updateTwitterPost, 
     fetchContentByThreadId, 
     setCurrentTab,
-    currentTemplate
   } = useEditorStore();
 
   // Handle template selection from location state
@@ -160,6 +181,12 @@ const MainAppLayout: React.FC = () => {
     setShowSourceModal(true);
   };
 
+  // Add a mock generate function to satisfy the NewBlogModal props interface
+  const handleGenerate = async (tweetId: string) => {
+    // Just delegate to the store's generatePost method
+    await useEditorStore.getState().generatePost(['blog'], tweetId);
+  };
+
   return (
     <div className={`h-screen ${isDarkMode ? 'dark' : ''}`}>
       <div className="h-full flex dark:bg-gray-900 dark:text-white">
@@ -243,17 +270,20 @@ const MainAppLayout: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* Display the generation status list component */}
+        <GenerationStatusList />
       </div>
 
-      {/* Source Selection Modal */}
+      {/* Source Selection Modal - Add the onGenerate prop */}
       <NewBlogModal
         isOpen={showSourceModal}
         onClose={() => {
           setShowSourceModal(false);
           setSelectedTemplate(null); // Clear the template when modal closes
         }}
-        onGenerate={async () => {}} // Implement generation logic
         selectedTemplate={selectedTemplate || undefined}  // Pass the selected template
+        onGenerate={handleGenerate} // Add the required prop
       />
     </div>
   );

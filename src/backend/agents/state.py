@@ -74,3 +74,10 @@ class SectionState:
     # media_meta: Optional[List[Dict]] = field(default_factory=list)
     media_markdown: Optional[str] = field(default=None)
     template: Optional[Dict] = field(default=None)
+
+@dataclass
+class StreamUpdate:
+    node: str
+    progress: int
+    status: str = "processing"
+    message: Optional[str] = field(default=None)

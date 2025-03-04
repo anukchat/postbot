@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useEditorStore, Parameter, ParameterValue } from '../../store/editorStore';
 import { PlusCircle, Edit, Trash2, Plus } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -37,11 +37,14 @@ export const ParameterManagement = () => {
     display_order: 0
   });
 
-  // Fetch parameters only once on component mount
+  // Update the useEffect to properly handle parameter fetching
   useEffect(() => {
-    fetchParameters();
-    // We don't include fetchParameters in the dependency array to avoid unnecessary refetches
-  }, []);
+    // Immediately fetch parameters when component mounts
+    fetchParameters().catch(error => {
+      console.error('Error fetching parameters:', error);
+      toast.error('Failed to load parameters');
+    });
+  }, []); // Empty dependency array since we want to fetch only on mount
 
   const handleCreateParameter = async () => {
     try {
@@ -137,7 +140,8 @@ export const ParameterManagement = () => {
     }
   };
 
-  if (isParametersLoading && parameters.length === 0) {
+  // Add a loading indicator that shows during initial load
+  if (isParametersLoading) {
     return (
       <div className="flex items-center justify-center h-48">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -145,13 +149,14 @@ export const ParameterManagement = () => {
     );
   }
 
+  // Show error state if there's an error
   if (parametersError) {
     return (
-      <div className="flex items-center justify-center h-48 text-red-500">
-        <p>{parametersError}</p>
+      <div className="flex flex-col items-center justify-center h-48 text-red-500">
+        <p className="mb-4">{parametersError}</p>
         <button 
           onClick={() => fetchParameters()}
-          className="ml-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
         >
           Retry
         </button>

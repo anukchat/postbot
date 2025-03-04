@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Dict, List,Optional
 from src.backend.api.datamodel import Source, SourceCreate, SourceUpdate, SourceListResponse
 from src.backend.db.repositories import SourceRepository
-from dependencies import get_current_user_profile
+from src.backend.api.dependencies import get_current_user_profile
 from src.backend.api.formatters import format_source_list_response
 from uuid import UUID
 
