@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from src.backend.api.formatters import format_parameter_value
-from backend.db.repositories import template
+from src.backend.db.repositories import template
 from src.backend.api.datamodel import ParameterModel, ParameterValueModel, TemplateParameter, SourceListResponse, TemplateParameterValue, TemplateResponse
 from src.backend.db.repositories import ParameterRepository, SourceRepository
 from src.backend.api.dependencies import get_current_user_profile

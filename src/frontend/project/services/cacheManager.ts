@@ -2,7 +2,7 @@ import { Post } from '../types/editor';
 import { Template } from '../store/editorStore';
 
 // Cache constants
-const CONTENT_CACHE_EXPIRY = 1000 * 60 * 2; // 2 minutes
+const CONTENT_CACHE_EXPIRY = 24 * 1000 * 60 * 60; // 2 minutes
 const TEMPLATES_CACHE_EXPIRY = 24 * 1000 * 60 * 60; // 24 hours
 const TRENDING_TOPICS_CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
 const PARAMETERS_CACHE_EXPIRY = 24 * 1000 * 60 * 60; // 24 hours
@@ -67,6 +67,7 @@ class CacheManager {
     this.startCleanupInterval();
     this.setupEventListeners();
     this.initializeCacheFromStorage();
+    this.initializeMemoryLimits();
   }
 
   static getInstance(): CacheManager {
@@ -101,6 +102,14 @@ class CacheManager {
     } catch (error) {
       console.error('Failed to initialize cache from storage:', error);
       // Proceed with empty cache on error
+    }
+  }
+
+  private initializeMemoryLimits(): void {
+    // Set dynamic cache limits based on device memory
+    if ('deviceMemory' in navigator) {
+      const memory = (navigator as any).deviceMemory; // in GB
+      this.maxImageCacheSize = Math.min(memory * 20 * 1024 * 1024, 100 * 1024 * 1024);
     }
   }
 

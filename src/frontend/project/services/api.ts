@@ -16,7 +16,7 @@ api.interceptors.request.use(async (config) => {
     config.headers.Authorization = `Bearer ${session.access_token}`;
     // Set refresh token as an HttpOnly cookie with proper security attributes
     if (session.refresh_token) {
-      document.cookie = `refresh_token=${session.refresh_token}; path=/; secure; samesite=strict; httpOnly`;
+      document.cookie = `refresh_token=${session.refresh_token}; path=/; secure; samesite=strict`;
     }
   }
   return config;

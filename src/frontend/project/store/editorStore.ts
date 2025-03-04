@@ -852,29 +852,36 @@ ${content}`;
   },
 
   fetchParameters: async () => {
-    if (cacheManager.isParametersCacheValid() && !get().isParametersLoading) {
-      return;
-    }
+    const state = get();
+    
+    // Always set loading state when starting to fetch
+    set({ isParametersLoading: true, parametersError: null });
 
     try {
-      set({ isParametersLoading: true, parametersError: null });
-      
+      // Make API call regardless of cache state to ensure fresh data
       const response = await api.get('/parameters/all');
       
       if (response.data) {
+        // Update cache timestamp
         cacheManager.updateParametersFetchTimestamp();
-        set((state) => ({
+        
+        // Update state with fetched data
+        set({
           parameters: response.data,
           parameterValues: response.data.reduce((acc: Record<string, any>, param: Parameter) => {
             acc[param.parameter_id] = param.values || [];
             return acc;
-          }, {...state.parameterValues})
-        }));
+          }, {...state.parameterValues}),
+          isParametersLoading: false,
+          parametersError: null
+        });
       }
     } catch (error) {
-      set({ parametersError: error instanceof Error ? error.message : 'An error occurred' });
-    } finally {
-      set({ isParametersLoading: false });
+      console.error('Error fetching parameters:', error);
+      set({ 
+        parametersError: error instanceof Error ? error.message : 'An error occurred',
+        isParametersLoading: false 
+      });
     }
   },
 
