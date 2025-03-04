@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useEditorStore } from '../../store/editorStore';
-import { Loader, Search, Filter, X, RefreshCw, Trash2 } from 'lucide-react';
+import { Loader, Search, Filter, X, RefreshCw, Trash2, Zap } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import { Post } from '../../types/editor';
 import toast from 'react-hot-toast';
 import { cacheManager } from '../../services/cacheManager';
+import Tippy from '@tippyjs/react';
+import api from '../../services/api'; // Import API to handle post deletion
 
 interface NavigationDrawerProps {
   isOpen: boolean;
@@ -47,8 +49,10 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
     limit, 
     isLoading,
     hasReachedEnd,
-    deletePost,
-    isContentUpdated
+    // Remove deletePost from here since it doesn't exist in the store
+    isContentUpdated,
+    runningGenerations, // Add the runningGenerations from the store
+    hasRunningGenerations // Add this flag from the store
   } = useEditorStore();
   
   const isListLoading = useEditorStore(state => state.isListLoading);
@@ -507,13 +511,27 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
     e.stopPropagation(); // Prevent post selection when clicking delete
     if (window.confirm('Are you sure you want to delete this post?')) {
       try {
-        await deletePost(threadId);
+        // Use the api.deleteContent method instead of non-existent deletePost
+        await api.delete(`/content/thread/${threadId}`);
         toast.success('Post deleted successfully');
+        
+        // Refresh the posts list after deletion
+        fetchPosts({
+          timestamp: Date.now(),
+          forceRefresh: true
+        }, 0, limit);
       } catch (error) {
         toast.error('Failed to delete post');
       }
     }
   };
+
+  // Get active generation thread IDs for highlighting
+  const generatingThreadIds = useMemo(() => {
+    return Object.entries(runningGenerations)
+      .filter(([_, gen]) => gen.status === 'initializing' || gen.status === 'running')
+      .map(([id]) => id);
+  }, [runningGenerations]);
 
   // Don't reset filters when drawer is closed to maintain state between openings
   return (
@@ -688,6 +706,16 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
             )}
           </div>
 
+          {/* Active generations indicator */}
+          {hasRunningGenerations && (
+            <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-b dark:border-gray-700 flex items-center">
+              <Zap className="w-4 h-4 text-blue-500 mr-2 animate-pulse" />
+              <span className="text-sm text-blue-700 dark:text-blue-300">
+                Content generation in progress
+              </span>
+            </div>
+          )}
+
           <div ref={loadMoreRef} className="flex-1 overflow-auto max-h-[calc(100vh-120px)] relative scrollbar-hide">
             {isListLoading && (
               <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-50">
@@ -738,6 +766,14 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                               ? 'font-medium' 
                               : 'font-normal'
                           }`}>
+                            {/* Show generation indicator if thread_id is in active generations */}
+                            {generatingThreadIds.includes(post.thread_id) && (
+                              <Tippy content="Content being generated">
+                                <span className="inline-flex items-center mr-2">
+                                  <Zap className="w-3.5 h-3.5 text-blue-500 animate-pulse" />
+                                </span>
+                              </Tippy>
+                            )}
                             {post.title}
                           </h3>
                           <button
@@ -753,13 +789,15 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                             {new Date(post.updatedAt).toLocaleDateString()}
                           </p>
                           <span className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
-                            post.status === 'Published'
+                            generatingThreadIds.includes(post.thread_id)
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                              : post.status === 'Published'
                               ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                               : post.status === 'Rejected'
                               ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                               : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
                           }`}>
-                            {post.status}
+                            {generatingThreadIds.includes(post.thread_id) ? 'Generating' : post.status}
                           </span>
                         </div>
                       </button>

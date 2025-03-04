@@ -148,21 +148,21 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
   const generationProgress = useEditorStore(state => state.generationProgress);
 
   // Update effect to show progress toasts with center-right alignment
-  useEffect(() => {
-    if (generationProgress) {
-      toast(generationProgress, {
-        duration: Infinity, // This will stay until manually dismissed
-        position: 'bottom-right',
-        icon: <CheckCircle className="w-4 h-4 text-green-500" />, 
-        style: {
-          background: '#f0fdf4', // Light green background
-          color: '#166534', // Dark green text
-          border: '1px solid #dcfce7', // Lighter green border
-          textAlign: 'left',
-        },
-      });
-    }
-  }, [generationProgress]);
+  // useEffect(() => {
+  //   if (generationProgress) {
+  //     toast(generationProgress, {
+  //       duration: Infinity, // This will stay until manually dismissed
+  //       position: 'bottom-right',
+  //       icon: <CheckCircle className="w-4 h-4 text-green-500" />, 
+  //       style: {
+  //         background: '#f0fdf4', // Light green background
+  //         color: '#166534', // Dark green text
+  //         border: '1px solid #dcfce7', // Lighter green border
+  //         textAlign: 'left',
+  //       },
+  //     });
+  //   }
+  // }, [generationProgress]);
 
   // Update fetchSources to handle Reddit search
   const fetchSources = async () => {
@@ -372,19 +372,19 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
 
 
       // Create a persistent toast for ongoing generation at top center
-      const progressToastId = 'generation-progress';
-      toast.loading('Content generation in progress...', {
-        id: progressToastId,
-        duration: Infinity, // This will stay until manually dismissed
-        position: 'top-center',
-        style: {
-          background: '#f0f9ff', // Lighter blue background
-          color: '#0c4a6e', // Darker blue text
-          border: '1px solid #bae6fd', // Light blue border
-          fontWeight: 500,
-          textAlign: 'left',
-        }
-      });
+      // const progressToastId = 'generation-progress';
+      // toast.loading('Content generation in progress...', {
+      //   id: progressToastId,
+      //   duration: Infinity, // This will stay until manually dismissed
+      //   position: 'top-center',
+      //   style: {
+      //     background: '#f0f9ff', // Lighter blue background
+      //     color: '#0c4a6e', // Darker blue text
+      //     border: '1px solid #bae6fd', // Light blue border
+      //     fontWeight: 500,
+      //     textAlign: 'left',
+      //   }
+      // });
 
       try {
         onClose();
@@ -392,24 +392,24 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
         await useEditorStore.getState().generatePost(['blog'], thread_id, payload);
         
         // Success toast positioned at top center
-        toast.success('Content generated successfully!', { 
-          id: 'generation-complete',
-          duration: 10000, // 10 seconds duration
-          position: 'top-center',
-          style: {
-            background: '#ecfdf5', // Light green background  
-            color: '#065f46', // Dark green text
-            border: '1px solid #d1fae5', // Lighter green border
-            fontWeight: 500,
-            textAlign: 'left',
-          }
-        });
+        // toast.success('Content generated successfully!', { 
+        //   id: 'generation-complete',
+        //   duration: 10000, // 10 seconds duration
+        //   position: 'top-center',
+        //   style: {
+        //     background: '#ecfdf5', // Light green background  
+        //     color: '#065f46', // Dark green text
+        //     border: '1px solid #d1fae5', // Lighter green border
+        //     fontWeight: 500,
+        //     textAlign: 'left',
+        //   }
+        // });
         
         // Dismiss the persistent progress toast
-        toast.dismiss(progressToastId);
+        // toast.dismiss(progressToastId);
 
         // Dismiss all event generation toasts using the react-hot-toast API
-        toast.dismiss();
+        // toast.dismiss();
         
         // Clear the content cache and force a refresh
         const store = useEditorStore.getState();
@@ -424,7 +424,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
         
       } catch (err: any) {
         // Dismiss the persistent progress toast
-        toast.dismiss(progressToastId);
+        // toast.dismiss(progressToastId);
         
         // Handle the error and show appropriate toast with improved styling and left alignment
         if (err.response?.status === 401 || err.response?.status === 403) {
@@ -483,7 +483,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
     } finally {
       setIsGenerating(false);
       // Ensure any remaining progress toasts are dismissed
-      toast.dismiss('generation-progress');
+      // toast.dismiss('generation-progress');
     }
   };
 

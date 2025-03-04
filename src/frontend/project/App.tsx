@@ -25,6 +25,7 @@ import { FloatingNav } from './components/Navigation/FloatingNav';
 import { NavigationDrawer } from './components/Navigation/NavigationDrawer';
 import { TemplatesView } from './components/Templates/TemplatesView';
 import { NewBlogModal } from './components/Modals/NewBlogModal';
+import { GenerationStatusList } from './components/Generation/GenerationStatusList';
 import { Bell, Settings as SettingsIcon } from 'lucide-react';
 import Tippy from '@tippyjs/react';
 import 'tippy.js/dist/tippy.css';
@@ -65,6 +66,19 @@ const MainAppLayout: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  // Check for threadId in location state to view a generated post
+  useEffect(() => {
+    const state = location.state as { threadId?: string };
+    if (state?.threadId) {
+      // Fetch and display the generated content
+      const { fetchContentByThreadId } = useEditorStore.getState();
+      fetchContentByThreadId(state.threadId);
+      
+      // Clear the state after using it
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
+
   useEffect(() => {
     if (!user && location.pathname === '/dashboard') {
       navigate('/', { replace: true });
@@ -79,7 +93,6 @@ const MainAppLayout: React.FC = () => {
     updateTwitterPost, 
     fetchContentByThreadId, 
     setCurrentTab,
-    currentTemplate
   } = useEditorStore();
 
   // Handle template selection from location state
@@ -168,6 +181,12 @@ const MainAppLayout: React.FC = () => {
     setShowSourceModal(true);
   };
 
+  // Add a mock generate function to satisfy the NewBlogModal props interface
+  const handleGenerate = async (tweetId: string) => {
+    // Just delegate to the store's generatePost method
+    await useEditorStore.getState().generatePost(['blog'], tweetId);
+  };
+
   return (
     <div className={`h-screen ${isDarkMode ? 'dark' : ''}`}>
       <div className="h-full flex dark:bg-gray-900 dark:text-white">
@@ -251,17 +270,20 @@ const MainAppLayout: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* Display the generation status list component */}
+        <GenerationStatusList />
       </div>
 
-      {/* Source Selection Modal */}
+      {/* Source Selection Modal - Add the onGenerate prop */}
       <NewBlogModal
         isOpen={showSourceModal}
         onClose={() => {
           setShowSourceModal(false);
           setSelectedTemplate(null); // Clear the template when modal closes
         }}
-        onGenerate={async () => {}} // Implement generation logic
         selectedTemplate={selectedTemplate || undefined}  // Pass the selected template
+        onGenerate={handleGenerate} // Add the required prop
       />
     </div>
   );

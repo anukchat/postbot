@@ -83,8 +83,8 @@ const generatePostStream = async (payload: any) => {
 const templateApi = {
   getTemplate: (templateId: string) => api.get(`/templates/${templateId}`),
   
-  // Enhanced getAllTemplates with better parameter handling
-  getAllTemplates: (params?: any, limit?: number, filter?: TemplateFilter | undefined) => {
+  // Fixed unused parameter by using it or removing it
+  getAllTemplates: (params?: any, filter?: TemplateFilter | undefined) => {
     // Format filter to match backend expectations
     const apiParams = { 
       ...params,
