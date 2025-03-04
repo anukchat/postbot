@@ -11,7 +11,7 @@ from src.backend.utils.logger import setup_logger
 from src.backend.db.repositories import AuthRepository
 from cachetools import TTLCache
 
-from routers import content, profiles, content_types, sources, templates, parameters, reddit
+from src.backend.api.routers import content, profiles, content_types, sources, templates, parameters, reddit
 # Auth cache to store token-to-user mappings with a TTL (Time To Live)
 # Cache size of 100 users, and tokens expire after 5 minutes
 auth_cache = TTLCache(maxsize=100, ttl=6000)  # 6000 seconds = 100 minutes
