@@ -17,7 +17,7 @@ import { v4 as uuid } from 'uuid';
 
 // Remove unused LOADING_MESSAGES constant
 const MASONRY_BREAKPOINTS = {
-  default: 2,
+  default: 2, // Changed from 2 to 3 columns
   1100: 2,
   700: 1
 };
@@ -493,19 +493,19 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
   const renderSourceContent = (source: Source) => {
     if (selectedSource === 'twitter') {
       return (
-        <div className="flex justify-center p-4">
-          <div className="w-full max-w-[400px]">
+        <div className="flex justify-center p-3">
+          <div className="w-full max-w-[380px] transform scale-90 origin-top">
             <Tweet id={source.source_identifier} />
           </div>
         </div>
       );
     }
-
+  
     // For web URLs, use MicrolinkCard with smaller size
     if (source.source_type === 'web_url' && source.source_identifier) {
       return (
         <div 
-          className="cursor-pointer w-full overflow-hidden p-2" // Added flex-[0.8]
+          className="cursor-pointer w-full overflow-hidden"
           onClick={() => setSelectedIdentifier(getUniqueId(source))}
         >
           <MicrolinkCard 
@@ -513,15 +513,14 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
             contrast
             fetchdata
             lazy={{ threshold: 0.2 }}
-            size="large" // Changed from large to small
+            size="large"
             media={['image', 'logo']}
-            className="!rounded-lg !border !border-gray-200 dark:!border-gray-700 pointer-events-none !max-w-full !transform !scale-90" // Added scale down
-            style={{ objectFit: 'contain' }} // Removed flex: 0.8
+            className="!rounded-lg !border !border-gray-200 dark:!border-gray-700 pointer-events-none !max-w-full !transform !scale-90"
           />
         </div>
       );
     }
-
+  
     return null;
   };
 
@@ -890,7 +889,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
           </button>
         </div>
       </div>
-      <div className="px-4 py-2">
+      <div className="max-h-[50vh] overflow-y-auto px-4 py-2 border border-gray-100 dark:border-gray-700 rounded-lg">
         {isLoading && !isGenerating ? ( // Only show normal loader when not generating
           <div className="flex justify-center py-8">
             <Loader className="h-6 w-6 animate-spin text-blue-500" />
@@ -900,8 +899,9 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
             {isGridView ? (
               <Masonry
                 breakpointCols={MASONRY_BREAKPOINTS}
-                className="flex w-auto -ml-4" // Add negative margin to offset column gap
-                columnClassName="pl-4" // Add padding to create gap between columns
+                className="flex w-auto -ml-4" 
+                columnClassName="pl-4"
+                style={{ transform: "scale(0.95)", transformOrigin: "top left" }}
               >
                 {sources.map((source) => (
                   <SourceCard
@@ -912,7 +912,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
                     hasExistingBlog={source.has_blog} // Use the has_blog property from the API
                     existingBlogId={source.thread_id} // Use thread_id from the API
                     onViewBlog={handleViewBlog}
-                    className="mb-4"  // Add bottom margin for vertical spacing
+                    className="mb-4" // Added scale and reduced margin
                   >
                     {renderSourceContent(source)}
                   </SourceCard>
@@ -1022,7 +1022,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
       {/* Update container z-index */}
       <div className="fixed inset-0 overflow-y-auto z-[50]">
         <div className="flex min-h-full items-center justify-center p-4">
-          <Dialog.Panel className="w-full max-w-4xl rounded-xl bg-white dark:bg-gray-800 shadow-xl transition-all">
+          <Dialog.Panel className="w-full max-w-4xl rounded-xl bg-white dark:bg-gray-800 shadow-xl transition-all relative max-h-[90vh] flex flex-col">
             {/* Modal header */}
             <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
               <div className="flex items-center justify-between">
@@ -1046,7 +1046,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
             </div>
 
             {/* Modal content - Remove fixed height constraints */}
-            <div className="px-6 py-4">
+            <div className="px-6 py-4 overflow-y-auto flex-1" style={{ maxHeight: "calc(80vh - 140px)" }}>
               {error && (
                 <div className="mb-4 p-4 bg-red-50 text-red-600 rounded-lg">
                   {error}
@@ -1066,7 +1066,7 @@ export const NewBlogModal: React.FC<NewBlogModalProps> = ({
 
             {/* Modal footer */}
             {selectedSource && (
-              <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-end gap-3">
+              <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-end gap-3 flex-shrink-0">
                 <button
                   onClick={onClose}
                   className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-lg"
