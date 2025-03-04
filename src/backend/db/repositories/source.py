@@ -85,27 +85,15 @@ class SourceRepository(SQLAlchemyRepository[Source]):
                 .limit(limit)\
                 .all()
 
-            # Convert to dictionary format
-            result = {
-                "items": [
-                    {
-                        "source_type": source.source_type if source.source_type else None,
-                        "url_references": [ref.url for ref in source.url_references],
-                        "media": [media for media in source.media],
-                    } 
-                    for source in sources
-                ],
-                "total": total,
-                "page": skip // limit + 1,
-                "size": limit
-            }
+            # Calculate current page
+            page = skip // limit + 1
 
             session.commit()
             return format_source_list_response(
-                items=result["items"],
-                total=result["total"],
-                page=result["page"],
-                size=result["size"]
+                items=sources,
+                total=total,
+                page=page,
+                size=limit
             )
         except Exception as e:
             session.rollback()
