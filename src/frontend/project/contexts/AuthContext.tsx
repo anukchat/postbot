@@ -3,6 +3,7 @@ import { Session, User } from '@supabase/supabase-js';
 import { authService } from '../services/auth';
 import { profileService } from '../services/profiles';
 import { supabaseClient } from '../utils/supaclient';
+import Cookies from 'js-cookie';
 
 export interface AuthContextType {
   session: Session | null;
@@ -33,9 +34,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         // Get initial session
         const initialSession = await authService.getSession();
+        
         if (mounted) {
           setSession(initialSession);
           setUser(initialSession?.user ?? null);
+          
+          // Set refresh token cookie if it exists in the session
+          if (initialSession?.refresh_token) {
+            Cookies.set('refresh_token', initialSession.refresh_token, { 
+              path: '/',
+              secure: window.location.protocol === 'https:',
+              sameSite: 'Lax'
+            });
+          }
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
@@ -126,6 +137,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     await authService.signOut();
+    // Remove refresh token cookie
+    Cookies.remove('refresh_token', { path: '/' });
     setUser(null);
     setSession(null);
   };

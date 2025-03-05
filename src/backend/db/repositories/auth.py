@@ -79,6 +79,21 @@ class AuthRepository(SQLAlchemyRepository[Profile]):
             return self.supabase.auth.get_user()
         except Exception as e:
             raise ValueError(f"Failed to get user: {str(e)}")
+            
+    async def get_user_by_access_token(self, access_token: str) -> Optional[Dict[str, Any]]:
+        """Try to get user information using only the access token (fallback method)
+        
+        This is a fallback method that attempts to use just the access token.
+        It may work for recently authenticated sessions, but will likely fail
+        for older sessions that require refresh.
+        """
+        try:
+            # Set the access token directly without refresh token
+            self.supabase.auth._bearer_token = access_token
+            return self.supabase.auth.get_user()
+        except Exception as e:
+            # Silently fail - this is a fallback method
+            return None
 
     async def reset_password(self, email: str) -> Dict[str, Any]:
         """Send password reset email"""
