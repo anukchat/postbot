@@ -42,9 +42,12 @@ app.add_middleware(
         "Accept", 
         "Origin",
         "Referer",
-        "User-Agent"
+        "User-Agent",
+        "Set-Cookie",
+        "Cookie"
     ],
-    max_age=600  # Move max_age here as middleware parameter
+    expose_headers=["Set-Cookie"],
+    max_age=600
 )
 
 @app.middleware("http")
@@ -63,12 +66,9 @@ async def db_session_middleware(request: Request, call_next):
         if auth_header and refresh_token and auth_header.startswith('Bearer '):
             access_token = auth_header.split(' ')[1]
             try:
-                # Try to refresh the session if needed
                 await auth_repository.refresh_session(refresh_token)
             except Exception as e:
                 logger.warning(f"Session refresh failed: {str(e)}")
-                # Continue with the request even if refresh fails
-                # The endpoint's auth requirements will handle unauthorized access
         
         response = await call_next(request)
         if session:
@@ -111,12 +111,23 @@ async def sign_in(response: Response, email: str = Body(...), password: str = Bo
         
         # Set refresh token in HTTP-only cookie
         if result.get('refresh_token'):
+            domain = None  # Let the browser set the appropriate domain
+            if FRONTEND_URL:
+                try:
+                    from urllib.parse import urlparse
+                    parsed_url = urlparse(FRONTEND_URL)
+                    if parsed_url.hostname not in ('localhost', '127.0.0.1'):
+                        domain = '.' + parsed_url.hostname  # Include subdomain support
+                except:
+                    pass
+                    
             response.set_cookie(
                 key="refresh_token",
                 value=result['refresh_token'],
                 httponly=True,
-                secure=True,  # For HTTPS
+                secure=True,
                 samesite='lax',
+                domain=domain,
                 max_age=3600 * 24 * 30  # 30 days
             )
         
@@ -129,15 +140,26 @@ async def sign_out(response: Response):
     try:
         result = await auth_repository.sign_out()
         
-        # Clear the auth cache on signout
         auth_cache.clear()
         
-        # Clear the refresh token cookie
+        # Calculate domain for cookie removal
+        domain = None
+        if FRONTEND_URL:
+            try:
+                from urllib.parse import urlparse
+                parsed_url = urlparse(FRONTEND_URL)
+                if parsed_url.hostname not in ('localhost', '127.0.0.1'):
+                    domain = '.' + parsed_url.hostname
+            except:
+                pass
+        
+        # Clear the refresh token cookie with matching domain
         response.delete_cookie(
             key="refresh_token",
             secure=True,
             httponly=True,
-            samesite='lax'
+            samesite='lax',
+            domain=domain
         )
         
         return result
