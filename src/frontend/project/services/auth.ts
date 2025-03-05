@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, Session } from '@supabase/supabase-js';
 import { cacheManager } from './cacheManager';
 import Cookies from 'js-cookie';
 
@@ -8,7 +8,55 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const supabaseClient = createClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: true,
-    persistSession: true
+    persistSession: true,
+    storage: {
+      getItem: (key) => {
+        try {
+          const storedSession = localStorage.getItem(key);
+          if (storedSession) {
+            // When retrieving session, also ensure refresh token is in sync
+            const parsedSession = JSON.parse(storedSession);
+            const cookieRefreshToken = Cookies.get('refresh_token');
+            if (parsedSession?.refresh_token && !cookieRefreshToken) {
+              // Restore refresh token cookie if it's missing
+              Cookies.set('refresh_token', parsedSession.refresh_token, {
+                secure: window.location.protocol === 'https:',
+                sameSite: 'Lax',
+                path: '/'
+              });
+            }
+          }
+          return storedSession;
+        } catch (error) {
+          console.error('Error getting auth session:', error);
+          return null;
+        }
+      },
+      setItem: (key, value) => {
+        try {
+          localStorage.setItem(key, value);
+          // When storing session, sync refresh token to cookie
+          const session = JSON.parse(value);
+          if (session?.refresh_token) {
+            Cookies.set('refresh_token', session.refresh_token, {
+              secure: window.location.protocol === 'https:',
+              sameSite: 'Lax',
+              path: '/'
+            });
+          }
+        } catch (error) {
+          console.error('Error setting auth session:', error);
+        }
+      },
+      removeItem: (key) => {
+        try {
+          localStorage.removeItem(key);
+          Cookies.remove('refresh_token', { path: '/' });
+        } catch (error) {
+          console.error('Error removing auth session:', error);
+        }
+      }
+    }
   }
 });
 
@@ -48,7 +96,14 @@ export const authService = {
         throw new Error('Invalid sign in method');
       }
 
-      // After successful sign in, clean up any cached data from previous session
+      if (response.error) throw response.error;
+      
+      // Ensure session is properly stored
+      if (response.data && 'session' in response.data && response.data.session) {
+        await this.persistSession(response.data.session);
+      }
+
+      // Clear any cached data from previous session
       cacheManager.clearAllCaches();
 
       return response;
@@ -160,10 +215,9 @@ export const authService = {
       const { error } = await supabaseClient.auth.signOut();
       if (error) throw error;
       
-      // Remove the refresh token cookie
+      // Clean up all session data
+      localStorage.removeItem('supabase.auth.token');
       Cookies.remove('refresh_token', { path: '/' });
-      
-      // Clear all caches when signing out
       cacheManager.clearAllCaches();
     } catch (error) {
       console.error('Sign out error:', error);
@@ -172,7 +226,7 @@ export const authService = {
   },
 
   // Add a method to update the refresh token cookie when the session changes
-  updateRefreshTokenCookie(session) {
+  updateRefreshTokenCookie(session: Session) {
     if (session?.refresh_token) {
       Cookies.set('refresh_token', session.refresh_token, { 
         path: '/',
@@ -193,7 +247,7 @@ export const authService = {
     }
   },
 
-  onAuthStateChange(callback: (session: any) => void) {
+  onAuthStateChange(callback: (event: string, session: Session | null) => void) {
     return supabaseClient.auth.onAuthStateChange((event, session) => {
       if (session) {
         // Update the refresh token cookie when session changes
@@ -203,7 +257,7 @@ export const authService = {
         Cookies.remove('refresh_token', { path: '/' });
         cacheManager.clearAllCaches();
       }
-      callback(session);
+      callback(event, session);
     });
   },
 
@@ -224,6 +278,25 @@ export const authService = {
     } catch (error) {
       console.error('Profile creation error:', error);
       return { error };
+    }
+  },
+
+  async persistSession(session: any) {
+    try {
+      // Store session in localStorage
+      localStorage.setItem('supabase.auth.token', JSON.stringify(session));
+      
+      // Set refresh token cookie with secure attributes
+      if (session.refresh_token) {
+        Cookies.set('refresh_token', session.refresh_token, {
+          secure: window.location.protocol === 'https:',
+          sameSite: 'Lax',
+          path: '/'
+        });
+      }
+    } catch (error) {
+      console.error('Error persisting session:', error);
+      throw error;
     }
   }
 };

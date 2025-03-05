@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { authService } from './auth';
 import { TemplateFilter } from '../store/editorStore';
+import { supabaseClient } from '../utils/supaclient';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
@@ -10,17 +11,42 @@ const api = axios.create({
   }
 });
 
+// Add request interceptor
 api.interceptors.request.use(async (config) => {
   const session = await authService.getSession();
   if (session?.access_token) {
     config.headers.Authorization = `Bearer ${session.access_token}`;
-    // Set refresh token as an HttpOnly cookie with proper security attributes
-    if (session.refresh_token) {
-      document.cookie = `refresh_token=${session.refresh_token}; path=/; secure; samesite=none`;
-    }
   }
   return config;
+}, (error) => {
+  return Promise.reject(error);
 });
+
+// Add response interceptor to handle token refresh
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        // Try to refresh the session
+        const { data: { session } } = await supabaseClient.auth.refreshSession();
+        if (session?.access_token) {
+          // Update the request with new token
+          originalRequest.headers.Authorization = `Bearer ${session.access_token}`;
+          return api(originalRequest);
+        }
+      } catch (refreshError) {
+        // If refresh fails, redirect to login
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Content methods
 const deleteContent = (threadId: string) => api.delete(`/content/thread/${threadId}`);
