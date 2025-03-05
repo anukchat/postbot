@@ -880,9 +880,9 @@ ${content}`;
       }
 
       const response = await api.get('/reddit/topic-suggestions', { params });
-      if (response.data?.blog_topics) {
-        cacheManager.setTrendingTopicsInCache(cacheKey, response.data.blog_topics);
-        set({ trendingBlogTopics: response.data.blog_topics });
+      if (response.data?.content_ideas) {
+        cacheManager.setTrendingTopicsInCache(cacheKey, response.data.content_ideas);
+        set({ trendingBlogTopics: response.data.content_ideas });
       }
     } catch (error) {
       console.error('Error fetching trending blog topics:', error);

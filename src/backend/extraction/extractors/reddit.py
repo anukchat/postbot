@@ -216,17 +216,19 @@ class RedditExtractor(BaseExtractor):
         try:
             reddit_object=self._extract_reddit_posts(reddit_object)
 
-            blog_titles_prompt = f"""Given a list of top Reddit discussions, generate engaging and insightful blog topic ideas based on the most upvoted and discussed posts. Each suggestion should expand upon the original topic, offering new perspectives and value.
-            **Input Format:**
-            The input will be a JSON object containing multiple Reddit posts with the following attributes:
-            
-            - title: The title of the Reddit post
-            - url: Link to the discussion
-            - score: Number of upvotes
-            - num_comments: Total comments
-            - subreddit: Name of the subreddit
+            content_ideas_prompt = f"""Given a list of top Reddit discussions, generate engaging and insightful content ideas based on the most upvoted and discussed posts. Each idea should extend the original discussion, providing additional value, fresh perspectives, or deep technical insights.
 
-            Example Input:
+            ### **Input Format**
+            The input will be a JSON object containing multiple Reddit posts with the following attributes:
+                        
+            - **title**: The title of the Reddit post  
+            - **url**: Link to the discussion  
+            - **score**: Number of upvotes  
+            - **num_comments**: Total comments  
+            - **subreddit**: Name of the subreddit  
+
+            **Example Input:**
+            ```json
             [
                 {{
                     "title": "OpenAI is hiding the actual thinking tokens in o3-mini",
@@ -236,46 +238,45 @@ class RedditExtractor(BaseExtractor):
                     "subreddit": "LocalLLaMA"
                 }}
             ]
+            ```
 
-            **Task:**
+            ### **Task**
+            For each Reddit post, generate **2-3 engaging content ideas** that:  
+            - Go beyond the original discussion and add new insights.  
+            - Appeal to a technical audience (developers, AI enthusiasts, researchers).  
+            - Cover various formats such as **deep dives, explainer threads, case studies, comparisons, infographics, and video scripts**.  
+            - Address different perspectives: technical deep dives, ethical concerns, industry impact, practical applications, and future trends.  
+            - Ensure originality and uniqueness.  
 
-            For each Reddit post, generate 2-3 engaging blog topics that expand on the discussion. Ensure that:
-            - The topics are informative & engaging 
-            - Appeal to a technical audience. They go beyond the Reddit discussion 
-            - Extract key insights and create unique blog angles.
-            - They include diverse perspectives
-            - Cover technical deep dives, ethical concerns, industry impact, and real-world applications.
+            ### **Expected Output Format**  
+            Return a JSON object with a `"content_ideas"` list, where each entry corresponds to a suggested content topic that can be researched upon.
 
-            **Expected Output Format:**
-
-            Return a JSON object with a "blog_topics" list, where each entry corresponds to a suggested blog topic that can be researched upon.
-
-            **Example Output:**
-
+            ### **Example Output:**  
             ```json
             {{
-                "blog_topics": [
+                "content_ideas": [
                     "The Mystery of Thinking Tokens: How OpenAI’s o3-mini Processes Information",
-                    "Are AI Models Becoming Black Boxes? Understanding OpenAI’s o3-mini",
                     "Transparency in AI: Should Model Internals Be Fully Visible?",
+                    "Are AI Models Becoming Black Boxes? Understanding OpenAI’s o3-mini",
                     "Optimizing Prompt Strategies for Models with Hidden Computation",
                     "The Ethics of AI Transparency: What We Deserve to Know About AI Models"
                 ]
             }}
             ```
 
-            **Additional Considerations:**
+            ### **Additional Considerations:**  
+            - Prioritize posts with high engagement (comments-to-upvotes ratio).  
+            - Focus on AI, ML, and technology topics.  
+            - Ensure the content ideas are diverse yet relevant to the original discussion.  
+            - Make sure to follow the provided schema from example output.  
 
-            - Prioritize posts with high upvotes and engagement (comments/upvotes ratio).
-            - Focus on AI, ML, and technology topics.
-            - Ensure the blog topics are diverse yet relevant to the original discussion.
-            - Make sure to follow the provided schema from example output.
-            🚀 Now, generate the blog topic suggestions based on the given data.
-            
+            🚀 Now, generate **content ideas** based on the given data.  
+
             {reddit_object}
             """
 
-            posts = self.llm.invoke([HumanMessage(content=blog_titles_prompt)])
+
+            posts = self.llm.invoke([HumanMessage(content=content_ideas_prompt)])
 
             pattern = r"```json\n([\s\S]*?)\n```"
             match = re.search(pattern, posts)
@@ -283,7 +284,7 @@ class RedditExtractor(BaseExtractor):
             if match:
                 parsed = safe_json_loads(match.group(1))
             else:
-                parsed = {"blog_topics": []}
+                parsed = {"content_ideas": []}
             # return summary
 
             # subreddit = self.reddit.subreddit('blogs')

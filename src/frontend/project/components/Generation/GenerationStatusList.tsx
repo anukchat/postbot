@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useEditorStore } from '../../store/editorStore';
 import { useNavigate } from 'react-router-dom';
 import { X, CheckCircle, AlertCircle, Clock, Loader2 } from 'lucide-react';
@@ -14,6 +14,7 @@ export const GenerationStatusList: React.FC = () => {
     clearCompletedGenerations
   } = useEditorStore();
   const navigate = useNavigate();
+  const [visible, setVisible] = useState(true);
   
   // Notify when generations complete
   useEffect(() => {
@@ -50,8 +51,41 @@ export const GenerationStatusList: React.FC = () => {
       }));
     });
   }, [runningGenerations, navigate]);
+
+  // Check if all generations are completed and auto-hide after 60 seconds
+  useEffect(() => {
+    let hideTimeout: NodeJS.Timeout;
+    
+    const activeGenerations = Object.values(runningGenerations).filter(
+      gen => gen.status === 'initializing' || gen.status === 'running'
+    );
+    
+    const allComplete = hasRunningGenerations && activeGenerations.length === 0;
+    
+    if (allComplete) {
+      // Start a 60-second timer to auto-hide the list
+      hideTimeout = setTimeout(() => {
+        setVisible(false);
+        clearCompletedGenerations();
+      }, 60000); // 60 seconds
+    } else {
+      // If new generations start, make sure the list is visible
+      setVisible(true);
+    }
+    
+    return () => {
+      if (hideTimeout) clearTimeout(hideTimeout);
+    };
+  }, [runningGenerations, hasRunningGenerations, clearCompletedGenerations]);
   
-  if (!hasRunningGenerations) return null;
+  // Reset visibility when new generations appear
+  useEffect(() => {
+    if (hasRunningGenerations) {
+      setVisible(true);
+    }
+  }, [hasRunningGenerations]);
+  
+  if (!hasRunningGenerations || !visible) return null;
   
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -89,16 +123,21 @@ export const GenerationStatusList: React.FC = () => {
     <div className="fixed bottom-4 right-4 z-50 w-72 bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
       <div className="px-4 py-2 bg-gray-100 dark:bg-gray-700 flex justify-between items-center">
         <h3 className="font-medium text-sm">Content Generation</h3>
-        {completedGenerations.length > 0 && (
-          <Tippy content="Clear completed generations">
-            <button 
-              onClick={clearCompletedGenerations} 
-              className="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </Tippy>
-        )}
+        <div className="flex items-center">
+          {completedGenerations.length > 0 && activeGenerations.length === 0 && (
+            <span className="text-xs text-gray-500 mr-2">Auto-hiding in 60s</span>
+          )}
+          {completedGenerations.length > 0 && (
+            <Tippy content="Clear completed generations">
+              <button 
+                onClick={clearCompletedGenerations} 
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </Tippy>
+          )}
+        </div>
       </div>
       
       <div className="max-h-64 overflow-y-auto divide-y divide-gray-200 dark:divide-gray-700">

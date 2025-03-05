@@ -54,10 +54,7 @@ def get_tweet_reference_content(tweet_urls):
                 url['content'] = ""
                 
             reference_content += process_url_content(url)
-            reference_link += url["url"]
-            
-        reference_content += process_url_content(url)
-        reference_link += url["url"]
+            reference_link += "URL:" + url["url"] + "\n"
 
     return reference_content, reference_link
 

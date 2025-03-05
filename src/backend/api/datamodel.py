@@ -553,7 +553,7 @@ class RedditRequest(BaseModel):
     limit: Optional[int] = 10
 
 class RedditSuggestionsResponse(BaseModel):
-    blog_topics: List[str]
+    content_ideas: List[str]
 
 class UserProfileResponse(BaseModel):
     id: str  # Original user_id from auth
