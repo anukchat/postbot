@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { cacheManager } from './cacheManager';
+import Cookies from 'js-cookie';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -63,7 +64,18 @@ export const authService = {
         email,
         password,
       });
+      
       if (error) throw error;
+      
+      // Set refresh token in cookies with secure flags
+      if (data?.session?.refresh_token) {
+        Cookies.set('refresh_token', data.session.refresh_token, { 
+          path: '/',
+          secure: window.location.protocol === 'https:', // Only use secure in production
+          sameSite: 'Lax'
+        });
+      }
+      
       return { data, error: null };
     } catch (error) {
       console.error('Email sign in error:', error);
@@ -148,11 +160,25 @@ export const authService = {
       const { error } = await supabaseClient.auth.signOut();
       if (error) throw error;
       
+      // Remove the refresh token cookie
+      Cookies.remove('refresh_token', { path: '/' });
+      
       // Clear all caches when signing out
       cacheManager.clearAllCaches();
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
+    }
+  },
+
+  // Add a method to update the refresh token cookie when the session changes
+  updateRefreshTokenCookie(session) {
+    if (session?.refresh_token) {
+      Cookies.set('refresh_token', session.refresh_token, { 
+        path: '/',
+        secure: window.location.protocol === 'https:',
+        sameSite: 'Lax'
+      });
     }
   },
 
@@ -168,9 +194,13 @@ export const authService = {
   },
 
   onAuthStateChange(callback: (session: any) => void) {
-    return supabaseClient.auth.onAuthStateChange((_, session) => {
-      if (!session) {
-        // Clear all caches when auth state changes to signed out
+    return supabaseClient.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        // Update the refresh token cookie when session changes
+        this.updateRefreshTokenCookie(session);
+      } else {
+        // Clear all caches and cookies when auth state changes to signed out
+        Cookies.remove('refresh_token', { path: '/' });
         cacheManager.clearAllCaches();
       }
       callback(session);
