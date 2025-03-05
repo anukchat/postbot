@@ -38,30 +38,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (mounted) {
           setSession(initialSession);
           setUser(initialSession?.user ?? null);
-          
-          // Set refresh token cookie if it exists in the session
-          if (initialSession?.refresh_token) {
-            Cookies.set('refresh_token', initialSession.refresh_token, { 
-              path: '/',
-              secure: window.location.protocol === 'https:',
-              sameSite: 'Lax'
-            });
-          }
+          setLoading(false);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     };
 
-    const { data: { subscription } } = authService.onAuthStateChange((session) => {
+    // Subscribe to auth state changes
+    const { data: { subscription } } = authService.onAuthStateChange(async (event: string, newSession: Session | null) => {
       if (mounted) {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+        
+        // Handle auth state changes
+        if (event === 'SIGNED_IN') {
+          // Ensure profile exists for the user
+          if (newSession?.user) {
+            try {
+              const exists = await profileService.checkProfileExists(newSession.user.id);
+              if (!exists) {
+                await profileService.createProfile(newSession.user.id, {
+                  email: newSession.user.email || '',
+                  full_name: newSession.user.user_metadata?.name || null,
+                  avatar_url: newSession.user.user_metadata?.avatar_url || null,
+                  role: 'free',
+                  subscription_status: 'none',
+                  generations_used_per_thread: 0,
+                  preferences: {},
+                  is_deleted: false
+                });
+              }
+            } catch (error) {
+              console.error('Error handling sign in:', error);
+            }
+          }
+        } else if (event === 'SIGNED_OUT') {
+          // Clean up on sign out
+          setUser(null);
+          setSession(null);
+        }
       }
     });
 
