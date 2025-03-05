@@ -156,7 +156,7 @@ QUALITY CHECKLIST:
 
 
 ##----------------- Introduction/Conclusion Writer Instructions -----------------##
-intro_conclusion_instructions = """You are an expert {persona}, you can think step by step for crafting the introduction or conclusion of a {content_type}.
+intro_conclusion_instructions = """You are an expert {persona}, you can think step by step for crafting the section of {content_type}.
 
 Here is the Section Name you are going to write: 
 {section_name}
@@ -193,15 +193,15 @@ Guidelines for writing:
 
  
 2. **SEO Requirements:**
-- Introduction must contain:
+- If writing Introduction, it must contain:
   * Primary keyword in first 100 words
-- Conclusion should:
+- If writing Conclusion, it should:
   * Include keyword variations
   * Use nofollow for external links
 
 3. Section-Specific Requirements:
 
-FOR INTRODUCTION (If writing introduction):
+FOR INTRODUCTION (if writing introduction):
 - Use # Title (must be attention-grabbing but technical)
 - Always make sure that the Title starts with only one # and is followed by a space
 

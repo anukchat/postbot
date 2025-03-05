@@ -564,9 +564,12 @@ class AgentWorkflow:
                 logger.warning(f"Failed to process URL {meta['original_url']}: {str(e)}")
                 continue
         
+        # Format URLs as a numbered list for better readability
+        formatted_urls = "\n".join(f"{i+1}. {url}" for i, url in enumerate(urls))
+        
         return BlogStateInput(
             input_topic=payload["topic"],
-            input_url='\n'.join(urls),
+            input_url=formatted_urls,
             input_content=reference_content,
             post_types=payload.get("post_types", ["blog"]),
             thread_id=thread_id,
