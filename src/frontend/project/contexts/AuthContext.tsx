@@ -47,7 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     // Subscribe to auth state changes
-    const { data: { subscription } } = authService.onAuthStateChange(async (event: string, newSession: Session | null) => {
+    const { data: { subscription } } = authService.onAuthStateChange((event: string, newSession: Session | null) => {
       if (mounted) {
         setSession(newSession);
         setUser(newSession?.user ?? null);
@@ -57,9 +57,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Ensure profile exists for the user
           if (newSession?.user) {
             try {
-              const exists = await profileService.checkProfileExists(newSession.user.id);
+              const exists = profileService.checkProfileExists(newSession.user.id);
               if (!exists) {
-                await profileService.createProfile(newSession.user.id, {
+                profileService.createProfile(newSession.user.id, {
                   email: newSession.user.email || '',
                   full_name: newSession.user.user_metadata?.name || null,
                   avatar_url: newSession.user.user_metadata?.avatar_url || null,
@@ -154,8 +154,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     await authService.signOut();
-    // Remove refresh token cookie
-    Cookies.remove('refresh_token', { path: '/' });
     setUser(null);
     setSession(null);
   };

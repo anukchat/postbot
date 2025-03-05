@@ -31,10 +31,9 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       
       try {
-        // Try to refresh the session
-        const { data: { session } } = await supabaseClient.auth.refreshSession();
+        // Let the backend handle refresh using the httpOnly cookie
+        const { data: { session } } = await supabaseClient.auth.getSession();
         if (session?.access_token) {
-          // Update the request with new token
           originalRequest.headers.Authorization = `Bearer ${session.access_token}`;
           return api(originalRequest);
         }

@@ -12,21 +12,7 @@ export const supabaseClient = createClient(supabaseUrl, supabaseKey, {
     storage: {
       getItem: (key) => {
         try {
-          const storedSession = localStorage.getItem(key);
-          if (storedSession) {
-            // When retrieving session, also ensure refresh token is in sync
-            const parsedSession = JSON.parse(storedSession);
-            const cookieRefreshToken = Cookies.get('refresh_token');
-            if (parsedSession?.refresh_token && !cookieRefreshToken) {
-              // Restore refresh token cookie if it's missing
-              Cookies.set('refresh_token', parsedSession.refresh_token, {
-                secure: window.location.protocol === 'https:',
-                sameSite: 'Lax',
-                path: '/'
-              });
-            }
-          }
-          return storedSession;
+          return localStorage.getItem(key);
         } catch (error) {
           console.error('Error getting auth session:', error);
           return null;
@@ -35,15 +21,6 @@ export const supabaseClient = createClient(supabaseUrl, supabaseKey, {
       setItem: (key, value) => {
         try {
           localStorage.setItem(key, value);
-          // When storing session, sync refresh token to cookie
-          const session = JSON.parse(value);
-          if (session?.refresh_token) {
-            Cookies.set('refresh_token', session.refresh_token, {
-              secure: window.location.protocol === 'https:',
-              sameSite: 'Lax',
-              path: '/'
-            });
-          }
         } catch (error) {
           console.error('Error setting auth session:', error);
         }
@@ -51,7 +28,6 @@ export const supabaseClient = createClient(supabaseUrl, supabaseKey, {
       removeItem: (key) => {
         try {
           localStorage.removeItem(key);
-          Cookies.remove('refresh_token', { path: '/' });
         } catch (error) {
           console.error('Error removing auth session:', error);
         }
@@ -121,16 +97,6 @@ export const authService = {
       });
       
       if (error) throw error;
-      
-      // Set refresh token in cookies with secure flags
-      if (data?.session?.refresh_token) {
-        Cookies.set('refresh_token', data.session.refresh_token, { 
-          path: '/',
-          secure: window.location.protocol === 'https:', // Only use secure in production
-          sameSite: 'Lax'
-        });
-      }
-      
       return { data, error: null };
     } catch (error) {
       console.error('Email sign in error:', error);
@@ -215,24 +181,12 @@ export const authService = {
       const { error } = await supabaseClient.auth.signOut();
       if (error) throw error;
       
-      // Clean up all session data
+      // Clean up session data
       localStorage.removeItem('supabase.auth.token');
-      Cookies.remove('refresh_token', { path: '/' });
       cacheManager.clearAllCaches();
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
-    }
-  },
-
-  // Add a method to update the refresh token cookie when the session changes
-  updateRefreshTokenCookie(session: Session) {
-    if (session?.refresh_token) {
-      Cookies.set('refresh_token', session.refresh_token, { 
-        path: '/',
-        secure: window.location.protocol === 'https:',
-        sameSite: 'Lax'
-      });
     }
   },
 
@@ -249,12 +203,8 @@ export const authService = {
 
   onAuthStateChange(callback: (event: string, session: Session | null) => void) {
     return supabaseClient.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        // Update the refresh token cookie when session changes
-        this.updateRefreshTokenCookie(session);
-      } else {
+      if (!session) {
         // Clear all caches and cookies when auth state changes to signed out
-        Cookies.remove('refresh_token', { path: '/' });
         cacheManager.clearAllCaches();
       }
       callback(event, session);
@@ -285,15 +235,6 @@ export const authService = {
     try {
       // Store session in localStorage
       localStorage.setItem('supabase.auth.token', JSON.stringify(session));
-      
-      // Set refresh token cookie with secure attributes
-      if (session.refresh_token) {
-        Cookies.set('refresh_token', session.refresh_token, {
-          secure: window.location.protocol === 'https:',
-          sameSite: 'Lax',
-          path: '/'
-        });
-      }
     } catch (error) {
       console.error('Error persisting session:', error);
       throw error;

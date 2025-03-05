@@ -55,6 +55,21 @@ async def db_session_middleware(request: Request, call_next):
         session = db_manager.get_session()
         # Set up a place to cache auth results
         request.state.auth_cache = {}
+        
+        # Handle token refresh if needed
+        auth_header = request.headers.get('Authorization')
+        refresh_token = request.cookies.get('refresh_token')
+        
+        if auth_header and refresh_token and auth_header.startswith('Bearer '):
+            access_token = auth_header.split(' ')[1]
+            try:
+                # Try to refresh the session if needed
+                await auth_repository.refresh_session(refresh_token)
+            except Exception as e:
+                logger.warning(f"Session refresh failed: {str(e)}")
+                # Continue with the request even if refresh fails
+                # The endpoint's auth requirements will handle unauthorized access
+        
         response = await call_next(request)
         if session:
             try:
@@ -90,20 +105,40 @@ async def sign_up(email: str = Body(...), password: str = Body(...)):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/auth/signin", tags=["auth"])
-async def sign_in(email: str = Body(...), password: str = Body(...)):
+async def sign_in(response: Response, email: str = Body(...), password: str = Body(...)):
     try:
         result = await auth_repository.sign_in(email, password)
+        
+        # Set refresh token in HTTP-only cookie
+        if result.get('refresh_token'):
+            response.set_cookie(
+                key="refresh_token",
+                value=result['refresh_token'],
+                httponly=True,
+                secure=True,  # For HTTPS
+                samesite='lax',
+                max_age=3600 * 24 * 30  # 30 days
+            )
+        
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/auth/signout", tags=["auth"])
-async def sign_out():
+async def sign_out(response: Response):
     try:
         result = await auth_repository.sign_out()
         
         # Clear the auth cache on signout
         auth_cache.clear()
+        
+        # Clear the refresh token cookie
+        response.delete_cookie(
+            key="refresh_token",
+            secure=True,
+            httponly=True,
+            samesite='lax'
+        )
         
         return result
     except Exception as e:
