@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabaseClient } from '../../utils/supaclient';
 import { profileService } from '../../services/profiles';
 import { authDebugService } from '../../services/authDebug';
+import Cookies from 'js-cookie';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
@@ -32,6 +33,18 @@ const AuthCallback = () => {
           authDebugService.error('No User in Session', { session });
           navigate('/login');
           return;
+        }
+
+        // Set refresh token in cookies
+        if (session.refresh_token) {
+          authDebugService.authFlow('Setting refresh token cookie');
+          Cookies.set('refresh_token', session.refresh_token, { 
+            path: '/',
+            secure: window.location.protocol === 'https:',
+            sameSite: 'Lax'
+          });
+        } else {
+          authDebugService.error('No refresh token in session');
         }
 
         const provider = session.user.app_metadata?.provider;
