@@ -8,7 +8,9 @@ const api = axios.create({
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
-  }
+  },
+  xsrfCookieName: 'refresh_token',
+  xsrfHeaderName: undefined // Disable XSRF header since we're using httpOnly cookies
 });
 
 // Add request interceptor
