@@ -41,7 +41,8 @@ const AuthCallback = () => {
           Cookies.set('refresh_token', session.refresh_token, { 
             path: '/',
             secure: window.location.protocol === 'https:',
-            sameSite: 'Lax'
+            sameSite: 'Lax',
+            expires: 30 // Add 30 day expiration
           });
         } else {
           authDebugService.error('No refresh token in session');
