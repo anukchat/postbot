@@ -8,9 +8,7 @@ const api = axios.create({
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
-  },
-  xsrfCookieName: 'refresh_token',
-  xsrfHeaderName: undefined // Disable XSRF header since we're using httpOnly cookies
+  }
 });
 
 // Add request interceptor
@@ -29,15 +27,23 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    
+    // Handle 401 with refresh token
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       
       try {
-        // Let the backend handle refresh using the httpOnly cookie
+        // Get a fresh session
         const { data: { session } } = await supabaseClient.auth.getSession();
+        
         if (session?.access_token) {
+          // Update the original request with new token
           originalRequest.headers.Authorization = `Bearer ${session.access_token}`;
           return api(originalRequest);
+        } else {
+          // If no session, redirect to login
+          window.location.href = '/login';
+          return Promise.reject(new Error('No valid session'));
         }
       } catch (refreshError) {
         // If refresh fails, redirect to login

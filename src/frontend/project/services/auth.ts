@@ -93,7 +93,7 @@ export const authService = {
       if (response.error) throw response.error;
       
       // Ensure both session and refresh token are properly stored
-      if (response.data?.session) {
+      if (response.data && 'session' in response.data) {
         await this.persistSession(response.data.session);
         
         // Double check refresh token is set
@@ -222,8 +222,16 @@ export const authService = {
 
   async getSession() {
     try {
+      // First try to get the session from Supabase
       const { data: { session }, error } = await supabaseClient.auth.getSession();
+      
       if (error) throw error;
+      
+      // If we have a session but no refresh token cookie, try to restore it
+      if (session && !Cookies.get('refresh_token') && session.refresh_token) {
+        await this.persistSession(session);
+      }
+      
       return session;
     } catch (error) {
       console.error('Get session error:', error);
@@ -263,17 +271,24 @@ export const authService = {
 
   async persistSession(session: any) {
     try {
-      // Store session in localStorage
+      if (!session) return;
+      
+      // Store session data
       localStorage.setItem('supabase.auth.token', JSON.stringify(session));
       
-      // Also persist refresh token in cookie if available
-      if (session?.refresh_token) {
+      // Ensure refresh token is set in cookies with proper attributes
+      if (session.refresh_token) {
         Cookies.set('refresh_token', session.refresh_token, {
           path: '/',
           secure: window.location.protocol === 'https:',
           sameSite: 'Lax',
-          // Set expiry to 30 days to match backend
-          expires: 30
+          expires: 30 // 30 days
+        });
+
+        // Set the session in Supabase client
+        await supabaseClient.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
         });
       }
     } catch (error) {
