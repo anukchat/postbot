@@ -1,117 +1,47 @@
 import axios from 'axios';
-import Cookies from 'js-cookie';
 import { authService } from './auth';
 import { TemplateFilter } from '../store/editorStore';
 import { supabaseClient } from '../utils/supaclient';
-import { cacheManager } from './cacheManager';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
   },
-  // Remove XSRF settings as they're not needed with our token approach
-  xsrfCookieName: undefined,
-  xsrfHeaderName: undefined
+  xsrfCookieName: 'refresh_token',
+  xsrfHeaderName: undefined // Disable XSRF header since we're using httpOnly cookies
 });
 
-// Add debug logging utility
-const debugLog = (message: string, data?: any) => {
-  if (import.meta.env.DEV) {
-    console.log(`[Auth Debug] ${message}`, data || '');
-  }
-};
-
-// Add request interceptor with better production handling
+// Add request interceptor
 api.interceptors.request.use(async (config) => {
-  debugLog('Making request to:', config.url);
-  try {
-    const session = await authService.getSession();
-    if (session?.access_token) {
-      debugLog('Adding access token to request');
-      config.headers.Authorization = `Bearer ${session.access_token}`;
-    } else {
-      debugLog('No access token available');
-    }
-
-    // Ensure CORS headers for production domains
-    const origin = window.location.origin;
-    if (origin.includes('render.com') || origin.startsWith('https://')) {
-      config.headers['Origin'] = origin;
-    }
-
-    return config;
-  } catch (error) {
-    debugLog('Request interceptor error:', error);
-    return Promise.reject(error);
+  const session = await authService.getSession();
+  if (session?.access_token) {
+    config.headers.Authorization = `Bearer ${session.access_token}`;
   }
+  return config;
 }, (error) => {
-  debugLog('Request interceptor error:', error);
   return Promise.reject(error);
 });
 
-// Update response interceptor with better production error handling
+// Add response interceptor to handle token refresh
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    debugLog('Response error:', error.response?.status);
-    
-    // Handle offline scenario
-    if (!navigator.onLine) {
-      debugLog('No internet connection');
-      return Promise.reject(new Error('No internet connection'));
-    }
-
-    // Handle CORS errors specifically
-    if (error.message.includes('Network Error') || error.message.includes('CORS')) {
-      debugLog('CORS or Network error detected');
-      return Promise.reject(new Error('Unable to connect to server. Please try again.'));
-    }
-
     if (error.response?.status === 401 && !originalRequest._retry) {
-      debugLog('Attempting token refresh');
       originalRequest._retry = true;
       
       try {
-        // Check for refresh token
-        const refreshToken = Cookies.get('refresh_token');
-        debugLog('Refresh token present:', !!refreshToken);
-        
-        if (!refreshToken) {
-          throw new Error('No refresh token available');
-        }
-
-        // Try to refresh the session
+        // Let the backend handle refresh using the httpOnly cookie
         const { data: { session } } = await supabaseClient.auth.getSession();
-        debugLog('Session refresh result:', !!session);
-        
         if (session?.access_token) {
-          debugLog('Session refresh successful');
-          // Update the authorization header
           originalRequest.headers.Authorization = `Bearer ${session.access_token}`;
-          // Ensure CORS headers are present in retry
-          const origin = window.location.origin;
-          if (origin.includes('render.com') || origin.startsWith('https://')) {
-            originalRequest.headers['Origin'] = origin;
-          }
           return api(originalRequest);
-        } else {
-          throw new Error('Session refresh failed - no new access token');
         }
       } catch (refreshError) {
-        debugLog('Session refresh failed:', refreshError);
-        // Clear auth state on refresh failure
-        await supabaseClient.auth.signOut();
-        cacheManager.clearAllCaches();
-        
-        // Only redirect if not already on login page
-        if (!window.location.pathname.includes('/login')) {
-          debugLog('Redirecting to login page');
-          window.location.href = '/login?error=session_expired';
-        }
+        // If refresh fails, redirect to login
+        window.location.href = '/login';
         return Promise.reject(refreshError);
       }
     }
