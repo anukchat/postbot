@@ -1,7 +1,9 @@
 import axios from 'axios';
+import Cookies from 'js-cookie';
 import { authService } from './auth';
 import { TemplateFilter } from '../store/editorStore';
 import { supabaseClient } from '../utils/supaclient';
+import { cacheManager } from './cacheManager';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
@@ -29,19 +31,42 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    
+    // Handle offline scenario
+    if (!navigator.onLine) {
+      return Promise.reject(new Error('No internet connection'));
+    }
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       
       try {
-        // Let the backend handle refresh using the httpOnly cookie
+        // Try to get refresh token from cookie
+        const refreshToken = Cookies.get('refresh_token');
+        
+        if (!refreshToken) {
+          throw new Error('No refresh token available');
+        }
+
+        // Try to refresh the session
         const { data: { session } } = await supabaseClient.auth.getSession();
+        
         if (session?.access_token) {
+          // Update the authorization header
           originalRequest.headers.Authorization = `Bearer ${session.access_token}`;
           return api(originalRequest);
+        } else {
+          throw new Error('Session refresh failed');
         }
       } catch (refreshError) {
-        // If refresh fails, redirect to login
-        window.location.href = '/login';
+        // Clear auth state on refresh failure
+        await supabaseClient.auth.signOut();
+        cacheManager.clearAllCaches();
+        
+        // Only redirect if not already on login page
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
         return Promise.reject(refreshError);
       }
     }
