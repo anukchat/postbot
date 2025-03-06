@@ -5,6 +5,13 @@ import Cookies from 'js-cookie';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Add debug logging utility
+const debugLog = (message: string, data?: any) => {
+  if (import.meta.env.DEV) {
+    console.log(`[Auth Debug] ${message}`, data || '');
+  }
+};
+
 export const supabaseClient = createClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: true,
@@ -14,43 +21,91 @@ export const supabaseClient = createClient(supabaseUrl, supabaseKey, {
     storage: {
       getItem: (key) => {
         try {
+          debugLog('Getting storage item:', key);
           // Try localStorage first
           const localValue = localStorage.getItem(key);
-          if (localValue) return localValue;
+          if (localValue) {
+            debugLog('Found value in localStorage');
+            return localValue;
+          }
 
           // Fallback to cookie for refresh token
           if (key.includes('refresh_token')) {
-            return Cookies.get('refresh_token') || null;
+            const cookieValue = Cookies.get('refresh_token');
+            debugLog('Checking cookie for refresh token:', !!cookieValue);
+            // For production domains, try both with and without subdomain
+            if (!cookieValue && window.location.hostname.includes('render.com')) {
+              const domainParts = window.location.hostname.split('.');
+              if (domainParts.length > 2) {
+                const parentDomain = domainParts.slice(1).join('.');
+                const altCookieValue = Cookies.get('refresh_token');
+                debugLog('Checking parent domain cookie:', !!altCookieValue);
+                return altCookieValue || null;
+              }
+            }
+            return cookieValue || null;
           }
           return null;
         } catch (error) {
-          console.error('Error getting auth session:', error);
+          debugLog('Error getting auth session:', error);
           return null;
         }
       },
       setItem: (key, value) => {
         try {
+          debugLog('Setting storage item:', key);
           localStorage.setItem(key, value);
           // Also set refresh token in cookie for cross-tab support
           if (key.includes('refresh_token')) {
+            const isProduction = window.location.hostname.includes('render.com') || 
+                               window.location.protocol === 'https:';
+            const domain = isProduction ? window.location.hostname : undefined;
+            
+            debugLog('Setting refresh token cookie with domain:', domain);
             Cookies.set('refresh_token', value, {
-              secure: window.location.protocol === 'https:',
-              sameSite: 'Lax',
+              secure: isProduction,
+              sameSite: isProduction ? 'none' : 'lax',
+              domain: domain,
               path: '/'
             });
           }
         } catch (error) {
-          console.error('Error setting auth session:', error);
+          debugLog('Error setting auth session:', error);
         }
       },
       removeItem: (key) => {
         try {
+          debugLog('Removing storage item:', key);
           localStorage.removeItem(key);
           if (key.includes('refresh_token')) {
-            Cookies.remove('refresh_token', { path: '/' });
+            const isProduction = window.location.hostname.includes('render.com') || 
+                               window.location.protocol === 'https:';
+            const domain = isProduction ? window.location.hostname : undefined;
+            
+            debugLog('Removing refresh token cookie with domain:', domain);
+            Cookies.remove('refresh_token', { 
+              path: '/',
+              domain: domain,
+              secure: isProduction,
+              sameSite: isProduction ? 'none' : 'lax'
+            });
+
+            // Also try removing from parent domain in production
+            if (isProduction) {
+              const domainParts = window.location.hostname.split('.');
+              if (domainParts.length > 2) {
+                const parentDomain = domainParts.slice(1).join('.');
+                Cookies.remove('refresh_token', { 
+                  path: '/',
+                  domain: parentDomain,
+                  secure: true,
+                  sameSite: 'none'
+                });
+              }
+            }
           }
         } catch (error) {
-          console.error('Error removing auth session:', error);
+          debugLog('Error removing auth session:', error);
         }
       }
     }
