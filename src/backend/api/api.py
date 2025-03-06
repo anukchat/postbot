@@ -111,13 +111,16 @@ async def sign_in(response: Response, email: str = Body(...), password: str = Bo
         
         # Set refresh token in HTTP-only cookie
         if result.get('refresh_token'):
-            domain = None  # Let the browser set the appropriate domain
+            domain = None
+            is_secure = True  # Set to True for HTTPS
+            
             if FRONTEND_URL:
                 try:
                     from urllib.parse import urlparse
                     parsed_url = urlparse(FRONTEND_URL)
                     if parsed_url.hostname not in ('localhost', '127.0.0.1'):
-                        domain = '.' + parsed_url.hostname  # Include subdomain support
+                        domain = parsed_url.hostname  # Remove the dot prefix
+                        is_secure = parsed_url.scheme == 'https'
                 except:
                     pass
                     
@@ -125,9 +128,10 @@ async def sign_in(response: Response, email: str = Body(...), password: str = Bo
                 key="refresh_token",
                 value=result['refresh_token'],
                 httponly=True,
-                secure=True,
+                secure=is_secure,  # Based on protocol
                 samesite='lax',
                 domain=domain,
+                path='/',  # Ensure cookie is available for all paths
                 max_age=3600 * 24 * 30  # 30 days
             )
         
