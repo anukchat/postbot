@@ -14,6 +14,9 @@ export const supabaseClient = createClient(supabaseUrl, supabaseKey, {
     storage: {
       getItem: (key) => {
         try {
+          if (key.includes('refresh_token')) {
+            return Cookies.get('refresh_token') || null;
+          }
           return localStorage.getItem(key);
         } catch (error) {
           console.error('Error getting auth session:', error);
@@ -22,14 +25,27 @@ export const supabaseClient = createClient(supabaseUrl, supabaseKey, {
       },
       setItem: (key, value) => {
         try {
-          localStorage.setItem(key, value);
+          if (key.includes('refresh_token')) {
+            Cookies.set('refresh_token', value, {
+              path: '/',
+              secure: window.location.protocol === 'https:',
+              sameSite: 'Lax',
+              expires: 30
+            });
+          } else {
+            localStorage.setItem(key, value);
+          }
         } catch (error) {
           console.error('Error setting auth session:', error);
         }
       },
       removeItem: (key) => {
         try {
-          localStorage.removeItem(key);
+          if (key.includes('refresh_token')) {
+            Cookies.remove('refresh_token', { path: '/' });
+          } else {
+            localStorage.removeItem(key);
+          }
         } catch (error) {
           console.error('Error removing auth session:', error);
         }

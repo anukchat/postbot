@@ -47,17 +47,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     // Subscribe to auth state changes
-    const { data: { subscription } } = authService.onAuthStateChange((event: string, newSession: Session | null) => {
+    const { data: { subscription } } = authService.onAuthStateChange(async (event: string, newSession: Session | null) => {
       if (mounted) {
-        setSession(newSession);
-        setUser(newSession?.user ?? null);
-        
-        // Handle auth state changes
-        if (event === 'SIGNED_IN') {
-          // Ensure profile exists for the user
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          setSession(newSession);
+          setUser(newSession?.user ?? null);
+
+          // Ensure refresh token is set in cookies
+          if (newSession?.refresh_token) {
+            Cookies.set('refresh_token', newSession.refresh_token, {
+              path: '/',
+              secure: window.location.protocol === 'https:',
+              sameSite: 'Lax',
+              expires: 30
+            });
+          }
+          
+          // Handle profile creation for new users
           if (newSession?.user) {
             try {
-              const exists = profileService.checkProfileExists(newSession.user.id);
+              const exists = await profileService.checkProfileExists(newSession.user.id);
               if (!exists) {
                 profileService.createProfile(newSession.user.id, {
                   email: newSession.user.email || '',
@@ -78,6 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Clean up on sign out
           setUser(null);
           setSession(null);
+          Cookies.remove('refresh_token', { path: '/' });
         }
       }
     });
