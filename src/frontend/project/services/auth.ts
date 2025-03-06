@@ -278,11 +278,16 @@ export const authService = {
       
       // Ensure refresh token is set in cookies with proper attributes
       if (session.refresh_token) {
+        // First remove any existing cookie to ensure clean state
+        Cookies.remove('refresh_token', { path: '/' });
+        
+        // Set new cookie with proper attributes
         Cookies.set('refresh_token', session.refresh_token, {
           path: '/',
           secure: window.location.protocol === 'https:',
           sameSite: 'Lax',
-          expires: 30 // 30 days
+          expires: 30, // 30 days
+          domain: window.location.hostname === 'localhost' ? undefined : '.' + window.location.hostname
         });
 
         // Set the session in Supabase client

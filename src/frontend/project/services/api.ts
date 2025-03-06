@@ -2,6 +2,7 @@ import axios from 'axios';
 import { authService } from './auth';
 import { TemplateFilter } from '../store/editorStore';
 import { supabaseClient } from '../utils/supaclient';
+import Cookies from 'js-cookie';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
@@ -33,22 +34,31 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       
       try {
-        // Get a fresh session
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        
-        if (session?.access_token) {
+        // Get refresh token from cookie
+        const refreshToken = Cookies.get('refresh_token');
+        if (!refreshToken) {
+          throw new Error('No refresh token available');
+        }
+
+        // Attempt to refresh the session
+        const { data: { session }, error: refreshError } = await supabaseClient.auth.refreshSession({
+          refresh_token: refreshToken
+        });
+
+        if (refreshError) throw refreshError;
+
+        if (session) {
+          // Update tokens
+          await authService.persistSession(session);
+          
           // Update the original request with new token
           originalRequest.headers.Authorization = `Bearer ${session.access_token}`;
           return api(originalRequest);
-        } else {
-          // If no session, redirect to login
-          window.location.href = '/login';
-          return Promise.reject(new Error('No valid session'));
         }
       } catch (refreshError) {
-        // If refresh fails, redirect to login
+        // Clear auth state on refresh failure
+        await authService.signOut();
         window.location.href = '/login';
-        return Promise.reject(refreshError);
       }
     }
     return Promise.reject(error);
