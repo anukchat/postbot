@@ -5,13 +5,6 @@ import Cookies from 'js-cookie';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Add debug logging utility
-const debugLog = (message: string, data?: any) => {
-  if (import.meta.env.DEV) {
-    console.log(`[Auth Debug] ${message}`, data || '');
-  }
-};
-
 export const supabaseClient = createClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: true,
@@ -21,91 +14,24 @@ export const supabaseClient = createClient(supabaseUrl, supabaseKey, {
     storage: {
       getItem: (key) => {
         try {
-          debugLog('Getting storage item:', key);
-          // Try localStorage first
-          const localValue = localStorage.getItem(key);
-          if (localValue) {
-            debugLog('Found value in localStorage');
-            return localValue;
-          }
-
-          // Fallback to cookie for refresh token
-          if (key.includes('refresh_token')) {
-            const cookieValue = Cookies.get('refresh_token');
-            debugLog('Checking cookie for refresh token:', !!cookieValue);
-            // For production domains, try both with and without subdomain
-            if (!cookieValue && window.location.hostname.includes('render.com')) {
-              const domainParts = window.location.hostname.split('.');
-              if (domainParts.length > 2) {
-                const parentDomain = domainParts.slice(1).join('.');
-                const altCookieValue = Cookies.get('refresh_token');
-                debugLog('Checking parent domain cookie:', !!altCookieValue);
-                return altCookieValue || null;
-              }
-            }
-            return cookieValue || null;
-          }
-          return null;
+          return localStorage.getItem(key);
         } catch (error) {
-          debugLog('Error getting auth session:', error);
+          console.error('Error getting auth session:', error);
           return null;
         }
       },
       setItem: (key, value) => {
         try {
-          debugLog('Setting storage item:', key);
           localStorage.setItem(key, value);
-          // Also set refresh token in cookie for cross-tab support
-          if (key.includes('refresh_token')) {
-            const isProduction = window.location.hostname.includes('render.com') || 
-                               window.location.protocol === 'https:';
-            const domain = isProduction ? window.location.hostname : undefined;
-            
-            debugLog('Setting refresh token cookie with domain:', domain);
-            Cookies.set('refresh_token', value, {
-              secure: isProduction,
-              sameSite: isProduction ? 'none' : 'lax',
-              domain: domain,
-              path: '/'
-            });
-          }
         } catch (error) {
-          debugLog('Error setting auth session:', error);
+          console.error('Error setting auth session:', error);
         }
       },
       removeItem: (key) => {
         try {
-          debugLog('Removing storage item:', key);
           localStorage.removeItem(key);
-          if (key.includes('refresh_token')) {
-            const isProduction = window.location.hostname.includes('render.com') || 
-                               window.location.protocol === 'https:';
-            const domain = isProduction ? window.location.hostname : undefined;
-            
-            debugLog('Removing refresh token cookie with domain:', domain);
-            Cookies.remove('refresh_token', { 
-              path: '/',
-              domain: domain,
-              secure: isProduction,
-              sameSite: isProduction ? 'none' : 'lax'
-            });
-
-            // Also try removing from parent domain in production
-            if (isProduction) {
-              const domainParts = window.location.hostname.split('.');
-              if (domainParts.length > 2) {
-                const parentDomain = domainParts.slice(1).join('.');
-                Cookies.remove('refresh_token', { 
-                  path: '/',
-                  domain: parentDomain,
-                  secure: true,
-                  sameSite: 'none'
-                });
-              }
-            }
-          }
         } catch (error) {
-          debugLog('Error removing auth session:', error);
+          console.error('Error removing auth session:', error);
         }
       }
     }
@@ -150,9 +76,19 @@ export const authService = {
 
       if (response.error) throw response.error;
       
-      // Ensure session is properly stored
-      if (response.data && 'session' in response.data && response.data.session) {
+      // Ensure both session and refresh token are properly stored
+      if (response.data?.session) {
         await this.persistSession(response.data.session);
+        
+        // Double check refresh token is set
+        if (!Cookies.get('refresh_token') && response.data.session.refresh_token) {
+          Cookies.set('refresh_token', response.data.session.refresh_token, {
+            path: '/',
+            secure: window.location.protocol === 'https:',
+            sameSite: 'Lax',
+            expires: 30
+          });
+        }
       }
 
       // Clear any cached data from previous session
@@ -259,6 +195,8 @@ export const authService = {
       
       // Clean up session data
       localStorage.removeItem('supabase.auth.token');
+      // Also remove the refresh token cookie
+      Cookies.remove('refresh_token', { path: '/' });
       cacheManager.clearAllCaches();
     } catch (error) {
       console.error('Sign out error:', error);
@@ -311,6 +249,17 @@ export const authService = {
     try {
       // Store session in localStorage
       localStorage.setItem('supabase.auth.token', JSON.stringify(session));
+      
+      // Also persist refresh token in cookie if available
+      if (session?.refresh_token) {
+        Cookies.set('refresh_token', session.refresh_token, {
+          path: '/',
+          secure: window.location.protocol === 'https:',
+          sameSite: 'Lax',
+          // Set expiry to 30 days to match backend
+          expires: 30
+        });
+      }
     } catch (error) {
       console.error('Error persisting session:', error);
       throw error;
