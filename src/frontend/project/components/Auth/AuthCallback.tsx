@@ -45,7 +45,7 @@ const AuthCallback = () => {
             expires: 30 // Add 30 day expiration
           });
         } else {
-          authDebugService.error('No refresh token in session');
+          authDebugService.error('No refresh token in session', { session });
         }
 
         const provider = session.user.app_metadata?.provider;

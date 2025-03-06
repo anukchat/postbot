@@ -31,8 +31,11 @@ async def get_current_user_profile(
         refresh_token = request.cookies.get("refresh_token")
         
         if not refresh_token:
-            raise HTTPException(status_code=401, detail="Refresh token is required. Please log in again.")
-        
+            raise HTTPException(
+                status_code=401, 
+                detail="Refresh token is required. Please log in again."
+            )
+
         # Create a cache key based on both tokens
         cache_key = f"{access_token}:{refresh_token}"
         
@@ -40,14 +43,17 @@ async def get_current_user_profile(
         cached_user_data = auth_cache.get(cache_key)
         if cached_user_data:
             return cached_user_data
-        
-        # If not in cache, perform the API call
+
+        # Validate the tokens with Supabase        
         user = await auth_repository.get_user(access_token, refresh_token)
         
         if not user:
-            raise HTTPException(status_code=401, detail="Invalid token or expired")
+            raise HTTPException(
+                status_code=401, 
+                detail="Invalid token or expired"
+            )
 
-        # Get associated profile using user_id
+        # Get associated profile
         profile = profile_repository.get_profile_by_user_id(UUID(user.user.id))
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found")
@@ -64,4 +70,12 @@ async def get_current_user_profile(
         return user_profile
         
     except Exception as e:
-        raise HTTPException(status_code=401, detail=str(e))
+        if "Invalid token or expired" in str(e):
+            raise HTTPException(
+                status_code=401,
+                detail="Session expired. Please log in again."
+            )
+        raise HTTPException(
+            status_code=401,
+            detail=str(e)
+        )
