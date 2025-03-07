@@ -57,18 +57,6 @@ async def db_session_middleware(request: Request, call_next):
     try:
         session = db_manager.get_session()
         # Set up a place to cache auth results
-        request.state.auth_cache = {}
-        
-        # Handle token refresh if needed
-        auth_header = request.headers.get('Authorization')
-        refresh_token = request.cookies.get('refresh_token')
-        
-        if auth_header and refresh_token and auth_header.startswith('Bearer '):
-            access_token = auth_header.split(' ')[1]
-            try:
-                await auth_repository.refresh_session(refresh_token)
-            except Exception as e:
-                logger.warning(f"Session refresh failed: {str(e)}")
         
         response = await call_next(request)
         if session:

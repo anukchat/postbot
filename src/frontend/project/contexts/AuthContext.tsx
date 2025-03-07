@@ -47,48 +47,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     // Subscribe to auth state changes
-    const { data: { subscription } } = authService.onAuthStateChange(async (event: string, newSession: Session | null) => {
+    const { data: { subscription } } = authService.onAuthStateChange((session) => {
       if (mounted) {
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          setSession(newSession);
-          setUser(newSession?.user ?? null);
-
-          // Ensure refresh token is set in cookies
-          if (newSession?.refresh_token) {
-            Cookies.set('refresh_token', newSession.refresh_token, {
-              path: '/',
-              secure: window.location.protocol === 'https:',
-              sameSite: 'Lax',
-              expires: 30
-            });
-          }
-          
-          // Handle profile creation for new users
-          if (newSession?.user) {
-            try {
-              const exists = await profileService.checkProfileExists(newSession.user.id);
-              if (!exists) {
-                profileService.createProfile(newSession.user.id, {
-                  email: newSession.user.email || '',
-                  full_name: newSession.user.user_metadata?.name || null,
-                  avatar_url: newSession.user.user_metadata?.avatar_url || null,
-                  role: 'free',
-                  subscription_status: 'none',
-                  generations_used_per_thread: 0,
-                  preferences: {},
-                  is_deleted: false
-                });
-              }
-            } catch (error) {
-              console.error('Error handling sign in:', error);
-            }
-          }
-        } else if (event === 'SIGNED_OUT') {
-          // Clean up on sign out
-          setUser(null);
-          setSession(null);
-          Cookies.remove('refresh_token', { path: '/' });
-        }
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
       }
     });
 

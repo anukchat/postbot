@@ -8,49 +8,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const supabaseClient = createClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce',
-    storage: {
-      getItem: (key) => {
-        try {
-          if (key.includes('refresh_token')) {
-            return Cookies.get('refresh_token') || null;
-          }
-          return localStorage.getItem(key);
-        } catch (error) {
-          console.error('Error getting auth session:', error);
-          return null;
-        }
-      },
-      setItem: (key, value) => {
-        try {
-          if (key.includes('refresh_token')) {
-            Cookies.set('refresh_token', value, {
-              path: '/',
-              secure: window.location.protocol === 'https:',
-              sameSite: 'Lax',
-              expires: 30
-            });
-          } else {
-            localStorage.setItem(key, value);
-          }
-        } catch (error) {
-          console.error('Error setting auth session:', error);
-        }
-      },
-      removeItem: (key) => {
-        try {
-          if (key.includes('refresh_token')) {
-            Cookies.remove('refresh_token', { path: '/' });
-          } else {
-            localStorage.removeItem(key);
-          }
-        } catch (error) {
-          console.error('Error removing auth session:', error);
-        }
-      }
-    }
+    persistSession: true
   }
 });
 
@@ -80,37 +38,15 @@ export const authService = {
     password?: string;
   }) {
     try {
-      let response;
-      
       if (provider === 'google') {
-        response = await this.signInWithGoogle();
-      } else if (provider === 'email' && options?.email && options?.password) {
-        response = await this.signInWithEmail(options.email, options.password);
-      } else {
-        throw new Error('Invalid sign in method');
+        return await this.signInWithGoogle();
       }
 
-      if (response.error) throw response.error;
-      
-      // Ensure both session and refresh token are properly stored
-      if (response.data && 'session' in response.data) {
-        await this.persistSession(response.data.session);
-        
-        // Double check refresh token is set
-        if (!Cookies.get('refresh_token') && response.data.session.refresh_token) {
-          Cookies.set('refresh_token', response.data.session.refresh_token, {
-            path: '/',
-            secure: window.location.protocol === 'https:',
-            sameSite: 'Lax',
-            expires: 30
-          });
-        }
+      if (provider === 'email' && options?.email && options?.password) {
+        return await this.signInWithEmail(options.email, options.password);
       }
 
-      // Clear any cached data from previous session
-      cacheManager.clearAllCaches();
-
-      return response;
+      throw new Error('Invalid sign in method');
     } catch (error) {
       console.error('Sign in error:', error);
       throw error;
@@ -208,12 +144,6 @@ export const authService = {
     try {
       const { error } = await supabaseClient.auth.signOut();
       if (error) throw error;
-      
-      // Clean up session data
-      localStorage.removeItem('supabase.auth.token');
-      // Also remove the refresh token cookie
-      Cookies.remove('refresh_token', { path: '/' });
-      cacheManager.clearAllCaches();
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
@@ -222,16 +152,8 @@ export const authService = {
 
   async getSession() {
     try {
-      // First try to get the session from Supabase
       const { data: { session }, error } = await supabaseClient.auth.getSession();
-      
       if (error) throw error;
-      
-      // If we have a session but no refresh token cookie, try to restore it
-      if (session && !Cookies.get('refresh_token') && session.refresh_token) {
-        await this.persistSession(session);
-      }
-      
       return session;
     } catch (error) {
       console.error('Get session error:', error);
@@ -239,13 +161,9 @@ export const authService = {
     }
   },
 
-  onAuthStateChange(callback: (event: string, session: Session | null) => void) {
-    return supabaseClient.auth.onAuthStateChange((event, session) => {
-      if (!session) {
-        // Clear all caches and cookies when auth state changes to signed out
-        cacheManager.clearAllCaches();
-      }
-      callback(event, session);
+  onAuthStateChange(callback: (session: any) => void) {
+    return supabaseClient.auth.onAuthStateChange((_, session) => {
+      callback(session);
     });
   },
 
@@ -269,36 +187,4 @@ export const authService = {
     }
   },
 
-  async persistSession(session: any) {
-    try {
-      if (!session) return;
-      
-      // Store session data
-      localStorage.setItem('supabase.auth.token', JSON.stringify(session));
-      
-      // Ensure refresh token is set in cookies with proper attributes
-      if (session.refresh_token) {
-        // First remove any existing cookie to ensure clean state
-        Cookies.remove('refresh_token', { path: '/' });
-        
-        // Set new cookie with proper attributes
-        Cookies.set('refresh_token', session.refresh_token, {
-          path: '/',
-          secure: window.location.protocol === 'https:',
-          sameSite: 'Lax',
-          expires: 30, // 30 days
-          domain: window.location.hostname === 'localhost' ? undefined : '.' + window.location.hostname
-        });
-
-        // Set the session in Supabase client
-        await supabaseClient.auth.setSession({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token
-        });
-      }
-    } catch (error) {
-      console.error('Error persisting session:', error);
-      throw error;
-    }
-  }
 };

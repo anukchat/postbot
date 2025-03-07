@@ -69,14 +69,13 @@ class AuthRepository(SQLAlchemyRepository[Profile]):
         except Exception as e:
             raise ValueError(f"Session refresh failed: {str(e)}")
 
-    async def get_user(self, access_token: str, refresh_token: str) -> Optional[Dict[str, Any]]:
+    async def get_user(self, access_token: str) -> Optional[Dict[str, Any]]:
         """Get user information from access token and refresh token"""
         try:
-            if not access_token or not refresh_token:
+            if not access_token:
                 raise ValueError("Both access_token and refresh_token are required")
             
-            self.supabase.auth.set_session(access_token, refresh_token)
-            return self.supabase.auth.get_user()
+            return self.supabase.auth.get_user(access_token)
         except Exception as e:
             raise ValueError(f"Failed to get user: {str(e)}")
             
