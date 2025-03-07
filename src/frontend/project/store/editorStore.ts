@@ -722,8 +722,12 @@ ${content}`;
         
         for (const line of lines) {
           try {
-            // Parse the JSON from the line
-            const eventData = JSON.parse(line);
+            // Handle SSE format by removing 'data:' prefix and trimming
+            const jsonStr = line.startsWith('data:') ? line.slice(5).trim() : line.trim();
+            if (!jsonStr) continue;
+            
+            // Parse the JSON from the cleaned line
+            const eventData = JSON.parse(jsonStr);
             
             // Update progress for this specific generation
             if (eventData.message) {

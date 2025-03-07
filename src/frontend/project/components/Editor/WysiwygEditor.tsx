@@ -39,8 +39,16 @@ import React, { useEffect } from "react";
         const currentMarkdown = await editor.blocksToMarkdownLossy(editor.document);
         if (currentMarkdown !== content) {
           if (content) {
-            const blocks = await editor.tryParseMarkdownToBlocks(content);
-            editor.replaceBlocks(editor.document, blocks);
+            const trimmedContent = content.trim();
+            const blocks = await editor.tryParseMarkdownToBlocks(trimmedContent);
+            // Trim content in each block
+            const trimmedBlocks = blocks.map(block => ({
+              ...block,
+              content: block.content?.map(item => 
+          typeof item === 'string' ? item.trim() : item
+              )
+            }));
+            editor.replaceBlocks(editor.document, trimmedBlocks);
           } else {
             editor.replaceBlocks(editor.document, []);
           }
