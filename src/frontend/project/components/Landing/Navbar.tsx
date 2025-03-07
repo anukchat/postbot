@@ -18,33 +18,33 @@ export const Navbar: React.FC = () => {
           <div className="flex items-center">
             <Link to="/" className="flex items-center">
               <img
-                src="/assets/riteup logo svg.svg"
-                alt="RiteUp Logo"
-                className="h-16 w-auto transition-transform duration-300 hover:scale-105"
+              src="/assets/riteup_tp.gif"
+              alt="RITE UP Logo"
+              className="h-20 w-auto transition-transform duration-300 hover:scale-125"
               />
             </Link>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               <Link
-                to="/features"
-                className={`${theme.colors.primary.solid} hover:${theme.colors.primary.hover} px-3 py-2 transition-colors duration-200`}
+                to="/"
+                className={`${theme.colors.primary.solid} hover:${theme.colors.primary.hover} px-3 py-2 transition-colors duration-200 font-semibold`}
               >
-                Features
+                Home
               </Link>
               <Link
                 to="/pricing"
-                className={`${theme.colors.primary.solid} hover:${theme.colors.primary.hover} px-3 py-2 transition-colors duration-200`}
+                className={`${theme.colors.primary.solid} hover:${theme.colors.primary.hover} px-3 py-2 transition-colors duration-200 font-semibold`}
               >
                 Pricing
               </Link>
-              <Link
+              {/* <Link
                 to="/about"
-                className={`${theme.colors.primary.solid} hover:${theme.colors.primary.hover} px-3 py-2 transition-colors duration-200`}
+                className={`${theme.colors.primary.solid} hover:${theme.colors.primary.hover} px-3 py-2 transition-colors duration-200 font-semibold`}
               >
                 About
-              </Link>
+              </Link> */}
               <Link
                 to="/contact"
-                className={`${theme.colors.primary.solid} hover:${theme.colors.primary.hover} px-3 py-2 transition-colors duration-200`}
+                className={`${theme.colors.primary.solid} hover:${theme.colors.primary.hover} px-3 py-2 transition-colors duration-200 font-semibold`}
               >
                 Contact
               </Link>
@@ -56,7 +56,7 @@ export const Navbar: React.FC = () => {
               <>
                 <Link
                   to="/dashboard"
-                  className={`${theme.colors.primary.solid} hover:${theme.colors.primary.hover} px-3 py-2 transition-colors duration-200`}
+                  className={`${theme.colors.primary.solid} hover:${theme.colors.primary.hover} px-3 py-2 transition-colors duration-200 font-semibold`}
                 >
                   Dashboard
                 </Link>
@@ -66,13 +66,13 @@ export const Navbar: React.FC = () => {
               <>
                 <Link
                   to="/login"
-                  className={`${theme.colors.primary.solid} hover:${theme.colors.primary.hover} px-3 py-2 transition-colors duration-200`}
+                  className={`${theme.colors.primary.solid} hover:${theme.colors.primary.hover} px-3 py-2 transition-colors duration-200 font-semibold`}
                 >
                   Sign in
                 </Link>
                 <Link
                   to="/signup"
-                  className={`bg-gradient-to-r ${theme.colors.primary.gradient} ${theme.colors.primary.button.hover} text-white px-4 py-2 rounded-lg transition-all duration-300 shadow-sm hover:shadow-md`}
+                  className={`bg-gradient-to-r ${theme.colors.primary.gradient} ${theme.colors.primary.button.hover} text-white px-4 py-2 rounded-lg transition-all duration-300 shadow-sm hover:shadow-md font-semibold`}
                 >
                   Get Started
                 </Link>

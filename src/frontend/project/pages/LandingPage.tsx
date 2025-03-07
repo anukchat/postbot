@@ -21,11 +21,11 @@ const LandingPage: React.FC = () => {
   return (
     <>
       <Head>
-        <title>RiteUp - AI-Powered Blog & Social Media Content Creation</title>
-        <meta name="description" content="Create thoroughly researched, engaging blog posts and social media content with AI assistance. Deep research meets effortless writing." />
-        <meta name="keywords" content="AI blog writing, social media content, content research, blog content creation, AI copywriting, content marketing" />
-        <meta property="og:title" content="RiteUp - Deep Research Meets Effortless Writing" />
-        <meta property="og:description" content="Create thoroughly researched blog posts and social media content with AI assistance" />
+        <title>RITE UP - Intelligent AI Research Agent for Exceptional Blogs</title>
+        <meta name="description" content="Unlock powerful AI agents that conduct deep research and craft captivating blog content tailored to your audience. Research brilliance meets creative writing." />
+        <meta name="keywords" content="AI agent, blog research assistant, content intelligence, AI blog writing, deep research assistant, intelligent content creation" />
+        <meta property="og:title" content="RITE UP - Intelligent Research Agents for Exceptional Content" />
+        <meta property="og:description" content="Meet your AI research agent that transforms ideas into data-backed, engaging blog posts with unprecedented depth and clarity." />
         <meta property="og:image" content="/assets/og-image.png" />
         <meta name="twitter:card" content="summary_large_image" />
         <link rel="canonical" href="https://riteup.ai" />
@@ -46,11 +46,12 @@ const LandingPage: React.FC = () => {
           </div>
           
           <motion.div {...fadeInUp} className="space-y-6">
-            <h1 className="text-4xl font-bold text-gray-900 sm:text-5xl md:text-6xl xl:text-7xl tracking-tight">
-              Create <span className={`${theme.colors.primary.solid} bg-clip-text text-transparent bg-gradient-to-r ${theme.colors.primary.gradient}`}>Research-Backed Content</span><br className="hidden sm:block" /> at Scale
+            <h1 className="text-2xl leading-normal font-bold text-gray-900 sm:text-5xl md:text-5xl xl:text-6xl tracking-tight">
+              AI Agents that <span className={`${theme.colors.primary.solid} bg-clip-text text-transparent bg-gradient-to-r ${theme.colors.primary.gradient}`}>Research & Craft</span><br className="hidden sm:block" />
+              Engaging Content
             </h1>
             <p className="mt-6 text-xl sm:text-2xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-              Transform your ideas into thoroughly researched blog posts and social media content, powered by AI research and expert writing assistance.
+              Watch intelligent agents dive deep into research, synthesize insights, and craft compelling blog posts — with you in full creative control.
             </p>
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
               {user ? (
@@ -78,21 +79,21 @@ const LandingPage: React.FC = () => {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                Watch Demo
+                See Agents in Action
               </motion.a>
             </div>
             <motion.div className="mt-8 flex flex-wrap justify-center gap-4 text-sm text-gray-600">
               <div className="flex items-center">
                 <CheckCircle className={`w-5 h-5 ${theme.colors.primary.solid} mr-2`} />
-                <span>Deep Research</span>
+                <span>Intelligent Research</span>
               </div>
               <div className="flex items-center">
                 <CheckCircle className={`w-5 h-5 ${theme.colors.primary.solid} mr-2`} />
-                <span>SEO Optimized</span>
+                <span>SEO Powerhouse</span>
               </div>
               <div className="flex items-center">
                 <CheckCircle className={`w-5 h-5 ${theme.colors.primary.solid} mr-2`} />
-                <span>Review & Edit</span>
+                <span>Intuitive Editing</span>
               </div>
             </motion.div>
           </motion.div>
@@ -111,7 +112,7 @@ const LandingPage: React.FC = () => {
             <div className="relative">
               <img
                 src="/assets/background_tp.png"
-                alt="RiteUp platform interface showcase"
+                alt="RITE UP platform interface showcase"
                 className="w-full h-auto rounded-2xl shadow-xl transition-transform duration-300"
                 loading="lazy"
               />
@@ -130,7 +131,7 @@ const LandingPage: React.FC = () => {
             >
               <span className={`${theme.colors.primary.solid} font-semibold text-lg`}>How It Works</span>
               <h2 className="mt-3 text-3xl font-bold text-gray-900 sm:text-4xl lg:text-5xl">
-                Research-First Content Creation
+                Intelligent Research-Driven Creation
               </h2>
               <p className="mt-4 text-xl text-gray-600 max-w-2xl mx-auto">
                 Our AI-powered platform handles the heavy lifting of research and writing, while you maintain full creative control
@@ -142,19 +143,19 @@ const LandingPage: React.FC = () => {
                 {
                   step: "1",
                   title: "Deep Research",
-                  description: "Our AI scans and analyzes multiple authoritative sources to gather comprehensive data and insights",
+                  description: "Our AI agent scan authoritative sources, extract key insights, and compile comprehensive research for your content",
                   icon: <Search className={`w-7 h-7 ${theme.colors.primary.solid} transition-all duration-300 transform group-hover:scale-110`} />
                 },
                 {
                   step: "2",
-                  title: "Smart Draft",
-                  description: "Transform research into well-structured blog posts and engaging social content",
+                  title: "Smart Writing",
+                  description: "Synthesize research into structured, engaging narratives tailored to your brand voice and audience",
                   icon: <PenTool className={`w-7 h-7 ${theme.colors.primary.solid} transition-all duration-300 transform group-hover:scale-110`} />
                 },
                 {
                   step: "3",
                   title: "Review & Publish",
-                  description: "Make final edits and refinements before publishing your polished content",
+                  description: "Fine-tune content in our intuitive editor before publishing your expertly crafted piece",
                   icon: <CheckCircle className={`w-7 h-7 ${theme.colors.primary.solid} transition-all duration-300 transform group-hover:scale-110`} />
                 }
               ].map((step, index) => (
@@ -200,40 +201,40 @@ const LandingPage: React.FC = () => {
               transition={{ duration: 0.6 }}
               className="text-center mb-20"
             >
-              <span className={`${theme.colors.primary.solid} font-semibold text-lg`}>Features</span>
+              <span className={`${theme.colors.primary.solid} font-semibold text-lg`}>AI Agent Powers</span>
               <h2 className="mt-3 text-3xl font-bold text-gray-900 sm:text-4xl lg:text-5xl">
-                Everything You Need
+                Your Intelligent Content Squad
               </h2>
               <p className="mt-4 text-xl text-gray-600 max-w-2xl mx-auto">
-                Powerful features to help you create outstanding content
+                Delegate the heavy lifting to your AI agents while maintaining creative direction
               </p>
             </motion.div>
 
             <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-3">
               {[{
                 icon: <Bot className={`w-8 h-8 ${theme.colors.primary.solid}`} />,
-                title: "Deep Research",
-                description: "Our AI analyzes multiple sources to gather comprehensive, accurate information for your content."
+                title: "Deep Research Agent",
+                description: "Tireless AI researchers scan multiple authoritative sources, extracting valuable insights your audience will appreciate."
               }, {
                 icon: <Share className={`w-8 h-8 ${theme.colors.primary.solid}`} />,
-                title: "Smart Writing",
-                description: "Transform research into engaging blog posts and social media content that resonates with your audience."
+                title: "Content Architect",
+                description: "Your AI transforms complex research into clear, engaging narratives that captivate your specific audience."
               }, {
                 icon: <UserCheck className={`w-8 h-8 ${theme.colors.primary.solid}`} />,
-                title: "Expert Review",
-                description: "Maintain full control with our intuitive editing interface for final refinements."
+                title: "Human-in-the-Loop",
+                description: "Maintain creative control with our intuitive editor designed for seamless collaboration with AI."
               }, {
                 icon: <Target className={`w-8 h-8 ${theme.colors.primary.solid}`} />,
-                title: "SEO Optimization",
-                description: "Built-in SEO tools ensure your content ranks well and reaches your target audience."
+                title: "SEO Intelligence",
+                description: "AI-powered optimization ensures your content ranks prominently where your audience is searching."
               }, {
                 icon: <Image className={`w-8 h-8 ${theme.colors.primary.solid}`} />,
-                title: "Multi-Format Ready",
-                description: "Automatically format your content for blogs, social media, and other platforms."
+                title: "Format Shapeshifter",
+                description: "Watch your content automatically adapt for blogs, social platforms, and newsletters with perfect formatting."
               }, {
                 icon: <Share2 className={`w-8 h-8 ${theme.colors.primary.solid}`} />,
-                title: "Easy Publishing",
-                description: "Publish directly to your blog or schedule social media posts with one click."
+                title: "Publishing Assistant",
+                description: "Deploy your polished content across platforms with intelligent scheduling for maximum impact."
               }].map((feature, index) => (
                 <motion.div
                   key={index}

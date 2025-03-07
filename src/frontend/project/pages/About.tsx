@@ -67,7 +67,7 @@ const About: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               className={`text-4xl font-bold mb-4 ${theme.colors.primary.text.dark}`}
             >
-              About RiteUp
+              About RITE UP
             </motion.h1>
             <motion.p 
               initial={{ opacity: 0, y: 20 }}
@@ -76,6 +76,23 @@ const About: React.FC = () => {
               className="text-xl text-gray-600 max-w-3xl mx-auto"
             >
               We're building the future of content creation, helping creators transform their social media presence into lasting, meaningful content.
+            </motion.p>
+            {/* Add a new section for mission statement */}
+            <motion.h2 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className={`text-2xl font-semibold mt-8 ${theme.colors.primary.text.dark}`}
+            >
+              Our Mission
+            </motion.h2>
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="text-lg text-gray-600 mt-2"
+            >
+              To empower content creators by providing intelligent tools that transform casual conversations into professional content.
             </motion.p>
           </div>
 

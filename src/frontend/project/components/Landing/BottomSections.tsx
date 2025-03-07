@@ -92,7 +92,7 @@ const BottomSections = () => {
               className="mt-6 flex items-center gap-2 text-gray-600"
             >
               <Sparkles className="w-4 h-4 text-yellow-500" />
-              <span>Join 10,000+ content creators already using RiteUp</span>
+              <span>Join 10,000+ content creators already using RITEUP</span>
             </motion.div>
           </motion.div>
         </div>
@@ -110,7 +110,7 @@ const BottomSections = () => {
             </div>
 
             <div className="text-gray-600 my-4 md:my-0">
-              2025 © RiteUp. All rights reserved - Designed by{' '}
+              2025 © RITEUP. All rights reserved - Designed by{' '}
               <a href="#" className="text-blue-600 hover:text-blue-700">HustleJar</a>
             </div>
 

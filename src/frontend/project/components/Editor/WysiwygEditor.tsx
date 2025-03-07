@@ -41,14 +41,9 @@ import React, { useEffect } from "react";
           if (content) {
             const trimmedContent = content.trim();
             const blocks = await editor.tryParseMarkdownToBlocks(trimmedContent);
-            // Trim content in each block
-            const trimmedBlocks = blocks.map(block => ({
-              ...block,
-              content: block.content?.map(item => 
-          typeof item === 'string' ? item.trim() : item
-              )
-            }));
-            editor.replaceBlocks(editor.document, trimmedBlocks);
+            // Instead of trying to modify block content which can have various types,
+            // let's use the blocks directly as they come from the parser
+            editor.replaceBlocks(editor.document, blocks);
           } else {
             editor.replaceBlocks(editor.document, []);
           }
