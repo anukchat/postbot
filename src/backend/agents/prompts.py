@@ -19,7 +19,7 @@ default_blog_structure = """The blog post should follow this structure, adapted 
    - No content overlap between sections
    - Include all input details
    - Remove duplicate information from multiple sources
-   - Use appropriate formats (tables/lists for comparisons)
+   - Use appropriate formats (tables/lists for comparisons etc. )
    - Write in the voice of {persona}
    - Trim any leading/trailing whitespace
 
@@ -108,29 +108,27 @@ WRITING GUIDELINES:
 - Use language appropriate for {age_group}
 - Maintain the voice of {persona}
 - Follow the conventions of {content_type}
-- Use simple, easy to understand, jargon-less, direct, precise and naturally flowing language.
-- Use fewer words yet detailed to explain the concepts.
-- Use technical style when appropriate for the audience.
+- Use simple, easy to understand, jargon-less, precise and naturally flowing language.
+- Use fewer words yet detailed to explain the concepts in a simple manner.
 
 2. **Writing Instructions:**
 - Write from the perspective of an observer or explainer, not as a participant. For example, use phrases like "AWS has implemented this feature..." or "They have used this approach..." instead of "We explored this feature..." or "Let's look at this...".  
-- Include relevant examples or visuals where necessary.
+- Include relevant examples or visuals wherever necessary.
 - Slight imperfections in sentence flow are acceptable.  
 - Before finalizing, check for duplicate or repeated text and remove any redundancy.
 - Do not add redundancy or over-explaining.
 - Zero marketing language.  
-- Highlight important lines by emphasizing them using **.  
 - Do not repeat or add similar information already covered.  
-- Include references where ever needed and cover all the details to enhance the blog post.
+- Include references wherever needed and cover all the details to enhance the blog post.
 - As Input can be from various sources, they may have repeated information, so make sure to avoid any repetition in the generated content.
 - Do not promote any product or service in the content.
 - Trim any leading whitespace to avoid unintentional markdown code block formatting.
 - If including a code snippet, ensure it is formatted with a markdown code block and the proper language specifier.
 - Do not include direct sentences with words {persona}, {age_group}, {content_type} in the content.
+- Do not add too much of bullet points or lists, use them only when necessary.
 
 3. **Formatting Instructions:**  
 - Use markdown formatting 
-- Use ** for highlighting and emphasizing important points.
 
 4. **Grounding Instructions:**  
 - ONLY use information from the input provided, without duplication.
@@ -145,14 +143,15 @@ WRITING GUIDELINES:
 QUALITY CHECKLIST:  
 [ ] Section reads like a human-written article in a reader-friendly tone appropriate for {age_group}
 [ ] Meets word count as specified in the Section Description  
-[ ] Uses concise, clear and direct language, without using too many words to explain a simple concept
+[ ] Uses concise & clear language, without using too many words to explain a simple concept
 [ ] Contains all the key points in detail from the input content
 [ ] If needed, contains one clear code example if specified in the Section Description  
 [ ] Uses proper markdown formatting
 [ ] Uses image or video source urls in the content in form of markdown  
 [ ] No repeated or duplicate information
 [ ] No introduction or explanation of the section, directly start with the content
-[ ] Uses proper text formatting without duplication"""
+[ ] Uses proper text formatting without duplication
+[ ] Uses naturally flowing language and writing style"""
 
 
 ##----------------- Introduction/Conclusion Writer Instructions -----------------##
@@ -181,7 +180,6 @@ Guidelines for writing:
 - Write from the perspective of an observer or explainer, not as a participant. For example, use phrases like "AWS has implemented this feature..." or "They have used this approach..." instead of "We explored this feature..." or "Let's look at this...".  
 - Do not add redundancy or do over-explaining
 - Zero marketing language
-- Highlight important lines by emphasizing them using ** 
 - Do not repeat the information already covered
 - Include references where ever needed and cover all the details to enhance the blog post
 - Do not explain what this post is about, directly start with the content
@@ -190,7 +188,7 @@ Guidelines for writing:
 - If writing Introduction section, do not add Conclusion section and vice versa
 - Trim any leading whitespace to prevent unintended markdown code block formatting
 - Do not include direct sentences with words {persona}, {age_group}, {content_type} in the content (e.g. Do not add sentence like For investors aged 26-40 etc..)
-
+- Do not mix Introduction and Conclusion sections
  
 2. **SEO Requirements:**
 - If writing Introduction, it must contain:
@@ -202,11 +200,11 @@ Guidelines for writing:
 3. Section-Specific Requirements:
 
 FOR INTRODUCTION (if writing introduction):
-- Use # Title (must be attention-grabbing but technical)
-- Always make sure that the Title starts with only one # and is followed by a space
+- Use # Title (Should always start with '#' and it must be attention-grabbing)
 
 FOR CONCLUSION (if writing Conclusion):
-- Use ## Conclusion (crisp concluding statement)"""
+- Use ## Conclusion (should always start with '##' and should be a crisp concluding statement)
+"""
 
 
 ##----------------- Twitter Post Instructions -----------------##
