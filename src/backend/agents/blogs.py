@@ -703,7 +703,7 @@ class AgentWorkflow:
             # Handle feedback
             elif payload.get("feedback") and payload.get("thread_id"):
                 logger.info(f"Handling feedback for thread {thread_id}")
-                return BlogStateOutput(**self._handle_feedback(thread_id, payload))
+                return BlogStateOutput(**self._handle_feedback(thread_id, payload,user))
             
             # Handle new content generation
             else:
@@ -863,7 +863,7 @@ class AgentWorkflow:
         self._store_social_content(thread_id, payload, result, user)
         return result
 
-    def _handle_feedback(self, thread_id, payload):
+    def _handle_feedback(self, thread_id, payload,user):
         """Handle feedback processing"""
         # Check if content exists for thread_id
 
@@ -884,7 +884,7 @@ class AgentWorkflow:
         result = self.graph.invoke(None, config)
         self.graph.update_state(config, values={"feedback": None})
 
-        self._update_content_with_feedback(thread_id, payload, result)
+        self._update_content_with_feedback(thread_id, payload, result, user)
         return result
 
     def _store_social_content(self, thread_id, payload, result, user):
@@ -910,7 +910,7 @@ class AgentWorkflow:
 
                     self.content_repo.create(content_data)
 
-    def _update_content_with_feedback(self, thread_id, payload, result):
+    def _update_content_with_feedback(self, thread_id, payload, result, user):
         """Update existing content with feedback"""
         for post_type in payload.get("post_types", ["blog", "twitter", "linkedin"]):
             content_body = result.get(
@@ -918,8 +918,8 @@ class AgentWorkflow:
             )
             if content_body:
                 content_type = self.content_type_repo.find_by_field("name",post_type)
-                content_data = {"body": content_body, "status": "Draft", "thread_id": thread_id, "content_type_id": content_type.content_type_id}
-                self.content_repo.update(content_data)
+                content_data = {"body": content_body, "status": "Draft", "content_type_id": content_type.content_type_id}
+                self.content_repo.update_by_thread(thread_id, user.profile_id, content_data)
 
     def _store_new_content(self, result, thread_id, source_id, payload, user):
         """Store newly generated content"""
@@ -1128,13 +1128,52 @@ class AgentWorkflow:
 
             # check thread_id is not existent
             existing_content = self.content_repo.exists("thread_id",thread_id)
-            # Handle existing thread with no feedback
+            final_state=None
             if existing_content and not payload.get("feedback"):
                 logger.info("Handling existing thread without feedback")
                 config = {"configurable": {"thread_id": thread_id}}
-                async for event in self.graph.astream(None, config=config):
+                
+                self.graph.update_state(
+                    config,
+                    values={"post_types": payload.get("post_types", ["twitter", "linkedin"])},
+                )
+
+                for event in self.graph.stream(None, config=config):
+                    if 'write_linkedin_post' in str(event):
+                        final_state = event.get('write_linkedin_post')
+                    elif 'write_twitter_post' in str(event):
+                        final_state = event.get('write_twitter_post')
+
                     yield self._format_event(event)
+
+                if final_state:
+                    self._store_social_content(thread_id, payload, final_state, user)
+                
                 return
+                            
+            # Handle feedback
+            if existing_content and payload.get("thread_id"):
+                config = {"configurable": {"thread_id": thread_id}}
+                self.graph.update_state(
+                    config,
+                    values={
+                        "feedback": payload.get("feedback"),
+                        "post_types": payload.get("post_types", ["blog"]),
+                        "feedback_applied": False,
+                    }, 
+                )
+                for event in self.graph.stream(None, config):
+                    if 'handle_feedback' in str(event):
+                        final_state = event.get('handle_feedback')
+
+                    yield self._format_event(event)
+
+                self.graph.update_state(config, values={"feedback": None})
+
+                if final_state:
+                    self._update_content_with_feedback(thread_id, payload, final_state,user)   
+                return   
+            
 
             # Handle new content generation
             logger.info("Handling new content generation")
@@ -1150,7 +1189,6 @@ class AgentWorkflow:
                 raise ValueError("Invalid payload - missing required fields")
 
             config = {"configurable": {"thread_id": thread_id}}
-            final_state = None
             for event in self.graph.stream(test_input, config=config):
                 # Pass through the event
                 yield self._format_event(event)
