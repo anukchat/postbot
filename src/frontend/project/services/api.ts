@@ -23,47 +23,6 @@ api.interceptors.request.use(async (config) => {
   return Promise.reject(error);
 });
 
-// Add response interceptor to handle token refresh
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-    
-    // Handle 401 with refresh token
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      
-      try {
-        // Get refresh token from cookie
-        const refreshToken = Cookies.get('refresh_token');
-        if (!refreshToken) {
-          throw new Error('No refresh token available');
-        }
-
-        // Attempt to refresh the session
-        const { data: { session }, error: refreshError } = await supabaseClient.auth.refreshSession({
-          refresh_token: refreshToken
-        });
-
-        if (refreshError) throw refreshError;
-
-        if (session) {
-          // Update tokens
-          await authService.persistSession(session);
-          
-          // Update the original request with new token
-          originalRequest.headers.Authorization = `Bearer ${session.access_token}`;
-          return api(originalRequest);
-        }
-      } catch (refreshError) {
-        // Clear auth state on refresh failure
-        await authService.signOut();
-        window.location.href = '/login';
-      }
-    }
-    return Promise.reject(error);
-  }
-);
 
 // Content methods
 const deleteContent = (threadId: string) => api.delete(`/content/thread/${threadId}`);
