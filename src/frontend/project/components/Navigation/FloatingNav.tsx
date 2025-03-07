@@ -36,9 +36,9 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({ onToggleDrawer, isDraw
             {/* Logo */}
             <Link to="/" className="flex items-center mb-4">
               <img
-                src="/assets/riteup logo svg.svg"
-                alt="RiteUp Logo"
-                className="h-10 w-auto transition-transform duration-300 hover:scale-105"
+                src="/assets/riteup_tp.gif"
+                alt="RITE UP Logo"
+                className="h-16 w-auto transition-transform duration-300 hover:scale-105"
               />
             </Link>
             {/* Home - Updated with new handler */}

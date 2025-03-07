@@ -24,7 +24,7 @@ const CTASection: React.FC = () => {
             </span>
           </h2>
           <p className="mt-6 text-xl text-gray-600 max-w-2xl mx-auto">
-            Join thousands of content creators who trust RiteUp to deliver thoroughly researched, engaging content
+            Join thousands of content creators who trust RITE UP to deliver thoroughly researched, engaging content
           </p>
           {user ? (
             <motion.a
