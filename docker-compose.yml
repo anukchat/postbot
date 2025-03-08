@@ -15,6 +15,7 @@ services:
       - REDDIT_CLIENT_SECRET
       - REDDIT_USER_AGENT
       - SERPER_API_KEY
+      - API_URL
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s
