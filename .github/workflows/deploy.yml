@@ -45,6 +45,9 @@ jobs:
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.actor }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
@@ -52,9 +55,6 @@ jobs:
           script_stop: true
           command_timeout: "30m"
           envs: GITHUB_TOKEN,GITHUB_USERNAME
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-            GITHUB_USERNAME: ${{ github.actor }}
           script: |
             cd /home/ubuntu/postbot
             
