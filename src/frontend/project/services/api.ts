@@ -6,13 +6,18 @@ import Cookies from 'js-cookie';
 
 // Use a more reliable way to determine the API URL, with a consistent path structure
 const getApiBaseUrl = () => {
-  // If VITE_API_URL is set, use it
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
+  const apiUrl = import.meta.env.VITE_API_URL;
   
-  // Fallback for development
-  return 'http://localhost:8000';
+  if (!apiUrl) {
+    console.warn('VITE_API_URL is not set, using development fallback');
+    if (import.meta.env.DEV) {
+      return 'http://localhost:8000';
+    }
+    throw new Error('VITE_API_URL environment variable is required in production');
+  }
+
+  // Remove trailing slash if present
+  return apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -25,16 +30,34 @@ const api = axios.create({
   }
 });
 
-// Add request interceptor
+// Add request interceptor with error handling
 api.interceptors.request.use(async (config) => {
-  const session = await authService.getSession();
-  if (session?.access_token) {
-    config.headers.Authorization = `Bearer ${session.access_token}`;
+  try {
+    const session = await authService.getSession();
+    if (session?.access_token) {
+      config.headers.Authorization = `Bearer ${session.access_token}`;
+    }
+    return config;
+  } catch (error) {
+    console.error('Error in request interceptor:', error);
+    return Promise.reject(error);
   }
-  return config;
 }, (error) => {
+  console.error('Request interceptor error:', error);
   return Promise.reject(error);
 });
+
+// Add response interceptor for better error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Handle unauthorized access
+      authService.signOut().catch(console.error);
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Content methods
 const deleteContent = (threadId: string) => api.delete(`/content/thread/${threadId}`);
