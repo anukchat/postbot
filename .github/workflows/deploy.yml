@@ -1,0 +1,67 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    # Build and push frontend image
+    - name: Build and push frontend image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        file: ./Dockerfile.frontend
+        push: true
+        tags: ghcr.io/${{ github.repository_owner }}/postbot-frontend:latest
+
+    # Build and push backend image
+    - name: Build and push backend image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        file: ./Dockerfile.backend
+        push: true
+        tags: ghcr.io/${{ github.repository_owner }}/postbot-backend:latest
+
+    # Deploy to EC2 
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          cd /home/ubuntu/postbot
+          
+          # Update environment variables with secrets
+          sed -i "s/__SUPABASE_URL__/${{ secrets.SUPABASE_URL }}/g" .env
+          sed -i "s/__GEMINI_API_KEY__/${{ secrets.GEMINI_API_KEY }}/g" .env
+          sed -i "s/__REDDIT_CLIENT_ID__/${{ secrets.REDDIT_CLIENT_ID }}/g" .env
+          sed -i "s/__REDDIT_CLIENT_SECRET__/${{ secrets.REDDIT_CLIENT_SECRET }}/g" .env
+          sed -i "s/__REDDIT_USER_AGENT__/${{ secrets.REDDIT_USER_AGENT }}/g" .env
+          sed -i "s/__SERPER_API_KEY__/${{ secrets.SERPER_API_KEY }}/g" .env
+          sed -i "s/__SUPABASE_KEY__/${{ secrets.SUPABASE_KEY }}/g" .env
+          sed -i "s/__SUPABASE_POSTGRES_DSN__/${{ secrets.SUPABASE_POSTGRES_DSN }}/g" .env
+          
+          # Pull latest images and restart containers
+          ./deploy.sh
+          
+          # Check if containers are running
+          docker ps
