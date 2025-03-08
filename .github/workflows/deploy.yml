@@ -32,8 +32,11 @@ jobs:
         push: true
         tags: ghcr.io/${{ github.repository_owner }}/postbot-frontend:latest
         build-args: |
-          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
+          VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}
+          VITE_API_URL=${{ secrets.API_URL }}
+          VITE_REDIRECT_URL=${{ secrets.REDIRECT_URL }}
+          VITE_ENV=production
 
     # Build and push backend image
     - name: Build and push backend image
@@ -44,7 +47,14 @@ jobs:
         push: true
         tags: ghcr.io/${{ github.repository_owner }}/postbot-backend:latest
         build-args: |
+          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          REDDIT_CLIENT_ID=${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET=${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_USER_AGENT=${{ secrets.REDDIT_USER_AGENT }}
+          SERPER_API_KEY=${{ secrets.SERPER_API_KEY }}
+          SUPABASE_POSTGRES_DSN=${{ secrets.SUPABASE_POSTGRES_DSN }}
 
     # Check if EC2 is reachable
     - name: Check if EC2 is reachable
@@ -54,7 +64,7 @@ jobs:
         echo "GitHub runner IP:"
         curl -s https://api.ipify.org
 
-    # Deploy to EC2 with extended timeout
+    # Deploy to EC2
     - name: Deploy to EC2
       uses: appleboy/ssh-action@master
       with:
@@ -66,9 +76,29 @@ jobs:
         envs: |
           GITHUB_TOKEN
           GITHUB_USERNAME
+          API_URL
+          REDIRECT_URL
+          SUPABASE_URL
+          SUPABASE_KEY
+          GEMINI_API_KEY
+          REDDIT_CLIENT_ID
+          REDDIT_CLIENT_SECRET
+          REDDIT_USER_AGENT
+          SERPER_API_KEY
+          SUPABASE_POSTGRES_DSN
         environment: |
           GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
           GITHUB_USERNAME=${{ github.actor }}
+          API_URL=${{ secrets.API_URL }}
+          REDIRECT_URL=${{ secrets.REDIRECT_URL }}
+          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          REDDIT_CLIENT_ID=${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET=${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_USER_AGENT=${{ secrets.REDDIT_USER_AGENT }}
+          SERPER_API_KEY=${{ secrets.SERPER_API_KEY }}
+          SUPABASE_POSTGRES_DSN=${{ secrets.SUPABASE_POSTGRES_DSN }}
         script: |
           cd /home/ubuntu/postbot
           
@@ -83,7 +113,7 @@ jobs:
           sed -i "s|__SUPABASE_POSTGRES_DSN__|${{ secrets.SUPABASE_POSTGRES_DSN }}|g" .env
           sed -i "s|__API_URL__|${{ secrets.API_URL }}|g" .env
           sed -i "s|__REDIRECT_URL__|${{ secrets.REDIRECT_URL }}|g" .env
-          sed -i "s|__VITE_API_URL__|${{ secrets.API_URL }}|g" .env
+          sed -i "s|__VITE_API_URL__|${{ secrets.API_URL }}/api|g" .env
           sed -i "s|__VITE_REDIRECT_URL__|${{ secrets.REDIRECT_URL }}|g" .env
           # Export variables for the deploy script
           export GITHUB_TOKEN="${GITHUB_TOKEN}"
