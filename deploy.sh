@@ -97,6 +97,10 @@ SUPABASE_KEY=__SUPABASE_KEY__
 SUPABASE_POSTGRES_DSN=__SUPABASE_POSTGRES_DSN__ 
 VITE_SUPABASE_URL=__SUPABASE_URL__
 VITE_SUPABASE_ANON_KEY=__SUPABASE_KEY__
+API_URL=__API_URL__
+REDIRECT_URL=__REDIRECT_URL__
+VITE_API_URL=${API_URL}
+VITE_REDIRECT_URL=${REDIRECT_URL}
 # Add any other environment variables your application needs
 EOL
 
@@ -107,12 +111,55 @@ cat > /home/ubuntu/deploy.sh << 'EOL'
 # Navigate to postbot directory
 cd /home/ubuntu/postbot
 
+# Create Docker config directory if it doesn't exist
+mkdir -p /home/ubuntu/.docker
+
+# Set up GitHub Container Registry authentication
+# This assumes that GITHUB_TOKEN is available as an environment variable
+# It will be supplied by the workflow when it runs
+if [ -n "$GITHUB_TOKEN" ]; then
+  echo "Setting up GitHub Container Registry authentication..."
+  # Create or update Docker config with GitHub authentication
+  echo '{
+    "auths": {
+      "ghcr.io": {
+        "auth": "'$(echo -n "$GITHUB_USERNAME:$GITHUB_TOKEN" | base64)'"
+      }
+    }
+  }' > /home/ubuntu/.docker/config.json
+  
+  # Ensure proper permissions
+  chmod 600 /home/ubuntu/.docker/config.json
+fi
+
+# Validate required environment variables
+required_vars=(
+  "API_URL"
+  "REDIRECT_URL"
+  "SUPABASE_URL"
+  "SUPABASE_KEY"
+)
+
+for var in "${required_vars[@]}"; do
+  if [ -z "${!var}" ]; then
+    echo "Error: Required environment variable $var is not set"
+    exit 1
+  fi
+done
+
 # Pull latest images from GitHub Container Registry
+echo "Pulling frontend image..."
 docker pull ghcr.io/anukchat/postbot-frontend:latest
+echo "Pulling backend image..."
 docker pull ghcr.io/anukchat/postbot-backend:latest
 
 # Start the containers with environment variables from .env file
+echo "Starting containers..."
 docker-compose up -d
+
+# Check if containers are running
+echo "Container status:"
+docker ps
 EOL
 
 # Make the deploy script executable
@@ -131,6 +178,12 @@ services:
       - "3000:3000"
     env_file:
       - .env
+    environment:
+      - VITE_SUPABASE_URL
+      - VITE_SUPABASE_ANON_KEY
+      - VITE_API_URL
+      - VITE_REDIRECT_URL
+      - VITE_ENV=production
     restart: always
 
   backend:
@@ -140,6 +193,14 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      - SUPABASE_URL
+      - SUPABASE_KEY
+      - GEMINI_API_KEY
+      - REDDIT_CLIENT_ID
+      - REDDIT_CLIENT_SECRET
+      - REDDIT_USER_AGENT
+      - SERPER_API_KEY
     restart: always
 EOL
 
