@@ -6,12 +6,11 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -23,7 +22,6 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    # Build and push frontend image
     - name: Build and push frontend image
       uses: docker/build-push-action@v4
       with:
@@ -31,11 +29,7 @@ jobs:
         file: ./Dockerfile.frontend
         push: true
         tags: ghcr.io/${{ github.repository_owner }}/postbot-frontend:latest
-        build-args: |
-          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
 
-    # Build and push backend image
     - name: Build and push backend image
       uses: docker/build-push-action@v4
       with:
@@ -43,18 +37,16 @@ jobs:
         file: ./Dockerfile.backend
         push: true
         tags: ghcr.io/${{ github.repository_owner }}/postbot-backend:latest
-        build-args: |
-          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
 
-    # Check if EC2 is reachable
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
     - name: Check if EC2 is reachable
       run: |
         echo "Checking if ${{ secrets.EC2_HOST }} is reachable on port 22..."
         timeout 10 nc -zv ${{ secrets.EC2_HOST }} 22 || echo "Cannot connect to EC2 instance on port 22"
-        echo "GitHub runner IP:"
-        curl -s https://api.ipify.org
 
-    # Deploy to EC2 with extended timeout
     - name: Deploy to EC2
       uses: appleboy/ssh-action@master
       with:
@@ -62,7 +54,7 @@ jobs:
         username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         script_stop: true
-        command_timeout: "30m"  # Increased timeout
+        command_timeout: "30m"
         envs: GITHUB_TOKEN,GITHUB_USERNAME
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -70,18 +62,26 @@ jobs:
         script: |
           cd /home/ubuntu/postbot
           
-          # Update environment variables with secrets
-          sed -i "s|__SUPABASE_URL__|${{ secrets.SUPABASE_URL }}|g" .env
-          sed -i "s|__GEMINI_API_KEY__|${{ secrets.GEMINI_API_KEY }}|g" .env
-          sed -i "s|__REDDIT_CLIENT_ID__|${{ secrets.REDDIT_CLIENT_ID }}|g" .env
-          sed -i "s|__REDDIT_CLIENT_SECRET__|${{ secrets.REDDIT_CLIENT_SECRET }}|g" .env
-          sed -i "s|__REDDIT_USER_AGENT__|${{ secrets.REDDIT_USER_AGENT }}|g" .env
-          sed -i "s|__SERPER_API_KEY__|${{ secrets.SERPER_API_KEY }}|g" .env
-          sed -i "s|__SUPABASE_KEY__|${{ secrets.SUPABASE_KEY }}|g" .env
-          sed -i "s|__SUPABASE_POSTGRES_DSN__|${{ secrets.SUPABASE_POSTGRES_DSN }}|g" .env
+          # Create fresh .env file
+          cat > .env << EOL
+          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          REDDIT_CLIENT_ID=${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET=${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_USER_AGENT=${{ secrets.REDDIT_USER_AGENT }}
+          SERPER_API_KEY=${{ secrets.SERPER_API_KEY }}
+          SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
+          SUPABASE_POSTGRES_DSN=${{ secrets.SUPABASE_POSTGRES_DSN }}
+          API_URL=${{ secrets.API_URL }}
+          REDIRECT_URL=${{ secrets.REDIRECT_URL }}
+          VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}
+          VITE_API_URL=${{ secrets.API_URL }}
+          VITE_REDIRECT_URL=${{ secrets.REDIRECT_URL }}
+          EOL
           
-          sed -i "s|__API_URL__|${{ secrets.API_URL }}|g" .env
-          sed -i "s|__REDIRECT_URL__|${{ secrets.REDIRECT_URL }}|g" .env
+          # Set proper permissions for .env
+          chmod 600 .env
           
           # Pull latest images and restart containers
           export GITHUB_TOKEN="${GITHUB_TOKEN}"

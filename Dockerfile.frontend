@@ -2,36 +2,11 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Accept build args
-ARG SUPABASE_URL
-ARG SUPABASE_KEY
-
-# Make them environment variables
-ENV VITE_SUPABASE_URL=$SUPABASE_URL
-ENV VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY
-
-# Echo current working directory for debugging
-RUN echo $(pwd)
-
-# Copy package files first
-# COPY src/frontend/project/package*.json ./
-
 # Copy the entire frontend project
 COPY src/frontend/project/ ./
 
-# List all directories and files recursively
-RUN ls -R && \
-    echo "Node version: $(node --version)" && \
-    echo "NPM version: $(npm --version)"
-
 # Install dependencies
 RUN npm install
-
-# # Create directory structure
-# RUN mkdir -p lib
-
-# Explicitly copy lib directory
-# COPY src/frontend/project/lib/ ./lib/
 
 # Build the application
 RUN npm run build

@@ -12,15 +12,11 @@ apt-get install -y \
     gnupg \
     lsb-release \
     git \
-    unzip
-
-# Add Docker's official GPG key
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-
-# Set up the Docker repository
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+    nginx
 
 # Install Docker
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
 apt-get update
 apt-get install -y docker-ce docker-ce-cli containerd.io
 
@@ -31,29 +27,16 @@ systemctl enable docker
 # Add ubuntu user to the docker group
 usermod -aG docker ubuntu
 
-# Install Docker Compose
-curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-chmod +x /usr/local/bin/docker-compose
-
-# Install AWS CLI
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-./aws/install
-
-# Install Nginx
-apt-get install -y nginx
-
 # Create app directory
 mkdir -p /home/ubuntu/postbot
 chown ubuntu:ubuntu /home/ubuntu/postbot
 
-# Create basic Nginx configuration for your app
+# Create basic Nginx configuration
 cat > /etc/nginx/sites-available/postbot << 'EOL'
 server {
     listen 80;
     server_name _;
 
-    # Frontend
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
@@ -63,7 +46,6 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 
-    # Backend API
     location /api {
         rewrite ^/api(/.*)$ $1 break;
         proxy_pass http://localhost:8000;
@@ -83,43 +65,18 @@ rm -f /etc/nginx/sites-enabled/default
 # Restart Nginx to apply config
 systemctl restart nginx
 
-# Create environment variables file
-cat > /home/ubuntu/postbot/.env << 'EOL'
-# Environment Variables
-# These will be populated by the GitHub Actions workflow
-SUPABASE_URL=__SUPABASE_URL__
-GEMINI_API_KEY=__GEMINI_API_KEY__
-REDDIT_CLIENT_ID=__REDDIT_CLIENT_ID__
-REDDIT_CLIENT_SECRET=__REDDIT_CLIENT_SECRET__
-REDDIT_USER_AGENT=__REDDIT_USER_AGENT__
-SERPER_API_KEY=__SERPER_API_KEY__
-SUPABASE_KEY=__SUPABASE_KEY__
-SUPABASE_POSTGRES_DSN=__SUPABASE_POSTGRES_DSN__ 
-VITE_SUPABASE_URL=__SUPABASE_URL__
-VITE_SUPABASE_ANON_KEY=__SUPABASE_KEY__
-API_URL=__API_URL__
-REDIRECT_URL=__REDIRECT_URL__
-VITE_API_URL=${API_URL}
-VITE_REDIRECT_URL=${REDIRECT_URL}
-# Add any other environment variables your application needs
-EOL
-
-# Create a script to pull and start the containers
+# Create a deployment script
 cat > /home/ubuntu/deploy.sh << 'EOL'
 #!/bin/bash
 
 # Navigate to postbot directory
 cd /home/ubuntu/postbot
 
-# Create Docker config directory if it doesn't exist
+# Ensure Docker config directory exists
 mkdir -p /home/ubuntu/.docker
 
-# Set up GitHub Container Registry authentication
-# This assumes that GITHUB_TOKEN is available as an environment variable
-# It will be supplied by the workflow when it runs
+# Set up GitHub Container Registry auth
 if [ -n "$GITHUB_TOKEN" ]; then
-  echo "Setting up GitHub Container Registry authentication..."
-  # Create or update Docker config with GitHub authentication
   echo '{
     "auths": {
       "ghcr.io": {
@@ -127,38 +84,33 @@ if [ -n "$GITHUB_TOKEN" ]; then
       }
     }
   }' > /home/ubuntu/.docker/config.json
-  
-  # Ensure proper permissions
   chmod 600 /home/ubuntu/.docker/config.json
 fi
 
-# Validate required environment variables
-required_vars=(
-  "API_URL"
-  "REDIRECT_URL"
-  "SUPABASE_URL"
-  "SUPABASE_KEY"
-)
+# Stop and remove existing containers if they exist
+docker stop postbot-frontend postbot-backend || true
+docker rm postbot-frontend postbot-backend || true
 
-for var in "${required_vars[@]}"; do
-  if [ -z "${!var}" ]; then
-    echo "Error: Required environment variable $var is not set"
-    exit 1
-  fi
-done
-
-# Pull latest images from GitHub Container Registry
-echo "Pulling frontend image..."
+# Pull latest images
 docker pull ghcr.io/anukchat/postbot-frontend:latest
-echo "Pulling backend image..."
 docker pull ghcr.io/anukchat/postbot-backend:latest
 
-# Start the containers with environment variables from .env file
-echo "Starting containers..."
-docker-compose up -d
+# Start containers
+docker run -d \
+  --name postbot-frontend \
+  --env-file .env \
+  -p 3000:3000 \
+  --restart always \
+  ghcr.io/anukchat/postbot-frontend:latest
 
-# Check if containers are running
-echo "Container status:"
+docker run -d \
+  --name postbot-backend \
+  --env-file .env \
+  -p 8000:8000 \
+  --restart always \
+  ghcr.io/anukchat/postbot-backend:latest
+
+# Show running containers
 docker ps
 EOL
 
@@ -166,48 +118,8 @@ EOL
 chmod +x /home/ubuntu/deploy.sh
 chown ubuntu:ubuntu /home/ubuntu/deploy.sh
 
-# Create a basic docker-compose.yml that uses environment variables
-cat > /home/ubuntu/postbot/docker-compose.yml << 'EOL'
-version: '3'
+# Create empty .env file
+touch /home/ubuntu/postbot/.env
+chown ubuntu:ubuntu /home/ubuntu/postbot/.env
 
-services:
-  frontend:
-    image: ghcr.io/anukchat/postbot-frontend:latest
-    container_name: postbot-frontend
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env
-    environment:
-      - VITE_SUPABASE_URL
-      - VITE_SUPABASE_ANON_KEY
-      - VITE_API_URL
-      - VITE_REDIRECT_URL
-      - VITE_ENV=production
-    restart: always
-
-  backend:
-    image: ghcr.io/anukchat/postbot-backend:latest
-    container_name: postbot-backend
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
-    environment:
-      - SUPABASE_URL
-      - SUPABASE_KEY
-      - GEMINI_API_KEY
-      - REDDIT_CLIENT_ID
-      - REDDIT_CLIENT_SECRET
-      - REDDIT_USER_AGENT
-      - SERPER_API_KEY
-    restart: always
-EOL
-
-# Set ownership for all created files
-chown -R ubuntu:ubuntu /home/ubuntu/postbot
-
-# Install certbot for SSL (Let's Encrypt)
-apt-get install -y certbot python3-certbot-nginx
-
-echo "System initialization complete. The GitHub Actions workflow will replace the placeholders in the .env file with actual secrets."
+echo "System initialization complete. The GitHub Actions workflow will populate the .env file with actual secrets."
