@@ -26,6 +26,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      args:
+        - VITE_SUPABASE_URL
+        - VITE_SUPABASE_ANON_KEY
+        - VITE_API_URL=${API_URL}/api
+        - VITE_REDIRECT_URL
+        - VITE_ENV=development
     ports:
       - "3000:3000"
     environment:

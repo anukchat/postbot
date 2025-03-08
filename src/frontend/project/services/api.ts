@@ -4,17 +4,18 @@ import { TemplateFilter } from '../store/editorStore';
 import { supabaseClient } from '../utils/supaclient';
 import Cookies from 'js-cookie';
 
-// Use a more reliable way to determine the API URL, with a consistent path structure
 const getApiBaseUrl = () => {
   const apiUrl = import.meta.env.VITE_API_URL;
+  const env = import.meta.env.VITE_ENV;
   
   if (!apiUrl) {
-    console.warn('VITE_API_URL is not set');
-    // Remove the localhost fallback to prevent unintended local calls
-    throw new Error('VITE_API_URL environment variable is required');
+    if (env === 'production') {
+      throw new Error('VITE_API_URL environment variable is required in production');
+    }
+    throw new Error('VITE_API_URL environment variable is not set');
   }
 
-  // Ensure URL has /api prefix for production
+  // Ensure URL has /api prefix
   const baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
   return baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
 };

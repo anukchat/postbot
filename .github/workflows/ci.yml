@@ -39,7 +39,7 @@ jobs:
           REDDIT_USER_AGENT: ${{ secrets.REDDIT_USER_AGENT }}
           SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
           API_URL: ${{ secrets.API_URL }}
-          VITE_API_URL: ${{ secrets.API_URL }}
+          VITE_API_URL: "${{ secrets.API_URL }}/api"
           REDIRECT_URL: ${{ secrets.REDIRECT_URL }}
           VITE_REDIRECT_URL: ${{ secrets.REDIRECT_URL }}
           SUPABASE_POSTGRES_DSN: ${{ secrets.SUPABASE_POSTGRES_DSN }}
