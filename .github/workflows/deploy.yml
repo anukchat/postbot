@@ -6,8 +6,11 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-push:
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -22,7 +25,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & Push Frontend
+      - name: Build and push frontend image
         uses: docker/build-push-action@v4
         with:
           context: .
@@ -30,7 +33,7 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/postbot-frontend:latest
 
-      - name: Build & Push Backend
+      - name: Build and push backend image
         uses: docker/build-push-action@v4
         with:
           context: .
@@ -39,27 +42,39 @@ jobs:
           tags: ghcr.io/${{ github.repository_owner }}/postbot-backend:latest
 
   deploy:
-    needs: build-and-push
+    needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Check if EC2 is reachable
+        run: |
+          echo "Checking if ${{ secrets.EC2_HOST }} is reachable on port 22..."
+          timeout 10 nc -zv ${{ secrets.EC2_HOST }} 22 || echo "Cannot connect to EC2 instance on port 22"
+
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
+          command_timeout: "30m"
+          envs: GITHUB_TOKEN,GITHUB_USERNAME
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            GITHUB_USERNAME: ${{ github.actor }}
           script: |
             cd /home/ubuntu/postbot
-          
-            # Update environment variables
+            
+            # Create fresh .env file
             cat > .env << EOL
             SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-            SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
             REDDIT_CLIENT_ID=${{ secrets.REDDIT_CLIENT_ID }}
             REDDIT_CLIENT_SECRET=${{ secrets.REDDIT_CLIENT_SECRET }}
             REDDIT_USER_AGENT=${{ secrets.REDDIT_USER_AGENT }}
             SERPER_API_KEY=${{ secrets.SERPER_API_KEY }}
+            SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
+            SUPABASE_POSTGRES_DSN=${{ secrets.SUPABASE_POSTGRES_DSN }}
             API_URL=${{ secrets.API_URL }}
             REDIRECT_URL=${{ secrets.REDIRECT_URL }}
             VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
@@ -67,6 +82,14 @@ jobs:
             VITE_API_URL=${{ secrets.API_URL }}
             VITE_REDIRECT_URL=${{ secrets.REDIRECT_URL }}
             EOL
-          
-            # Run deployment script
+            
+            # Set proper permissions for .env
+            chmod 600 .env
+            
+            # Pull latest images and restart containers
+            export GITHUB_TOKEN="${GITHUB_TOKEN}"
+            export GITHUB_USERNAME="${GITHUB_USERNAME}"
             ./deploy.sh
+            
+            # Check if containers are running
+            docker ps
