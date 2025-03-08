@@ -62,11 +62,13 @@ jobs:
         username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         script_stop: true
-        command_timeout: "30m"  # Increased timeout
-        envs: GITHUB_TOKEN,GITHUB_USERNAME
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
+        command_timeout: "30m"
+        envs: |
+          GITHUB_TOKEN
+          GITHUB_USERNAME
+        environment: |
+          GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME=${{ github.actor }}
         script: |
           cd /home/ubuntu/postbot
           
@@ -79,13 +81,14 @@ jobs:
           sed -i "s|__SERPER_API_KEY__|${{ secrets.SERPER_API_KEY }}|g" .env
           sed -i "s|__SUPABASE_KEY__|${{ secrets.SUPABASE_KEY }}|g" .env
           sed -i "s|__SUPABASE_POSTGRES_DSN__|${{ secrets.SUPABASE_POSTGRES_DSN }}|g" .env
-          
           sed -i "s|__API_URL__|${{ secrets.API_URL }}|g" .env
           sed -i "s|__REDIRECT_URL__|${{ secrets.REDIRECT_URL }}|g" .env
           
-          # Pull latest images and restart containers
+          # Export variables for the deploy script
           export GITHUB_TOKEN="${GITHUB_TOKEN}"
           export GITHUB_USERNAME="${GITHUB_USERNAME}"
+          
+          # Run deploy script
           ./deploy.sh
           
           # Check if containers are running
