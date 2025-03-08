@@ -83,7 +83,8 @@ jobs:
           sed -i "s|__SUPABASE_POSTGRES_DSN__|${{ secrets.SUPABASE_POSTGRES_DSN }}|g" .env
           sed -i "s|__API_URL__|${{ secrets.API_URL }}|g" .env
           sed -i "s|__REDIRECT_URL__|${{ secrets.REDIRECT_URL }}|g" .env
-          
+          sed -i "s|__VITE_API_URL__|${{ secrets.API_URL }}|g" .env
+          sed -i "s|__VITE_REDIRECT_URL__|${{ secrets.REDIRECT_URL }}|g" .env
           # Export variables for the deploy script
           export GITHUB_TOKEN="${GITHUB_TOKEN}"
           export GITHUB_USERNAME="${GITHUB_USERNAME}"

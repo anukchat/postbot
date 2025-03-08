@@ -84,7 +84,7 @@ rm -f /etc/nginx/sites-enabled/default
 systemctl restart nginx
 
 # Create environment variables file
-cat > /home/ubuntu/postbot/.env << 'EOL'
+cat > /home/ubuntu/postbot/.env << EOL
 # Environment Variables
 # These will be populated by the GitHub Actions workflow
 SUPABASE_URL=__SUPABASE_URL__
@@ -99,8 +99,8 @@ VITE_SUPABASE_URL=__SUPABASE_URL__
 VITE_SUPABASE_ANON_KEY=__SUPABASE_KEY__
 API_URL=__API_URL__
 REDIRECT_URL=__REDIRECT_URL__
-VITE_API_URL=${API_URL}
-VITE_REDIRECT_URL=${REDIRECT_URL}
+VITE_API_URL=__VITE_API_URL__
+VITE_REDIRECT_URL=__VITE_REDIRECT_URL__
 # Add any other environment variables your application needs
 EOL
 
