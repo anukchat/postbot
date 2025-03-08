@@ -104,6 +104,11 @@ jobs:
         script: |
           sudo mkdir -p /home/ubuntu/postbot
           sudo chown ubuntu:ubuntu /home/ubuntu/postbot
+          # Create docker group if it doesn't exist
+          sudo groupadd -f docker
+          sudo usermod -aG docker ubuntu
+          # Apply group changes
+          newgrp docker
 
     # Copy deployment files
     - name: Checkout code
@@ -141,24 +146,8 @@ jobs:
           REDDIT_USER_AGENT
           SERPER_API_KEY
           SUPABASE_POSTGRES_DSN
-        environment: |
-          GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME=${{ github.actor }}
-          API_URL=${{ secrets.API_URL }}
-          REDIRECT_URL=${{ secrets.REDIRECT_URL }}
-          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
-          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-          REDDIT_CLIENT_ID=${{ secrets.REDDIT_CLIENT_ID }}
-          REDDIT_CLIENT_SECRET=${{ secrets.REDDIT_CLIENT_SECRET }}
-          REDDIT_USER_AGENT=${{ secrets.REDDIT_USER_AGENT }}
-          SERPER_API_KEY=${{ secrets.SERPER_API_KEY }}
-          SUPABASE_POSTGRES_DSN=${{ secrets.SUPABASE_POSTGRES_DSN }}
         script: |
           cd /home/ubuntu/postbot
-          
-          # Ensure scripts are executable
-          chmod +x deploy.sh
           
           # Create or update environment file
           cat > .env << EOL
@@ -179,11 +168,28 @@ jobs:
           EOL
           
           # Export variables for the deploy script
-          export GITHUB_TOKEN="${GITHUB_TOKEN}"
-          export GITHUB_USERNAME="${GITHUB_USERNAME}"
+          export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          export GITHUB_USERNAME="${{ github.actor }}"
+          export SUPABASE_URL="${{ secrets.SUPABASE_URL }}"
+          export SUPABASE_KEY="${{ secrets.SUPABASE_KEY }}"
+          export GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
+          export REDDIT_CLIENT_ID="${{ secrets.REDDIT_CLIENT_ID }}"
+          export REDDIT_CLIENT_SECRET="${{ secrets.REDDIT_CLIENT_SECRET }}"
+          export REDDIT_USER_AGENT="${{ secrets.REDDIT_USER_AGENT }}"
+          export SERPER_API_KEY="${{ secrets.SERPER_API_KEY }}"
+          export API_URL="${{ secrets.API_URL }}"
+          export REDIRECT_URL="${{ secrets.REDIRECT_URL }}"
+          export SUPABASE_POSTGRES_DSN="${{ secrets.SUPABASE_POSTGRES_DSN }}"
           
-          # Run deploy script
-          ./deploy.sh
+          # Make deploy script executable
+          sudo chmod +x deploy.sh
           
-          # Check if containers are running
+          # Run deploy script with sudo and environment variables
+          sudo -E ./deploy.sh
+          
+          # Ensure proper ownership after deployment
+          sudo chown -R ubuntu:ubuntu /home/ubuntu/postbot
+          sudo chown -R ubuntu:ubuntu /home/ubuntu/.docker
+          
+          # Verify docker access
           docker ps

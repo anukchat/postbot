@@ -1,11 +1,17 @@
 #!/bin/bash
 
+# Check if script is run as root
+if [ "$EUID" -ne 0 ]; then
+    echo "Please run with sudo"
+    exit 1
+fi
+
 # Update the system
-apt-get update
-apt-get upgrade -y
+sudo apt-get update
+sudo apt-get upgrade -y
 
 # Install required packages
-apt-get install -y \
+sudo apt-get install -y \
     apt-transport-https \
     ca-certificates \
     curl \
@@ -15,36 +21,43 @@ apt-get install -y \
     unzip
 
 # Add Docker's official GPG key
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 
 # Set up the Docker repository
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 # Install Docker
-apt-get update
-apt-get install -y docker-ce docker-ce-cli containerd.io
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+
+# Create docker group if it doesn't exist
+sudo groupadd -f docker
 
 # Start and enable Docker
-systemctl start docker
-systemctl enable docker
+sudo systemctl start docker
+sudo systemctl enable docker
 
 # Add ubuntu user to the docker group
-usermod -aG docker ubuntu
+sudo usermod -aG docker ubuntu
 
 # Install Docker Compose
-curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-chmod +x /usr/local/bin/docker-compose
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
 
 # Install AWS CLI
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 unzip awscliv2.zip
-./aws/install
+sudo ./aws/install
 
 # Install Nginx
-apt-get install -y nginx
+sudo apt-get install -y nginx
+
+# Create required directories
+sudo mkdir -p /etc/nginx/sites-available
+sudo mkdir -p /etc/nginx/sites-enabled
 
 # Create basic Nginx configuration for your app
-cat > /etc/nginx/sites-available/postbot << 'EOL'
+sudo tee /etc/nginx/sites-available/postbot << 'EOL'
 server {
     listen 80;
     server_name _;
@@ -78,14 +91,25 @@ server {
 EOL
 
 # Enable the site configuration
-ln -s /etc/nginx/sites-available/postbot /etc/nginx/sites-enabled/
-rm -f /etc/nginx/sites-enabled/default
+sudo ln -sf /etc/nginx/sites-available/postbot /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
 
 # Restart Nginx to apply config
-systemctl restart nginx
+sudo systemctl restart nginx
 
-# Set permissions for the environment file
-chmod 600 /home/ubuntu/postbot/.env
+# Create and set up project directory
+sudo mkdir -p /home/ubuntu/postbot
+sudo chown ubuntu:ubuntu /home/ubuntu/postbot
+
+# Set up Docker config directory
+sudo mkdir -p /home/ubuntu/.docker
+sudo chown -R ubuntu:ubuntu /home/ubuntu/.docker
+sudo chmod 700 /home/ubuntu/.docker
+
+# Create and set permissions for environment file
+sudo touch /home/ubuntu/postbot/.env
+sudo chown ubuntu:ubuntu /home/ubuntu/postbot/.env
+sudo chmod 600 /home/ubuntu/postbot/.env
 
 # Set up environment variables
 cat > /home/ubuntu/postbot/.env << EOL
@@ -108,16 +132,8 @@ VITE_REDIRECT_URL=__VITE_REDIRECT_URL__
 # Add any other environment variables your application needs
 EOL
 
-# Set proper permissions for Docker configuration
-chmod 700 /home/ubuntu/.docker
-
-# Create the deploy script with proper ownership
-touch /home/ubuntu/deploy.sh
-chown ubuntu:ubuntu /home/ubuntu/deploy.sh
-chmod +x /home/ubuntu/deploy.sh
-
-# Create a script to pull and start the containers
-cat > /home/ubuntu/deploy.sh << 'EOL'
+# Create the deploy script
+sudo tee /home/ubuntu/postbot/deploy.sh << 'EOL'
 #!/bin/bash
 
 # Navigate to postbot directory
@@ -182,14 +198,14 @@ echo "Container status:"
 docker ps
 EOL
 
-# Make the deploy script executable
-chmod +x /home/ubuntu/deploy.sh
-chown ubuntu:ubuntu /home/ubuntu/deploy.sh
+# Set ownership and permissions
+sudo chown ubuntu:ubuntu /home/ubuntu/postbot/deploy.sh
+sudo chmod +x /home/ubuntu/postbot/deploy.sh
 
-# Set ownership for all created files
-chown -R ubuntu:ubuntu /home/ubuntu/postbot
+# Install certbot
+sudo apt-get install -y certbot python3-certbot-nginx
 
-# Install certbot for SSL (Let's Encrypt)
-apt-get install -y certbot python3-certbot-nginx
+# Final ownership setup
+sudo chown -R ubuntu:ubuntu /home/ubuntu/postbot
 
-echo "System initialization complete. The GitHub Actions workflow will replace the placeholders in the .env file with actual secrets."
+echo "System initialization complete. Make sure to run 'newgrp docker' to apply group changes."
