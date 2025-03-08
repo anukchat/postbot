@@ -34,7 +34,7 @@ jobs:
         build-args: |
           VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}
-          VITE_API_URL=${{ secrets.API_URL }}/api
+          VITE_API_URL=${{ secrets.API_URL }}
           VITE_REDIRECT_URL=${{ secrets.REDIRECT_URL }}
           VITE_ENV=production
 
