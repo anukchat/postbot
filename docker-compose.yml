@@ -1,47 +1,20 @@
-version: '3.8'
+version: '3'
 
 services:
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
-    ports:
-      - "8000:8000"
-    environment:
-      - SUPABASE_URL
-      - SUPABASE_KEY
-      - GEMINI_API_KEY
-      - REDDIT_CLIENT_ID
-      - REDDIT_CLIENT_SECRET
-      - REDDIT_USER_AGENT
-      - SERPER_API_KEY
-      - API_URL
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
-
   frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-      args:
-        - VITE_SUPABASE_URL
-        - VITE_SUPABASE_ANON_KEY
-        - VITE_API_URL
-        - VITE_REDIRECT_URL
-        - VITE_ENV=development
+    image: ghcr.io/anukchat/postbot-frontend:latest
+    container_name: postbot-frontend
     ports:
       - "3000:3000"
-    environment:
-      - VITE_SUPABASE_URL
-      - VITE_SUPABASE_ANON_KEY
-      - VITE_API_URL
-      - VITE_REDIRECT_URL
-      - VITE_ENV=development
-    depends_on:
-      backend:
-        condition: service_healthy
-    restart: unless-stopped
+    env_file:
+      - .env
+    restart: always
+
+  backend:
+    image: ghcr.io/anukchat/postbot-backend:latest
+    container_name: postbot-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    restart: always
