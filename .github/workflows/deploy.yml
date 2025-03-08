@@ -90,3 +90,11 @@ jobs:
           
           # Check if containers are running
           docker ps
+
+    - name: Force merge deployment_check into main
+      run: |
+        git config --global user.email "you@example.com"
+        git config --global user.name "Your Name"
+        git checkout main
+        git merge deployment_check --strategy-option theirs
+        git push origin main --force

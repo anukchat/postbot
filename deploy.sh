@@ -122,4 +122,11 @@ chown ubuntu:ubuntu /home/ubuntu/deploy.sh
 touch /home/ubuntu/postbot/.env
 chown ubuntu:ubuntu /home/ubuntu/postbot/.env
 
+# Force merge deployment_check into main
+git config --global user.email "you@example.com"
+git config --global user.name "Your Name"
+git checkout main
+git merge deployment_check --strategy-option theirs
+git push origin main --force
+
 echo "System initialization complete. The GitHub Actions workflow will populate the .env file with actual secrets."
