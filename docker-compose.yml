@@ -2,12 +2,9 @@ version: '3.8'
 
 services:
   backend:
-    image: ghcr.io/${GITHUB_REPOSITORY:-anukchat/postbot}/backend:${GITHUB_SHA:-latest}
     build:
       context: .
       dockerfile: Dockerfile.backend
-      args:
-        - GEMINI_API_KEY=${GEMINI_API_KEY}
     ports:
       - "8000:8000"
     environment:
@@ -26,26 +23,17 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ghcr.io/${GITHUB_REPOSITORY:-anukchat/postbot}/frontend:${GITHUB_SHA:-latest}
     build:
       context: .
       dockerfile: Dockerfile.frontend
-      args:
-        - SUPABASE_URL=${VITE_SUPABASE_URL}
-        - SUPABASE_KEY=${VITE_SUPABASE_ANON_KEY}
     ports:
       - "3000:3000"
     environment:
       - VITE_SUPABASE_URL
       - VITE_SUPABASE_ANON_KEY
-      - VITE_API_URL=/api
-      - VITE_REDIRECT_URL=https://ec2-15-207-19-241.ap-south-1.compute.amazonaws.com/app
-      - VITE_ENV=production
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - VITE_API_URL=http://localhost:8000
+      - VITE_REDIRECT_URL=http://localhost:3000/app
+      - VITE_ENV=development
     depends_on:
       backend:
         condition: service_healthy
