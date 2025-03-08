@@ -43,10 +43,6 @@ unzip awscliv2.zip
 # Install Nginx
 apt-get install -y nginx
 
-# Create app directory
-mkdir -p /home/ubuntu/postbot
-chown ubuntu:ubuntu /home/ubuntu/postbot
-
 # Create basic Nginx configuration for your app
 cat > /etc/nginx/sites-available/postbot << 'EOL'
 server {
@@ -88,7 +84,10 @@ rm -f /etc/nginx/sites-enabled/default
 # Restart Nginx to apply config
 systemctl restart nginx
 
-# Create environment variables file
+# Set permissions for the environment file
+chmod 600 /home/ubuntu/postbot/.env
+
+# Set up environment variables
 cat > /home/ubuntu/postbot/.env << EOL
 # Environment Variables
 # These will be populated by the GitHub Actions workflow
@@ -108,6 +107,14 @@ VITE_API_URL=__VITE_API_URL__
 VITE_REDIRECT_URL=__VITE_REDIRECT_URL__
 # Add any other environment variables your application needs
 EOL
+
+# Set proper permissions for Docker configuration
+chmod 700 /home/ubuntu/.docker
+
+# Create the deploy script with proper ownership
+touch /home/ubuntu/deploy.sh
+chown ubuntu:ubuntu /home/ubuntu/deploy.sh
+chmod +x /home/ubuntu/deploy.sh
 
 # Create a script to pull and start the containers
 cat > /home/ubuntu/deploy.sh << 'EOL'

@@ -6,15 +6,21 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    outputs:
+      frontend_image: ${{ steps.meta-frontend.outputs.tags }}
+      backend_image: ${{ steps.meta-backend.outputs.tags }}
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
 
     - name: Login to GitHub Container Registry
       uses: docker/login-action@v2
@@ -23,14 +29,26 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    # Build and push frontend image
+    # Set up metadata for frontend
+    - name: Extract frontend metadata
+      id: meta-frontend
+      uses: docker/metadata-action@v4
+      with:
+        images: ghcr.io/${{ github.repository_owner }}/postbot-frontend
+        tags: |
+          type=raw,value=latest
+          type=sha,prefix={{branch}}-
+
+    # Build and push frontend image with cache
     - name: Build and push frontend image
       uses: docker/build-push-action@v4
       with:
         context: .
         file: ./Dockerfile.frontend
         push: true
-        tags: ghcr.io/${{ github.repository_owner }}/postbot-frontend:latest
+        tags: ${{ steps.meta-frontend.outputs.tags }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
         build-args: |
           VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}
@@ -38,14 +56,26 @@ jobs:
           VITE_REDIRECT_URL=${{ secrets.REDIRECT_URL }}
           VITE_ENV=production
 
-    # Build and push backend image
+    # Set up metadata for backend
+    - name: Extract backend metadata
+      id: meta-backend
+      uses: docker/metadata-action@v4
+      with:
+        images: ghcr.io/${{ github.repository_owner }}/postbot-backend
+        tags: |
+          type=raw,value=latest
+          type=sha,prefix={{branch}}-
+
+    # Build and push backend image with cache
     - name: Build and push backend image
       uses: docker/build-push-action@v4
       with:
         context: .
         file: ./Dockerfile.backend
         push: true
-        tags: ghcr.io/${{ github.repository_owner }}/postbot-backend:latest
+        tags: ${{ steps.meta-backend.outputs.tags }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
         build-args: |
           SUPABASE_URL=${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
@@ -56,13 +86,38 @@ jobs:
           SERPER_API_KEY=${{ secrets.SERPER_API_KEY }}
           SUPABASE_POSTGRES_DSN=${{ secrets.SUPABASE_POSTGRES_DSN }}
 
-    # Check if EC2 is reachable
-    - name: Check if EC2 is reachable
-      run: |
-        echo "Checking if ${{ secrets.EC2_HOST }} is reachable on port 22..."
-        timeout 10 nc -zv ${{ secrets.EC2_HOST }} 22 || echo "Cannot connect to EC2 instance on port 22"
-        echo "GitHub runner IP:"
-        curl -s https://api.ipify.org
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    # Initial EC2 Setup
+    - name: Initial EC2 Setup
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script_stop: true
+        command_timeout: "30m"
+        script: |
+          sudo mkdir -p /home/ubuntu/postbot
+          sudo chown ubuntu:ubuntu /home/ubuntu/postbot
+
+    # Copy deployment files
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Copy deployment files
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: "deploy.sh,ec2-docker-compose.yml"
+        target: "/home/ubuntu/postbot"
+        strip_components: 0
 
     # Deploy to EC2
     - name: Deploy to EC2
@@ -102,19 +157,27 @@ jobs:
         script: |
           cd /home/ubuntu/postbot
           
-          # Update environment variables with secrets
-          sed -i "s|__SUPABASE_URL__|${{ secrets.SUPABASE_URL }}|g" .env
-          sed -i "s|__GEMINI_API_KEY__|${{ secrets.GEMINI_API_KEY }}|g" .env
-          sed -i "s|__REDDIT_CLIENT_ID__|${{ secrets.REDDIT_CLIENT_ID }}|g" .env
-          sed -i "s|__REDDIT_CLIENT_SECRET__|${{ secrets.REDDIT_CLIENT_SECRET }}|g" .env
-          sed -i "s|__REDDIT_USER_AGENT__|${{ secrets.REDDIT_USER_AGENT }}|g" .env
-          sed -i "s|__SERPER_API_KEY__|${{ secrets.SERPER_API_KEY }}|g" .env
-          sed -i "s|__SUPABASE_KEY__|${{ secrets.SUPABASE_KEY }}|g" .env
-          sed -i "s|__SUPABASE_POSTGRES_DSN__|${{ secrets.SUPABASE_POSTGRES_DSN }}|g" .env
-          sed -i "s|__API_URL__|${{ secrets.API_URL }}|g" .env
-          sed -i "s|__REDIRECT_URL__|${{ secrets.REDIRECT_URL }}|g" .env
-          sed -i "s|__VITE_API_URL__|${{ secrets.API_URL }}/api|g" .env
-          sed -i "s|__VITE_REDIRECT_URL__|${{ secrets.REDIRECT_URL }}|g" .env
+          # Ensure scripts are executable
+          chmod +x deploy.sh
+          
+          # Create or update environment file
+          cat > .env << EOL
+          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          REDDIT_CLIENT_ID=${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET=${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_USER_AGENT=${{ secrets.REDDIT_USER_AGENT }}
+          SERPER_API_KEY=${{ secrets.SERPER_API_KEY }}
+          SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
+          SUPABASE_POSTGRES_DSN=${{ secrets.SUPABASE_POSTGRES_DSN }}
+          API_URL=${{ secrets.API_URL }}
+          REDIRECT_URL=${{ secrets.REDIRECT_URL }}
+          VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}
+          VITE_API_URL=${{ secrets.API_URL }}/api
+          VITE_REDIRECT_URL=${{ secrets.REDIRECT_URL }}
+          EOL
+          
           # Export variables for the deploy script
           export GITHUB_TOKEN="${GITHUB_TOKEN}"
           export GITHUB_USERNAME="${GITHUB_USERNAME}"
