@@ -1,23 +1,13 @@
-name: CI/CD Pipeline
+name: CI Pipeline
 
 permissions:
   contents: read
   packages: write
-  actions: write
-  deployments: write
-  id-token: write
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ develop ]
   workflow_dispatch:
-    inputs:
-      deploy:
-        description: 'Deploy to production?'
-        required: true
-        type: choice
-        options: ['yes', 'no']
-        default: 'no'
 
 jobs:
   build-and-push:
@@ -42,27 +32,3 @@ jobs:
         run: |
           docker compose build
           docker compose push
-
-  deploy:
-    needs: build-and-push
-    if: |
-      github.event_name == 'workflow_dispatch' && 
-      github.event.inputs.deploy == 'yes' ||
-      github.ref == 'refs/heads/develop'
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - name: Deploy Backend to Render
-        uses: johnbeynon/render-deploy-action@v0.0.8
-        with:
-          service-id: ${{ secrets.RENDER_BACKEND_SERVICE_ID }}
-          api-key: ${{ secrets.RENDER_API_KEY }}
-
-      - name: Deploy Frontend to Render
-        uses: johnbeynon/render-deploy-action@v0.0.8
-        env:
-          VITE_API_URL: https://postbot-4977.onrender.com/
-          VITE_REDIRECT_URL: https://postbot-frontend.onrender.com/app
-        with:
-          service-id: ${{ secrets.RENDER_FRONTEND_SERVICE_ID }}
-          api-key: ${{ secrets.RENDER_API_KEY }}

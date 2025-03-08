@@ -97,7 +97,9 @@ SUPABASE_KEY=__SUPABASE_KEY__
 SUPABASE_POSTGRES_DSN=__SUPABASE_POSTGRES_DSN__ 
 VITE_SUPABASE_URL=__SUPABASE_URL__
 VITE_SUPABASE_ANON_KEY=__SUPABASE_KEY__
-# Add any other environment variables your application needs
+VITE_API_URL=https://ec2-15-207-19-241.ap-south-1.compute.amazonaws.com/
+VITE_REDIRECT_URL=https://ec2-15-207-19-241.ap-south-1.compute.amazonaws.com/app
+VITE_ENV=production
 EOL
 
 # Create a script to pull and start the containers
@@ -112,7 +114,11 @@ docker pull ghcr.io/anukchat/postbot-frontend:latest
 docker pull ghcr.io/anukchat/postbot-backend:latest
 
 # Start the containers with environment variables from .env file
-docker-compose up -d
+docker-compose -f /home/ubuntu/postbot/docker-compose.yml up -d
+
+# Show running containers
+echo "Running containers:"
+docker ps
 EOL
 
 # Make the deploy script executable
