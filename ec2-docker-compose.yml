@@ -38,4 +38,5 @@ services:
       - REDDIT_CLIENT_SECRET
       - REDDIT_USER_AGENT
       - SERPER_API_KEY
+      - API_URL
     restart: always

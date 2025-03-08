@@ -163,8 +163,8 @@ docker pull ghcr.io/anukchat/postbot-frontend:latest
 echo "Pulling backend image..."
 docker pull ghcr.io/anukchat/postbot-backend:latest
 
-# Copy the docker-compose.yml from repository
-cp docker-compose.yml /home/ubuntu/postbot/
+# Copy the production docker-compose file from repository
+cp ec2-docker-compose.yml /home/ubuntu/postbot/docker-compose.yml
 
 # Start the containers with environment variables from .env file
 echo "Starting containers..."
