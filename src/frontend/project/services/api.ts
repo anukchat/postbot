@@ -4,8 +4,21 @@ import { TemplateFilter } from '../store/editorStore';
 import { supabaseClient } from '../utils/supaclient';
 import Cookies from 'js-cookie';
 
+// Use a more reliable way to determine the API URL, with a consistent path structure
+const getApiBaseUrl = () => {
+  // If VITE_API_URL is set, use it
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  
+  // Fallback for development
+  return 'http://localhost:8000';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  baseURL: API_BASE_URL,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -22,7 +35,6 @@ api.interceptors.request.use(async (config) => {
 }, (error) => {
   return Promise.reject(error);
 });
-
 
 // Content methods
 const deleteContent = (threadId: string) => api.delete(`/content/thread/${threadId}`);
@@ -53,7 +65,7 @@ const filterContent = (filters: Record<string, any> = {}, skip: number = 0, limi
 const generatePostStream = async (payload: any) => {
   try {
     const session = await authService.getSession();
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/content/generate/stream`, {
+    const response = await fetch(`${API_BASE_URL}/content/generate/stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
