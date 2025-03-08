@@ -60,17 +60,22 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
     }
 
-    # Backend API
-    location /api {
-        rewrite ^/api(/.*)$ $1 break;
-        proxy_pass http://localhost:8000;
+    # Backend API - preserve /api prefix
+    location /api/ {
+        proxy_pass http://localhost:8000/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
     }
 }
@@ -115,11 +120,8 @@ cd /home/ubuntu/postbot
 mkdir -p /home/ubuntu/.docker
 
 # Set up GitHub Container Registry authentication
-# This assumes that GITHUB_TOKEN is available as an environment variable
-# It will be supplied by the workflow when it runs
 if [ -n "$GITHUB_TOKEN" ]; then
   echo "Setting up GitHub Container Registry authentication..."
-  # Create or update Docker config with GitHub authentication
   echo '{
     "auths": {
       "ghcr.io": {
@@ -128,7 +130,6 @@ if [ -n "$GITHUB_TOKEN" ]; then
     }
   }' > /home/ubuntu/.docker/config.json
   
-  # Ensure proper permissions
   chmod 600 /home/ubuntu/.docker/config.json
 fi
 
@@ -138,6 +139,15 @@ required_vars=(
   "REDIRECT_URL"
   "SUPABASE_URL"
   "SUPABASE_KEY"
+  "GEMINI_API_KEY"
+  "REDDIT_CLIENT_ID"
+  "REDDIT_CLIENT_SECRET"
+  "REDDIT_USER_AGENT"
+  "SERPER_API_KEY"
+  "VITE_SUPABASE_URL"
+  "VITE_SUPABASE_ANON_KEY"
+  "VITE_API_URL"
+  "VITE_REDIRECT_URL"
 )
 
 for var in "${required_vars[@]}"; do
@@ -153,6 +163,9 @@ docker pull ghcr.io/anukchat/postbot-frontend:latest
 echo "Pulling backend image..."
 docker pull ghcr.io/anukchat/postbot-backend:latest
 
+# Copy the docker-compose.yml from repository
+cp docker-compose.yml /home/ubuntu/postbot/
+
 # Start the containers with environment variables from .env file
 echo "Starting containers..."
 docker-compose up -d
@@ -165,44 +178,6 @@ EOL
 # Make the deploy script executable
 chmod +x /home/ubuntu/deploy.sh
 chown ubuntu:ubuntu /home/ubuntu/deploy.sh
-
-# Create a basic docker-compose.yml that uses environment variables
-cat > /home/ubuntu/postbot/docker-compose.yml << 'EOL'
-version: '3'
-
-services:
-  frontend:
-    image: ghcr.io/anukchat/postbot-frontend:latest
-    container_name: postbot-frontend
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env
-    environment:
-      - VITE_SUPABASE_URL
-      - VITE_SUPABASE_ANON_KEY
-      - VITE_API_URL
-      - VITE_REDIRECT_URL
-      - VITE_ENV=production
-    restart: always
-
-  backend:
-    image: ghcr.io/anukchat/postbot-backend:latest
-    container_name: postbot-backend
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
-    environment:
-      - SUPABASE_URL
-      - SUPABASE_KEY
-      - GEMINI_API_KEY
-      - REDDIT_CLIENT_ID
-      - REDDIT_CLIENT_SECRET
-      - REDDIT_USER_AGENT
-      - SERPER_API_KEY
-    restart: always
-EOL
 
 # Set ownership for all created files
 chown -R ubuntu:ubuntu /home/ubuntu/postbot

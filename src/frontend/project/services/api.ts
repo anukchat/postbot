@@ -9,15 +9,14 @@ const getApiBaseUrl = () => {
   const apiUrl = import.meta.env.VITE_API_URL;
   
   if (!apiUrl) {
-    console.warn('VITE_API_URL is not set, using development fallback');
-    if (import.meta.env.DEV) {
-      return 'http://localhost:8000';
-    }
-    throw new Error('VITE_API_URL environment variable is required in production');
+    console.warn('VITE_API_URL is not set');
+    // Remove the localhost fallback to prevent unintended local calls
+    throw new Error('VITE_API_URL environment variable is required');
   }
 
-  // Remove trailing slash if present
-  return apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+  // Ensure URL has /api prefix for production
+  const baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+  return baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
 };
 
 const API_BASE_URL = getApiBaseUrl();
