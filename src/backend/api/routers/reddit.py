@@ -6,9 +6,9 @@ from src.backend.api.datamodel import RedditResponse, RedditSuggestionsResponse
 from src.backend.extraction.extractors.reddit import RedditExtractor
 from src.backend.api.dependencies import get_current_user_profile
 
-router = APIRouter(prefix="/reddit", tags=["Reddit"])
+router = APIRouter(tags=["Reddit"])
 
-@router.get("/trending", response_model=RedditResponse)
+@router.get("/reddit/trending", response_model=RedditResponse)
 async def get_trending_reddit_topics(
     limit: int = Query(10, description="Number of posts to fetch per subreddit"),
     subreddits: Optional[str] = Query(None, description="Comma-separated list of subreddits"),
@@ -26,7 +26,7 @@ async def get_trending_reddit_topics(
     except Exception as e:
         return trending_data
 
-@router.get("/discussions", response_model=RedditResponse)
+@router.get("/reddit/discussions", response_model=RedditResponse)
 async def get_trending_discussions(
     category: str = Query('all', description="Category/subreddit to fetch from"),
     timeframe: str = Query('day', description="Time period (hour, day, week, month, year, all)"),
@@ -53,7 +53,7 @@ async def get_trending_discussions(
             error=str(e)
 )
 
-@router.get("/topic-suggestions", response_model=RedditSuggestionsResponse)
+@router.get("/reddit/topic-suggestions", response_model=RedditSuggestionsResponse)
 async def get_topic_suggetsions(
     limit: int = Query(15, description="Number of posts to fetch per subreddit"),
     subreddits: Optional[str] = Query(None, description="Comma-separated list of subreddits"),
@@ -74,7 +74,7 @@ async def get_topic_suggetsions(
     except Exception as e:
         return []
 
-@router.get("/active-subreddits", response_model=RedditResponse)
+@router.get("/reddit/active-subreddits", response_model=RedditResponse)
 async def get_active_subreddits(
     category: Optional[str] = Query(None, description="Category filter"),
     limit: int = Query(10, description="Number of subreddits to return"),
@@ -99,7 +99,7 @@ async def get_active_subreddits(
             error=str(e)
 )
 
-@router.post("/extract", response_model=RedditResponse)
+@router.post("/reddit/extract", response_model=RedditResponse)
 async def extract_reddit_content(
     url: str = Body(..., description="Reddit post URL to extract"),
     skip_llm: bool = Body(False, description="Skip LLM processing"),
@@ -124,7 +124,7 @@ async def extract_reddit_content(
             error=str(e)
 )
 
-@router.post("/batch-summary", response_model=RedditResponse)
+@router.post("/reddit/batch-summary", response_model=RedditResponse)
 async def create_reddit_summary(
     posts: List[Dict] = Body(..., description="List of Reddit posts to summarize"),
     current_user: dict = Depends(get_current_user_profile)

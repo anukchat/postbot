@@ -7,11 +7,11 @@ from src.backend.api.dependencies import get_current_user_profile
 from datetime import datetime
 from uuid import UUID
 
-router = APIRouter(prefix="/templates", tags=["Templates"])
+router = APIRouter( tags=["Templates"])
 logger = setup_logger(__name__)
 template_repository = TemplateRepository()
 
-@router.get("/", response_model=List[TemplateResponse])
+@router.get("/templates", response_model=List[TemplateResponse])
 def list_templates(current_user: dict = Depends(get_current_user_profile)):
     """List all templates with their parameters for the authenticated user."""
     try:
@@ -21,7 +21,7 @@ def list_templates(current_user: dict = Depends(get_current_user_profile)):
         logger.error(f"Error listing templates: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/{template_id}", response_model=TemplateResponse)
+@router.get("/templates/{template_id}", response_model=TemplateResponse)
 def get_template(template_id: UUID, current_user: dict = Depends(get_current_user_profile)):
     """Get a specific template by ID."""
     try:
@@ -33,7 +33,7 @@ def get_template(template_id: UUID, current_user: dict = Depends(get_current_use
         logger.error(f"Error getting template {template_id}: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/", response_model=TemplateResponse)
+@router.post("/templates", response_model=TemplateResponse)
 def create_template(template: TemplateCreate, current_user: dict = Depends(get_current_user_profile)):
     """Create a new template."""
     try:
@@ -46,7 +46,7 @@ def create_template(template: TemplateCreate, current_user: dict = Depends(get_c
         logger.error(f"Error creating template: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.put("/{template_id}", response_model=TemplateResponse)
+@router.put("/templates/{template_id}", response_model=TemplateResponse)
 def update_template(template_id: UUID, template: TemplateUpdate, current_user: dict = Depends(get_current_user_profile)):
     """Update an existing template."""
     try:
@@ -65,7 +65,7 @@ def update_template(template_id: UUID, template: TemplateUpdate, current_user: d
         logger.error(f"Error updating template {template_id}: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.delete("/{template_id}")
+@router.delete("/templates/{template_id}")
 def delete_template(template_id: UUID, current_user: dict = Depends(get_current_user_profile)):
     """Soft delete a template."""
     try:

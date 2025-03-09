@@ -10,14 +10,14 @@ from uuid import UUID
 from fastapi import Body
 from typing import Optional, Dict, Any
 
-router = APIRouter(prefix="/parameters", tags=["Parameters"])
+router = APIRouter(tags=["Parameters"])
 
 # Initialize repositories
 parameter_repository = ParameterRepository()
 source_repository = SourceRepository()
 
 
-@router.get("/all", response_model=List[ParameterModel])
+@router.get("/parameters/all", response_model=List[ParameterModel])
 def get_all_parameters_with_values(
     skip: int = 0,
     limit: int = 100,
@@ -53,7 +53,7 @@ def get_all_parameters_with_values(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/{parameter_id}", response_model=ParameterModel)
+@router.get("/parameters/{parameter_id}", response_model=ParameterModel)
 def get_parameter(
     parameter_id: UUID,
     current_user: dict = Depends(get_current_user_profile)
@@ -67,7 +67,7 @@ def get_parameter(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/{parameter_id}/values", response_model=List[ParameterValueModel])
+@router.get("/parameters/{parameter_id}/values", response_model=List[ParameterValueModel])
 async def get_parameter_values(
     parameter_id: UUID,
     current_user: Dict = Depends(get_current_user_profile)
@@ -79,7 +79,7 @@ async def get_parameter_values(
         raise HTTPException(status_code=400, detail=str(e))
 
 # Parameter management endpoints
-@router.post("/", response_model=ParameterModel)
+@router.post("/parameters", response_model=ParameterModel)
 def create_parameter(
     name: str = Body(...),
     display_name: str = Body(...),
@@ -115,7 +115,7 @@ def create_parameter(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.put("/{parameter_id}", response_model=ParameterModel)
+@router.put("/parameters/{parameter_id}", response_model=ParameterModel)
 def update_parameter(
     parameter_id: UUID,
     name: Optional[str] = Body(None),
@@ -153,7 +153,7 @@ def update_parameter(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.delete("/{parameter_id}")
+@router.delete("/parameters/{parameter_id}")
 def delete_parameter(
     parameter_id: UUID,
     current_user: dict = Depends(get_current_user_profile)
@@ -168,7 +168,7 @@ def delete_parameter(
         raise HTTPException(status_code=400, detail=str(e))
 
 # Parameter values management endpoints
-@router.post("/{parameter_id}/values", response_model=ParameterValueModel)
+@router.post("/parameters/{parameter_id}/values", response_model=ParameterValueModel)
 def create_parameter_value(
     parameter_id: UUID,
     value: str = Body(...),
@@ -187,7 +187,7 @@ def create_parameter_value(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.put("/{parameter_id}/values/{value_id}", response_model=ParameterValueModel)
+@router.put("/parameters/{parameter_id}/values/{value_id}", response_model=ParameterValueModel)
 def update_parameter_value(
     parameter_id: UUID,
     value_id: UUID,
@@ -216,7 +216,7 @@ def update_parameter_value(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.delete("/{parameter_id}/values/{value_id}")
+@router.delete("/parameters/{parameter_id}/values/{value_id}")
 def delete_parameter_value(
     parameter_id: UUID,
     value_id: UUID,
@@ -231,7 +231,7 @@ def delete_parameter_value(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/{template_id}/duplicate", response_model=TemplateResponse, tags=["templates"])
+@router.post("/parameters/{template_id}/duplicate", response_model=TemplateResponse, tags=["templates"])
 def duplicate_template(
     template_id: UUID, 
     new_name: str = Body(..., embed=True),

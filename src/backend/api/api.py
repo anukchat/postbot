@@ -23,7 +23,7 @@ ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", FRONTEND_URL).split(",")
 db_manager = DatabaseConnectionManager()
 security = HTTPBearer()
 
-app = FastAPI(root_path="/api")
+app = FastAPI()
 app.include_router(content.router)
 app.include_router(profiles.router)
 app.include_router(content_types.router)

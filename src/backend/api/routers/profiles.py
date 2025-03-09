@@ -8,13 +8,13 @@ import uuid
 from uuid import UUID
 from typing import Dict, Any
 
-router = APIRouter(prefix="/profiles", tags=["Profiles"])
+router = APIRouter( tags=["Profiles"])
 
 # Profile Repository
 profile_repository = ProfileRepository()
 
 # Profile Endpoints
-@router.post("/", response_model=Profile)
+@router.post("/profiles", response_model=Profile)
 async def create_profile(
     profile_data: Dict[str, Any],
     current_user: Dict = Depends(get_current_user_profile)
@@ -29,7 +29,7 @@ async def create_profile(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/{profile_id}", response_model=Profile)
+@router.get("/profiles/{profile_id}", response_model=Profile)
 async def get_profile(
     profile_id: UUID,
     current_user: Dict = Depends(get_current_user_profile)
@@ -42,7 +42,7 @@ async def get_profile(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.put("/{profile_id}", response_model=Profile)
+@router.put("/profiles/{profile_id}", response_model=Profile)
 async def update_profile(
     profile_id: UUID,
     profile_data: Dict[str, Any],
@@ -56,7 +56,7 @@ async def update_profile(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.delete("/{profile_id}")
+@router.delete("/profiles/{profile_id}")
 async def delete_profile(
     profile_id: UUID,
     current_user: Dict = Depends(get_current_user_profile)
@@ -69,7 +69,7 @@ async def delete_profile(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/", response_model=List[Profile])
+@router.get("/profiles", response_model=List[Profile])
 async def list_profiles(
     skip: int = 0,
     limit: int = 10,

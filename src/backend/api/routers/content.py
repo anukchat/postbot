@@ -15,7 +15,7 @@ from fastapi.responses import StreamingResponse
 
 logger = setup_logger(__name__)
 
-router = APIRouter(prefix="/content", tags=["Content"])
+router = APIRouter(tags=["Content"])
 
 # Repositories
 content_repository = ContentRepository()
@@ -25,7 +25,7 @@ template_repository = TemplateRepository()
 
 
 # Update content endpoints to use profile_id
-@router.post("/", response_model=Content)
+@router.post("/content", response_model=Content)
 async def create_content(
     content_data: Dict[str, Any],
     current_user: Dict = Depends(get_current_user_profile)
@@ -37,7 +37,7 @@ async def create_content(
         raise HTTPException(status_code=400, detail=str(e))
 
 #TODO: Define response model for generate
-@router.post("/generate", response_model=BlogResponse)
+@router.post("/content/generate", response_model=BlogResponse)
 async def generate_generic_blog(
     payload: GeneratePostRequestModel,
     workflow: AgentWorkflow = Depends(get_workflow),
@@ -98,7 +98,7 @@ async def increment_generation_count(profile_id: UUID):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to increment generation count: {str(e)}")    
 
-@router.post("/generate/stream", response_class=StreamingResponse)
+@router.post("/content/generate/stream", response_class=StreamingResponse)
 async def stream_generic_blog(
     payload: GeneratePostRequestModel,
     workflow: AgentWorkflow = Depends(get_workflow),
@@ -134,7 +134,7 @@ async def stream_generic_blog(
         logger.error(f"Unexpected error in stream_generic_blog: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/filter", response_model=ContentListResponse)
+@router.get("/content/filter", response_model=ContentListResponse)
 async def filter_content(
     skip: int = 0,
     limit: int = 10,
@@ -162,7 +162,7 @@ async def filter_content(
         logger.error(f"Error in filter_content: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/{content_id}", response_model=ContentListItem)
+@router.get("/content/{content_id}", response_model=ContentListItem)
 async def get_content(
     content_id: UUID,
     current_user: Dict = Depends(get_current_user_profile)
@@ -175,7 +175,7 @@ async def get_content(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.put("/{content_id}", response_model=Content) 
+@router.put("/content/{content_id}", response_model=Content) 
 async def update_content(content_id: UUID, content: ContentUpdate, current_user: dict = Depends(get_current_user_profile)):
     """Update content"""
     result = content_repository.update(
@@ -189,7 +189,7 @@ async def update_content(content_id: UUID, content: ContentUpdate, current_user:
         raise HTTPException(status_code=403, detail="Not authorized to update this content")
     return result
 
-@router.delete("/thread/{thread_id}")
+@router.delete("/content/thread/{thread_id}")
 async def delete_thread_content(
     thread_id: UUID,
     current_user: Dict = Depends(get_current_user_profile)
@@ -203,7 +203,7 @@ async def delete_thread_content(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     
-@router.get("/thread/{thread_id}", response_model=ContentListItem) 
+@router.get("/content/thread/{thread_id}", response_model=ContentListItem) 
 async def get_content_by_thread(
     thread_id: UUID,
     post_type: Optional[str] = Query(None, description="Filter by post type (blog, twitter, linkedin)"),
@@ -243,7 +243,7 @@ async def get_content_by_thread(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.put("/thread/{thread_id}/save", response_model=ContentListItem)
+@router.put("/content/thread/{thread_id}/save", response_model=ContentListItem)
 async def save_content(
     thread_id: UUID,
     content: SaveContentRequest,
@@ -261,7 +261,7 @@ async def save_content(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     
-@router.put("/thread/{thread_id}/schedule")
+@router.put("/content/thread/{thread_id}/schedule")
 async def schedule_thread_content(
     thread_id: UUID, 
     payload: ScheduleContentRequest,

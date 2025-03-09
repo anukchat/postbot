@@ -8,27 +8,27 @@ from uuid import UUID
 from typing import Optional
 
 
-router = APIRouter(prefix="/content_types", tags=["Content Types"])
+router = APIRouter(tags=["Content Types"])
 
 # ContentType Repository
 content_type_repository = ContentTypeRepository()
 
 
-@router.post("/", response_model=ContentType)
+@router.post("/content_types", response_model=ContentType)
 def create_content_type(content_type: ContentTypeCreate, current_user: dict = Depends(get_current_user_profile)):
     result = content_type_repository.create(content_type.dict())
     if not result:
         raise HTTPException(status_code=400, detail="Failed to create content type")
     return result
 
-@router.get("/{content_type_id}", response_model=ContentType)
+@router.get("/content_types/{content_type_id}", response_model=ContentType)
 def read_content_type(content_type_id: UUID, current_user: dict = Depends(get_current_user_profile)):
     result = content_type_repository.find_by_field("content_type_id", content_type_id)
     if not result:
         raise HTTPException(status_code=404, detail="ContentType not found")
     return result
 
-@router.put("/{content_type_id}", response_model=ContentType)
+@router.put("/content_types/{content_type_id}", response_model=ContentType)
 def update_content_type(content_type_id: UUID, content_type: ContentTypeUpdate, current_user: dict = Depends(get_current_user_profile)):
     result = content_type_repository.update(
         id_field="content_type_id",
@@ -39,14 +39,14 @@ def update_content_type(content_type_id: UUID, content_type: ContentTypeUpdate, 
         raise HTTPException(status_code=404, detail="ContentType not found")
     return result
 
-@router.delete("/{content_type_id}")
+@router.delete("/content_types/{content_type_id}")
 def delete_content_type(content_type_id: UUID, current_user: dict = Depends(get_current_user_profile)):
     result = content_type_repository.delete("content_type_id", content_type_id)
     if not result:
         raise HTTPException(status_code=404, detail="ContentType not found")
     return {"message": "ContentType deleted"}
 
-@router.get("/", response_model=List[ContentType])
+@router.get("/content_types", response_model=List[ContentType])
 def filter_content_types(name: Optional[str] = None, skip: int = 0, limit: int = 10, current_user: dict = Depends(get_current_user_profile)):
     query_filters = {}
     if name:
