@@ -32,6 +32,8 @@ jobs:
           file: ./Dockerfile.frontend
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/postbot-frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Build and push backend image
         uses: docker/build-push-action@v4
@@ -40,6 +42,8 @@ jobs:
           file: ./Dockerfile.backend
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/postbot-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
     needs: build
@@ -54,7 +58,7 @@ jobs:
         uses: appleboy/ssh-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
+          GITHUB_USERNAME: ${{ github.repository_owner }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
@@ -63,9 +67,11 @@ jobs:
           command_timeout: "30m"
           envs: GITHUB_TOKEN,GITHUB_USERNAME
           script: |
+            echo "Starting deployment process at $(date)"
             cd /home/ubuntu/postbot
             
             # Create fresh .env file
+            echo "Creating .env file with secrets..."
             cat > .env << EOL
             SUPABASE_URL=${{ secrets.SUPABASE_URL }}
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
@@ -86,10 +92,18 @@ jobs:
             # Set proper permissions for .env
             chmod 600 .env
             
-            # Pull latest images and restart containers
+            # Export GitHub auth variables
             export GITHUB_TOKEN="${GITHUB_TOKEN}"
             export GITHUB_USERNAME="${GITHUB_USERNAME}"
-            ./deploy.sh
             
-            # Check if containers are running
+            echo "Running deployment script..."
+            # Run the deployment script
+            /home/ubuntu/deploy.sh
+            
+            # Verify containers are running after deployment
+            echo "Verifying deployment:"
             docker ps
+            
+            # Check Nginx is running
+            echo "Checking Nginx status:"
+            systemctl status nginx
