@@ -109,6 +109,10 @@ jobs:
             # Run the deployment script
             /home/ubuntu/deploy.sh
             
+            # Prune old Docker images to save disk space
+            echo "Pruning old Docker images..."
+            docker image prune -af
+            
             # Verify containers are running after deployment
             echo "Verifying deployment:"
             docker ps
