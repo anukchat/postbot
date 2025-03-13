@@ -74,18 +74,16 @@ export const authService = {
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
-          scopes: 'email profile',
           queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
+            access_type: 'offline', // Only include if you need refresh tokens
           }
         }
       });
-
+  
       if (error) throw error;
       return { data, error: null };
     } catch (error) {
-      console.error('Google sign in error:', error);
+      console.error('Google sign-in error:', error);
       return { data: null, error };
     }
   },
