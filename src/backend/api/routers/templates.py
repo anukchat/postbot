@@ -11,6 +11,11 @@ router = APIRouter( tags=["Templates"])
 logger = setup_logger(__name__)
 template_repository = TemplateRepository()
 
+def premium_user_required(current_user: dict = Depends(get_current_user_profile)):
+    if current_user.role != "premium":
+        raise HTTPException(status_code=403, detail="Access forbidden: Premium users only")
+    return current_user
+
 @router.get("/templates", response_model=List[TemplateResponse])
 def list_templates(current_user: dict = Depends(get_current_user_profile)):
     """List all templates with their parameters for the authenticated user."""
@@ -33,7 +38,7 @@ def get_template(template_id: UUID, current_user: dict = Depends(get_current_use
         logger.error(f"Error getting template {template_id}: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/templates", response_model=TemplateResponse)
+@router.post("/templates", response_model=TemplateResponse, dependencies=[Depends(premium_user_required)])
 def create_template(template: TemplateCreate, current_user: dict = Depends(get_current_user_profile)):
     """Create a new template."""
     try:
@@ -46,7 +51,7 @@ def create_template(template: TemplateCreate, current_user: dict = Depends(get_c
         logger.error(f"Error creating template: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.put("/templates/{template_id}", response_model=TemplateResponse)
+@router.put("/templates/{template_id}", response_model=TemplateResponse, dependencies=[Depends(premium_user_required)])
 def update_template(template_id: UUID, template: TemplateUpdate, current_user: dict = Depends(get_current_user_profile)):
     """Update an existing template."""
     try:
@@ -65,7 +70,7 @@ def update_template(template_id: UUID, template: TemplateUpdate, current_user: d
         logger.error(f"Error updating template {template_id}: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.delete("/templates/{template_id}")
+@router.delete("/templates/{template_id}", dependencies=[Depends(premium_user_required)])
 def delete_template(template_id: UUID, current_user: dict = Depends(get_current_user_profile)):
     """Soft delete a template."""
     try:

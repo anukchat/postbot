@@ -7,6 +7,7 @@ import { TemplateManagement } from '../Templates/TemplateManagement';
 import Tippy from '@tippyjs/react';
 import ReactDOM from 'react-dom';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface FloatingNavProps {
   onToggleDrawer: () => void;
@@ -19,6 +20,8 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({ onToggleDrawer, isDraw
   const [isTemplateManagementOpen, setIsTemplateManagementOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
+
 
   const handleHomeClick = () => {
     // Clear current post and navigate to templates view
@@ -69,14 +72,16 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({ onToggleDrawer, isDraw
               </button>
             </Tippy>
             
-            <Tippy content="Admin Panel" placement="right">
-              <button 
-                onClick={() => navigate('/admin')} 
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              >
-                <Shield className="w-5 h-5" />
-              </button>
-            </Tippy>
+            {user?.role === 'premium' && (
+              <Tippy content="Admin Panel" placement="right">
+                <button 
+                  onClick={() => navigate('/admin')} 
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                >
+                  <Shield className="w-5 h-5" />
+                </button>
+              </Tippy>
+            )}
             
             <Tippy content="Settings" placement="right">
               <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
