@@ -17,7 +17,7 @@ from src.backend.api.routers import content, profiles, content_types, sources, t
 auth_cache = TTLCache(maxsize=100, ttl=6000)  # 6000 seconds = 100 minutes
 
 # Get settings from environment variables
-API_URL = os.getenv("API_URL", "http://localhost:3000")
+API_URL = os.getenv("API_URL", "http://localhost:5173")
 FRONTEND_URL = API_URL  # Use API_URL as the frontend URL
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", FRONTEND_URL).split(",")
 db_manager = DatabaseConnectionManager()

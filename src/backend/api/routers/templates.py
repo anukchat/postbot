@@ -20,7 +20,7 @@ def premium_user_required(current_user: dict = Depends(get_current_user_profile)
 def list_templates(current_user: dict = Depends(get_current_user_profile)):
     """List all templates with their parameters for the authenticated user."""
     try:
-        templates = template_repository.list_templates_for_profile(profile_id=UUID(current_user.profile_id))
+        templates = template_repository.list_templates()
         return templates
     except Exception as e:
         logger.error(f"Error listing templates: {str(e)}")

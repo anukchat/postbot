@@ -5,13 +5,10 @@ import { ParameterManagement } from './ParameterManagement';
 import { Settings, BookIcon } from 'lucide-react';
 import { SharedLayout } from '../Layout/SharedLayout';
 import { useEditorStore } from '../../store/editorStore';
-import { useAuth } from '../../contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
 
 export const AdminLayout: React.FC = () => {
   const isDarkMode = useEditorStore(state => state.isDarkMode);
   const { setIsAdminView } = useEditorStore();
-  const { user } = useAuth();
 
   useEffect(() => {
     // Set admin view flag when component mounts
@@ -22,10 +19,6 @@ export const AdminLayout: React.FC = () => {
       setIsAdminView(false);
     };
   }, [setIsAdminView]);
-
-  if (user?.role !== 'premium') {
-    return <Navigate to="/" replace />;
-  }
 
   return (
     <div className={`h-screen ${isDarkMode ? 'dark' : ''}`}>

@@ -79,6 +79,66 @@ class TemplateRepository(SQLAlchemyRepository[Template]):
             session.rollback()
             raise e
 
+    def list_templates(self):
+        """List all active templates with their parameters and values"""
+        session = self.db.get_session()
+        try:
+            templates = session.query(Template)\
+                .options(joinedload(Template.parameters))\
+                .filter(Template.is_deleted == False)\
+                .order_by(desc(Template.created_at))\
+                .all()
+            
+            formatted_templates = []
+            for template in templates:
+                formatted_parameters = []
+                for param in template.parameters:
+                    selected_value = session.query(template_parameters)\
+                        .filter(
+                            template_parameters.c.template_id == template.template_id,
+                            template_parameters.c.parameter_id == param.parameter_id
+                        ).first()
+
+                    value_details = None
+                    if selected_value and selected_value.value_id:
+                        value = session.query(ParameterValue)\
+                            .filter(ParameterValue.value_id == selected_value.value_id)\
+                            .first()
+                        if value:
+                            value_details = TemplateParameterValue(
+                                value_id= value.value_id,
+                                value= value.value,
+                                display_order= value.display_order,
+                                created_at= value.created_at
+                            )
+                    
+                    formatted_parameters.append(TemplateParameter(
+                        parameter_id= param.parameter_id,
+                        name= param.name,
+                        display_name= param.display_name,
+                        description= param.description,
+                        is_required= param.is_required,
+                        created_at= param.created_at,
+                        values= value_details
+                    ))
+
+                formatted_templates.append(TemplateResponse(
+                    template_id= template.template_id,
+                    name= template.name,
+                    description= template.description,
+                    template_type= template.template_type,
+                    template_image_url= template.template_image_url,
+                    parameters= formatted_parameters,
+                    created_at= template.created_at,
+                    updated_at= template.updated_at,
+                    is_deleted= template.is_deleted
+                ))
+            
+            return formatted_templates
+        except Exception as e:
+            session.rollback()
+            raise e
+        
     def get_template_with_parameters(self, template_id: UUID, profile_id: UUID):
         """Get a single template with its parameters and values"""
         session = self.db.get_session()
