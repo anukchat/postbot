@@ -72,14 +72,15 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({ onToggleDrawer, isDraw
               </button>
             </Tippy>
             
-            {user?.role === 'premium' && (
+            {/* Force re-evaluation on every render */}
+            {!!user?.role && user.role === 'premium' && (
               <Tippy content="Admin Panel" placement="right">
-                <button 
-                  onClick={() => navigate('/admin')} 
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                >
-                  <Shield className="w-5 h-5" />
-                </button>
+              <button 
+                onClick={() => navigate('/admin')} 
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              >
+                <Shield className="w-5 h-5" />
+              </button>
               </Tippy>
             )}
             
