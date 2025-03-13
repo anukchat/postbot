@@ -12,6 +12,7 @@ from src.backend.agents.blogs import AgentWorkflow
 from src.backend.utils.logger import setup_logger
 from src.backend.api.formatters import format_content_list_response, format_content_list_item
 from fastapi.responses import StreamingResponse
+from fastapi import BackgroundTasks
 
 logger = setup_logger(__name__)
 
@@ -101,8 +102,9 @@ async def increment_generation_count(profile_id: UUID):
 @router.post("/content/generate/stream", response_class=StreamingResponse)
 async def stream_generic_blog(
     payload: GeneratePostRequestModel,
+    background_tasks: BackgroundTasks,
     workflow: AgentWorkflow = Depends(get_workflow),
-    current_user: dict = Depends(get_current_user_profile),
+    current_user: dict = Depends(get_current_user_profile)
 ):
     """Stream workflow execution in real-time"""
     try:
@@ -117,6 +119,8 @@ async def stream_generic_blog(
         limit_response = await check_generation_limit(current_user.profile_id)
         if limit_response['generations_used'] >= limit_response['max_generations']:
             raise HTTPException(status_code=403, detail="Generation limit reached")
+
+        background_tasks.add_task(increment_generation_count, current_user.profile_id)
 
         # Return streaming response
         return StreamingResponse(
