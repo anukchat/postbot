@@ -534,16 +534,16 @@ export const useEditorStore = create<CombinedState>((set, get) => ({
   },
 
   savePost: async () => {
-    const { currentPost } = get();
+    const { currentPost, currentTab } = get();
     if (!currentPost) return;
 
     try {
         set({ isLoading: true });
         const response = await api.put(`/content/thread/${currentPost.thread_id}/save`, {
             title: currentPost.title,
-            content: currentPost.content,
-            twitter_post: currentPost.twitter_post,
-            linkedin_post: currentPost.linkedin_post,
+            content: currentTab === 'blog' ? currentPost.content : undefined,
+            twitter_post: currentTab === 'twitter' ? currentPost.twitter_post : undefined,
+            linkedin_post: currentTab === 'linkedin' ? currentPost.linkedin_post : undefined,
             status: 'Draft'
         });
 

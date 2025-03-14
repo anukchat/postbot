@@ -39,32 +39,37 @@ class ContentRepository(SQLAlchemyRepository[Content]):
         """Update content by thread ID"""
         session = self.db.get_session()
         try:
-            content = (
-                session.query(Content)
-                .options(
-                    joinedload(Content.content_type),
-                    joinedload(Content.tags),
-                    joinedload(Content.sources).joinedload(Source.source_type),
-                    joinedload(Content.sources).joinedload(Source.url_references),
-                    joinedload(Content.sources).joinedload(Source.media)
-                )
-                .filter(
-                    Content.thread_id == thread_id,
-                    Content.profile_id == profile_id,
-                    Content.is_deleted.is_(False)
-                )
-                .first()
-            )
-            
-            if content:
-                for key, value in data.items():
-                    if key in ['content', 'twitter_post', 'linkedin_post'] and value:
-                        setattr(content, 'body', value)
-                    elif hasattr(content, key):
-                        setattr(content, key, value)
-                session.commit()
-                return content
-            return None
+            content_type_map = {
+                'blog': 'content',
+                'twitter': 'twitter_post',
+                'linkedin': 'linkedin_post'
+            }
+
+            for content_type, key in content_type_map.items():
+                if key in data and data[key]:
+                    content = (
+                        session.query(Content)
+                        .options(
+                            joinedload(Content.content_type),
+                            joinedload(Content.tags),
+                            joinedload(Content.sources).joinedload(Source.source_type),
+                            joinedload(Content.sources).joinedload(Source.url_references),
+                            joinedload(Content.sources).joinedload(Source.media)
+                        )
+                        .filter(
+                            Content.thread_id == thread_id,
+                            Content.profile_id == profile_id,
+                            Content.is_deleted.is_(False),
+                            Content.content_type.has(name=content_type)
+                        )
+                        .first()
+                    )
+
+                    if content:
+                        setattr(content, 'body', data[key])
+                        session.commit()
+
+            return content
         except Exception as e:
             session.rollback()
             raise e
