@@ -11,7 +11,7 @@ const Pricing: React.FC = () => {
       price: "$0",
       popular: false,
       features: [
-        "Convert up to 10 threads per month",
+        "Convert up to 5 threads",
         "Basic AI formatting",
         "Twitter integration",
         "Export to Markdown"

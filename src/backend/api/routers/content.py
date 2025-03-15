@@ -51,7 +51,7 @@ async def generate_generic_blog(
         payload_dict = payload.model_dump()
 
         if payload.template_id:
-            template_data=template_repository.get_template_with_parameters(UUID(payload.template_id), UUID(current_user.profile_id))
+            template_data=template_repository.get_template_with_parameters(UUID(payload.template_id))
             payload_dict["template"] = template_data
             # payload = GeneratePostRequestModel(**payload_dict)
         # Check generation limit        
@@ -112,7 +112,7 @@ async def stream_generic_blog(
         payload_dict = payload.model_dump()
         
         if payload.template_id:
-            template_data = template_repository.get_template_with_parameters(UUID(payload.template_id), UUID(current_user.profile_id))
+            template_data = template_repository.get_template_with_parameters(UUID(payload.template_id))
             payload_dict["template"] = template_data
 
         # Check generation limit

@@ -30,7 +30,7 @@ def list_templates(current_user: dict = Depends(get_current_user_profile)):
 def get_template(template_id: UUID, current_user: dict = Depends(get_current_user_profile)):
     """Get a specific template by ID."""
     try:
-        template = template_repository.get_template_with_parameters(template_id, UUID(current_user.profile_id))
+        template = template_repository.get_template_with_parameters(template_id)
         if not template:
             raise HTTPException(status_code=404, detail="Template not found")
         return template
@@ -46,7 +46,7 @@ def create_template(template: TemplateCreate, current_user: dict = Depends(get_c
         template_data["profile_id"] = current_user.profile_id
         parameters = template_data.pop("parameters", [])
         created = template_repository.create_template_with_parameters(template_data, parameters)
-        return template_repository.get_template_with_parameters(created.template_id, UUID(current_user.profile_id))
+        return template_repository.get_template_with_parameters(created.template_id)
     except Exception as e:
         logger.error(f"Error creating template: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -65,7 +65,7 @@ def update_template(template_id: UUID, template: TemplateUpdate, current_user: d
         )
         if not updated:
             raise HTTPException(status_code=404, detail="Template not found")
-        return template_repository.get_template_with_parameters(template_id, UUID(current_user.profile_id))
+        return template_repository.get_template_with_parameters(template_id)
     except Exception as e:
         logger.error(f"Error updating template {template_id}: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))

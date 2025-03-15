@@ -12,7 +12,7 @@ const getApiBaseUrl = () => {
     if (env === 'production') {
       throw new Error('VITE_API_URL environment variable is required in production');
     }
-    return 'http://localhost:8000/';
+    return 'http://localhost:8000';
   }
 
   // Ensure URL has /api prefix

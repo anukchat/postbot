@@ -735,7 +735,7 @@ class AgentWorkflow:
     def _validate_existing_content(self, source_id, payload):
         """Check if content already exists for given source"""
 
-        existing_content = self.content_repo.find_by_field("source_id",source_id)
+        existing_content = self.content_repo.validate_source_field({"source_id":source_id})
         
         if existing_content:
             raise ValueError(f"Content already exists for this {payload.get('url', 'tweet')}")

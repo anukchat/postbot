@@ -139,7 +139,7 @@ class TemplateRepository(SQLAlchemyRepository[Template]):
             session.rollback()
             raise e
         
-    def get_template_with_parameters(self, template_id: UUID, profile_id: UUID):
+    def get_template_with_parameters(self, template_id: UUID):
         """Get a single template with its parameters and values"""
         session = self.db.get_session()
         try:
@@ -147,7 +147,6 @@ class TemplateRepository(SQLAlchemyRepository[Template]):
                 .options(joinedload(Template.parameters))\
                 .filter(
                     Template.template_id == template_id,
-                    Template.profile_id == profile_id,
                     Template.is_deleted == False
                 ).first()
                 

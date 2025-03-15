@@ -338,6 +338,28 @@ class ContentRepository(SQLAlchemyRepository[Content]):
         except Exception as e:
             session.rollback()
             raise e
+    
+    def validate_source_field(self, field_value: Dict[str, Any]) -> bool:
+        """
+        Validate if a field value exists in content_sources table
+        Args:
+            field_value: Dictionary containing field name and value to check
+        Returns:
+            bool: True if field value exists, False otherwise
+        """
+        session = self.db.get_session()
+        try:
+            query = session.query(content_sources)
+
+            for field, value in field_value.items():
+                query = query.filter(getattr(content_sources.c, field) == value)
+                
+            exists = query.first() is not None
+            session.commit()
+            return exists
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def remove_content_source(self, content_id: UUID, source_id: UUID, hard_delete: bool = False) -> bool:
         """
