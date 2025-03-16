@@ -110,7 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               avatar_url: data.user.user_metadata?.avatar_url || null,
               role: 'free',
               subscription_status: 'none',
-              generations_used_per_thread: 0,
+              generations_used: 0,
               preferences: {},
               is_deleted: false
             });

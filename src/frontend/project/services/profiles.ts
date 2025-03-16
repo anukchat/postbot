@@ -61,7 +61,7 @@ export const profileService = {
             created_at: now,
             updated_at: now,
             is_deleted: false,
-            generations_used_per_thread: 0,
+            generations_used: 0,
             preferences: profileData.preferences || {},
             subscription_end: profileData.subscription_end || null,
             bio: profileData.bio || null,

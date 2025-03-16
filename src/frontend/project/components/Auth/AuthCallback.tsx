@@ -72,7 +72,7 @@ const AuthCallback = () => {
                 avatar_url: session.user.user_metadata?.avatar_url || null,
                 role: 'free',
                 subscription_status: 'none',
-                generations_used_per_thread: 0,
+                generations_used: 0,
                 preferences: {},
                 is_deleted: false
               });
