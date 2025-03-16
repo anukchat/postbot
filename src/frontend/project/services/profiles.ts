@@ -14,7 +14,7 @@ interface ProfileData {
   preferences: Record<string, any> | null;
   is_deleted: boolean;
   deleted_at: string | null;
-  generations_used_per_thread: number;
+  generations_used: number;
   bio: string | null;
   website: string | null;
   company: string | null;
