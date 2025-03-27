@@ -12,12 +12,9 @@ export const FeedbackModal: React.FC<{
   
   const handleInternalFeedbackSubmit = async () => {
     setIsSubmitting(true);
-    // Reset and close first since we're using streaming
-    setFeedback('');
-    setShowFeedbackModal(false);
-    
     try {
       await handleFeedbackSubmit();
+      setShowFeedbackModal(false);
     } catch (err: any) {
       console.error(err);
       if (

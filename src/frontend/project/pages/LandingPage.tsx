@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Head from 'next/head';
 import { ArrowRight, Bot, Share2, Image, Share, UserCheck, LayoutDashboard, CheckCircle, Target, Search, PenTool } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -10,7 +10,8 @@ import EmailSignupSection from '../components/Landing/EmailSignupSection';
 import Footer from '../components/Landing/Footer';
 
 const LandingPage: React.FC = () => {
-  const { user } = useAuth();  // Removed unused signIn
+  const { user } = useAuth();
+  const [showVideo, setShowVideo] = useState(false); // State to toggle video visibility
 
   const fadeInUp = {
     initial: { opacity: 0, y: 20 },
@@ -73,15 +74,32 @@ const LandingPage: React.FC = () => {
                   Get Started Free <ArrowRight className="ml-2 w-5 h-5" />
                 </motion.a>
               )}
-              <motion.a
-                href="#demo"
+              <motion.button
+                onClick={() => setShowVideo(!showVideo)} // Toggle video visibility
                 className={`w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 text-lg font-medium ${theme.colors.primary.solid} border-2 ${theme.colors.primary.border} rounded-lg hover:bg-gray-50 transition-colors duration-300`}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
                 See Agents in Action
-              </motion.a>
+              </motion.button>
             </div>
+            {showVideo && ( // Conditionally render the video widget
+              <div className="my-8 flex justify-center">
+                <div className="aspect-video w-full max-w-2xl rounded-2xl overflow-hidden">
+                  <video
+                    width="100%"
+                    height="100%"
+                    controls
+                    autoPlay
+                    loop
+                    className="w-full h-full object-cover rounded-lg"
+                  >
+                    <source src="/assets/riteup.mp4" type="video/mp4" />
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+              </div>
+            )}
             <motion.div className="mt-8 flex flex-wrap justify-center gap-4 text-sm text-gray-600">
               <div className="flex items-center">
                 <CheckCircle className={`w-5 h-5 ${theme.colors.primary.solid} mr-2`} />
@@ -113,7 +131,7 @@ const LandingPage: React.FC = () => {
               <img
                 src="/assets/background_tp.png"
                 alt="RITE UP platform interface showcase"
-                className="w-full h-auto rounded-2xl shadow-xl transition-transform duration-300"
+                className="w-full h-auto rounded-3xl shadow-xl transition-transform duration-300"
                 loading="lazy"
               />
             </div>
