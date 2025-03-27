@@ -92,6 +92,7 @@ const LandingPage: React.FC = () => {
                     controls
                     autoPlay
                     loop
+                    muted
                     className="w-full h-full object-cover rounded-lg"
                   >
                     <source src="/assets/riteup.mp4" type="video/mp4" />
