@@ -25,24 +25,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Create .env file
+        run: |
+          echo "VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
+          echo "VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}" >> .env
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
+          echo "SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}" >> .env
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
+          echo "REDDIT_CLIENT_ID=${{ secrets.REDDIT_CLIENT_ID }}" >> .env
+          echo "REDDIT_CLIENT_SECRET=${{ secrets.REDDIT_CLIENT_SECRET }}" >> .env
+          echo "REDDIT_USER_AGENT=${{ secrets.REDDIT_USER_AGENT }}" >> .env
+          echo "SERPER_API_KEY=${{ secrets.SERPER_API_KEY }}" >> .env
+          echo "API_URL=${{ secrets.API_URL }}" >> .env
+          echo "VITE_API_URL=${{ secrets.API_URL }}" >> .env
+          echo "REDIRECT_URL=${{ secrets.REDIRECT_URL }}" >> .env
+          echo "VITE_REDIRECT_URL=${{ secrets.REDIRECT_URL }}" >> .env
+          echo "SUPABASE_POSTGRES_DSN=${{ secrets.SUPABASE_POSTGRES_DSN }}" >> .env
+
       - name: Build and push images
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SHA: ${{ github.sha }}
-          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_KEY }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
-          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
-          REDDIT_USER_AGENT: ${{ secrets.REDDIT_USER_AGENT }}
-          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
-          API_URL: ${{ secrets.API_URL }}
-          VITE_API_URL: "${{ secrets.API_URL }}"
-          REDIRECT_URL: ${{ secrets.REDIRECT_URL }}
-          VITE_REDIRECT_URL: ${{ secrets.REDIRECT_URL }}
-          SUPABASE_POSTGRES_DSN: ${{ secrets.SUPABASE_POSTGRES_DSN }}
         run: |
           docker compose build
           docker compose push
