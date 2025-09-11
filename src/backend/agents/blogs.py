@@ -1190,9 +1190,10 @@ class AgentWorkflow:
 
             config = {"configurable": {"thread_id": thread_id}}
             import dataclasses
+            import json
             for event in self.graph.stream(dataclasses.asdict(test_input), config=config):
-                # Pass through the event
-                yield self._format_event(event)
+                # Pass through the event as a JSON string
+                yield json.dumps(self._format_event(event))
                 
                 if ('compile_final_blog' or 'write_linkedin_post' or 'write_twitter_post') in str(event):
                     final_state = event
@@ -1206,7 +1207,8 @@ class AgentWorkflow:
                 
         except Exception as e:
             logger.error(f"Error in streaming workflow: {str(e)}", exc_info=True)
-            yield {"error": str(e)}
+            import json
+            yield json.dumps({"error": str(e)})
             raise HTTPException(status_code=500, detail=str(e))
 
     def _format_event(self, event):
