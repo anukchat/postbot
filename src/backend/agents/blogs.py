@@ -1189,7 +1189,8 @@ class AgentWorkflow:
                 raise ValueError("Invalid payload - missing required fields")
 
             config = {"configurable": {"thread_id": thread_id}}
-            for event in self.graph.stream(test_input, config=config):
+            import dataclasses
+            for event in self.graph.stream(dataclasses.asdict(test_input), config=config):
                 # Pass through the event
                 yield self._format_event(event)
                 
