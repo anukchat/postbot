@@ -1,9 +1,9 @@
-import { createClient, Session } from '@supabase/supabase-js';
-import { cacheManager } from './cacheManager';
-import Cookies from 'js-cookie';
+import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Prefer explicit redirect base from env to avoid falling back to a production origin during local dev
+const redirectBase = (import.meta.env.VITE_REDIRECT_URL ? (import.meta.env.VITE_REDIRECT_URL as string).replace(/\/$/, '') : window.location.origin);
 
 export const supabaseClient = createClient(supabaseUrl, supabaseKey, {
   auth: {
@@ -73,7 +73,7 @@ export const authService = {
       const { data, error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${redirectBase}/auth/callback`,
           queryParams: {
             access_type: 'offline', // Only include if you need refresh tokens
           }
@@ -101,7 +101,7 @@ export const authService = {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?noAutoSignIn=true`, // Add flag to prevent auto sign in
+          emailRedirectTo: `${redirectBase}/auth/callback?noAutoSignIn=true`, // Add flag to prevent auto sign in
           data: {
             email,
             role: 'free',
@@ -129,7 +129,7 @@ export const authService = {
   async resetPassword(email: string) {
     try {
       const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${redirectBase}/auth/callback`,
       });
       if (error) throw error;
     } catch (error) {
