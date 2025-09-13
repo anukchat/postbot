@@ -13,9 +13,13 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements files
 COPY requirements*.txt ./
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir -r requirements_llm.txt
+
+# Install uv (fast Python installer)
+RUN pip install --no-cache-dir uv
+
+# Install Python dependencies with uv (version-locked, reproducible)
+RUN uv pip install --no-cache-dir -r requirements.txt
+RUN uv pip install --no-cache-dir -r requirements_llm.txt
 
 # Copy the application code
 COPY src/ ./src/

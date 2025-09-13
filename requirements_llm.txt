@@ -6,7 +6,7 @@ langgraph
 openai
 python-dotenv
 langchain-core>=0.1.0
-langgraph==0.2.63
+langgraph
 langgraph-checkpoint-postgres
 google-generativeai
 markdownify
