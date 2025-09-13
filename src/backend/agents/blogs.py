@@ -7,6 +7,7 @@ import uuid
 
 from fastapi import HTTPException
 from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.constants import Send
 from langgraph.graph import START, END, StateGraph
 # from langchain_core.messages import HumanMessage, SystemMessage
@@ -72,7 +73,10 @@ class AgentWorkflow:
             "keepalives_count": 5,
         }
         self.conn = Connection.connect(dsn, **connection_kwargs)
-        self.checkpointer = PostgresSaver(self.conn)
+        self.checkpointer = PostgresSaver(
+            self.conn, 
+            serde=JsonPlusSerializer(pickle_fallback=True)
+        )
 
         # self.checkpointer.setup()
 
