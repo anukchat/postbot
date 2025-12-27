@@ -72,7 +72,13 @@ async def get_topic_suggetsions(
 
         return topic_list
     except Exception as e:
-        return []
+        # Return proper response structure on error
+        return RedditSuggestionsResponse(
+            category="error",
+            content_ideas=[],
+            trending_blogs=[],
+            error=str(e)
+        )
 
 @router.get("/reddit/active-subreddits", response_model=RedditResponse)
 async def get_active_subreddits(

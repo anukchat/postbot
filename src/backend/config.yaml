@@ -59,19 +59,31 @@ converters:
 llm:
   default:
     class_params:
-      model: gemini/gemini-2.0-flash-001
+      model: groq/llama-3.3-70b-versatile  # Free tier: 30 RPM, 14,400 RPD
       temperature: 0.5
+      num_retries: 3  # LiteLLM's built-in retry with exponential backoff
+      max_parallel_requests: 5  # Groq has better limits
+    method_params: {}
+  
+  gemini:  # Keep as backup
+    class_params:
+      model: gemini/gemini-2.5-flash
+      temperature: 0.5
+      num_retries: 3
+      max_parallel_requests: 2
     method_params: {}
   
   gemini-lite:
     class_params:
-      model: gemini/gemini-2.0-flash-lite-preview-02-05
+      model: gemini/gemini-2.5-flash-lite
       temperature: 0.5
+      num_retries: 3  # LiteLLM's built-in retry with exponential backoff
+      max_parallel_requests: 3  # Flash-lite has 15 RPM (higher limit)
     method_params: {}
   
   gemini-thinking:
     class_params:
-      model: gemini/gemini-2.0-flash-thinking-exp-01-21
+      model: gemini/gemini-3-flash-preview
       temperature: 0.5
     method_params: {}
   

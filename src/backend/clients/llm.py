@@ -1,11 +1,14 @@
 from typing import Any, List, Optional, Dict
-from litellm import completion
+from litellm import Router
 from dotenv import load_dotenv
 from src.backend.config import Config, ConfigLoader
-import time
+import backoff
+import logging
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 # litellm.set_verbose=True
+
 class Message:
     def __init__(self, content: str):
         self.content = content
@@ -37,6 +40,28 @@ class LLMClient:
         except ValueError as e:
             available_configs = self.loader.list_configs("llm")
             raise ValueError(f"Invalid configuration: {config_path}. Available configs: {available_configs}")
+        
+        # Get retry configuration from config
+        self.num_retries = self.config.class_params.get('num_retries', 3)
+        
+        # Build model_list for Router from config
+        model = self.config.class_params.get('model', 'gpt-3.5-turbo')
+        max_parallel_requests = self.config.class_params.get('max_parallel_requests', 10)  # Default to 10 if not set
+        
+        litellm_params = self.config.class_params.copy()
+        
+        model_list = [{
+            "model_name": model,  # Use actual model as alias
+            "litellm_params": litellm_params
+        }]
+        
+        # Initialize Router with built-in concurrency control
+        self.router = Router(
+            model_list=model_list,
+            num_retries=self.num_retries
+        )
+        self.model_name = model
+        logger.info(f"Initialized LLMClient with model={model}, max_parallel_requests={max_parallel_requests}, num_retries={self.num_retries}")
 
     @classmethod
     def from_config(cls, config: Config) -> 'LLMClient':
@@ -56,37 +81,31 @@ class LLMClient:
                 raise ValueError(f"Unsupported message type: {type(msg)}")
         return converted
     
-    def invoke(self, messages: List[Any], max_retries: int = 3, initial_delay: float = 1.0, **kwargs) -> str:
+    @backoff.on_exception(
+        backoff.expo,
+        Exception,
+        max_tries=3,
+        giveup=lambda e: 'RateLimitError' not in type(e).__name__ and '429' not in str(e),
+        on_backoff=lambda details: logger.warning(
+            f"Retry attempt {details['tries']} after {details['wait']:.1f}s due to: {str(details['exception'])[:100]}"
+        )
+    )
+    def invoke(self, messages: List[Any], **kwargs) -> str:
+        """Invoke LLM via Router with automatic concurrency control and retry."""
         if not messages:
             raise ValueError("Messages cannot be empty")
         
         converted_messages = self._convert_messages(messages)
-
-        params = self.config.class_params.copy()
-        params.update(kwargs)
         
-        model_config = {
-            "messages": converted_messages,
-            **params
-        }
-
-        last_exception = None
-        delay = initial_delay
-
-        for attempt in range(max_retries):
-            try:
-                response = completion(**model_config)
-                return response.choices[0].message.content
-            except Exception as e:
-                last_exception = e
-                if attempt < max_retries - 1:
-                    time.sleep(delay)
-                    delay *= 2  # Exponential backoff
-                    continue
-                
-        raise Exception(f"LLM invocation failed after {max_retries} attempts: {str(last_exception)}")
-
+        # Router handles concurrency via max_parallel_requests automatically
+        response = self.router.completion(
+            model=self.model_name,
+            messages=converted_messages,
+            **kwargs
+        )
+        return response.choices[0].message.content
+    
 # Usage examples:
-# llm = LLMClient()  # uses llm.default 
+# llm = LLMClient()  # uses llm.default with Router (reads max_parallel_requests from config)
 # chat_llm = LLMClient("llm.chat")
 # completion_llm = LLMClient("llm.completion")

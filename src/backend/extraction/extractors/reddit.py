@@ -285,20 +285,22 @@ class RedditExtractor(BaseExtractor):
                 parsed = safe_json_loads(match.group(1))
             else:
                 parsed = {"content_ideas": []}
-            # return summary
-
-            # subreddit = self.reddit.subreddit('blogs')
-            # hot_posts = subreddit.hot(limit=limit)
-            # trending_blogs = self._process_trending_posts(hot_posts)
             
-            return parsed
+            # Return in proper format matching RedditSuggestionsResponse
+            return {
+                'category': 'blogs',
+                'content_ideas': parsed.get('content_ideas', []),
+                'trending_blogs': [obj['title'] for obj in reddit_object]
+            }
             
         except Exception as e:
             print(f"Error fetching trending blogs: {str(e)}")
             return {
                 'category': 'blogs',
+                'content_ideas': [],
                 'trending_blogs': [obj['title'] for obj in reddit_object],
-                'error': str(e)}
+                'error': str(e)
+            }
         
     def get_trending_discussions(self, category: str = 'all', timeframe: str = 'day', limit: int = 10) -> Dict[str, Any]:
         """

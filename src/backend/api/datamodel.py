@@ -554,6 +554,9 @@ class RedditRequest(BaseModel):
 
 class RedditSuggestionsResponse(BaseModel):
     content_ideas: List[str]
+    category: Optional[str] = "general"
+    trending_blogs: Optional[List[str]] = []
+    error: Optional[str] = None
 
 class UserProfileResponse(BaseModel):
     id: str  # Original user_id from auth
