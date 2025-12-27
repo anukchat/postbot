@@ -72,9 +72,7 @@ Perfect for content creators, developers, and thought leaders who want to repurp
 
 <div align="center">
 
-<video src="./src/frontend/project/public/assets/riteup.mp4" controls width="100%">
-  Your browser does not support the video tag.
-</video>
+![POST BOT Demo](./assets/demo.gif)
 
 *Watch POST BOT in action - from tweet extraction to blog generation*
 
