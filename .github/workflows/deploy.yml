@@ -202,6 +202,11 @@ jobs:
             export POSTBOT_IMAGE_TAG='${{ github.sha }}'
 
             docker compose pull
+
+            # If a previous run created containers outside the current compose project,
+            # fixed container_name entries can cause conflicts. Clean them up.
+            docker rm -f postbot-backend postbot-frontend >/dev/null 2>&1 || true
+
             docker compose up -d --remove-orphans
 
             docker compose run --rm backend alembic upgrade head
