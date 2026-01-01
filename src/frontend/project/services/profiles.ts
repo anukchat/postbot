@@ -1,5 +1,4 @@
-import { supabaseClient } from '../utils/supaclient';
-import { v4 as uuidv4 } from 'uuid';
+import api from './api';
 
 interface ProfileData {
   id: string;
@@ -26,15 +25,9 @@ export type CreateProfileData = Omit<Partial<ProfileData>, 'id' | 'user_id'>;
 export const profileService = {
   async getProfile(userId: string) {
     try {
-      const { data, error } = await supabaseClient
-        .from('profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('is_deleted', false)
-        .single();
-      
-      if (error) throw error;
-      return data;
+      // Note: Backend will verify userId matches the authenticated user
+      const response = await api.get(`/profiles?user_id=${userId}`);
+      return response.data?.[0] || null;
     } catch (error) {
       console.error('Get profile error:', error);
       return null;
@@ -44,74 +37,32 @@ export const profileService = {
   async createProfile(userId: string, profileData: CreateProfileData) {
     console.log('Creating profile for user:', userId, 'with data:', profileData);
     
-    let retries = 3;
-    while (retries > 0) {
-      try {
-        const now = new Date().toISOString();
-        const { data, error } = await supabaseClient
-          .from('profiles')
-          .upsert({
-            id: uuidv4(),
-            user_id: userId,
-            email: profileData.email || null,
-            role: profileData.role || 'free',
-            subscription_status: profileData.subscription_status || 'none',
-            full_name: profileData.full_name || null,
-            avatar_url: profileData.avatar_url || null,
-            created_at: now,
-            updated_at: now,
-            is_deleted: false,
-            generations_used: 0,
-            preferences: profileData.preferences || {},
-            subscription_end: profileData.subscription_end || null,
-            bio: profileData.bio || null,
-            website: profileData.website || null,
-            company: profileData.company || null,
-            deleted_at: null
-          })
-          .select()
-          .single();
-
-        if (error) {
-          console.error('Profile creation error:', error);
-          // If it's a foreign key violation, retry
-          if (error.code === '23503') {
-            if (retries === 1) {
-              throw new Error('User not available in auth system after retries');
-            }
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            retries--;
-            continue;
-          }
-          throw error;
-        }
-        
-        console.log('Profile created successfully:', data);
-        return data as ProfileData;
-      } catch (error) {
-        if (retries === 1) throw error;
-        retries--;
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
+    try {
+      const response = await api.post('/profiles', {
+        ...profileData,
+        role: profileData.role || 'free',
+        subscription_status: profileData.subscription_status || 'none',
+        generations_used: 0,
+        is_deleted: false,
+        preferences: profileData.preferences || {}
+      });
+      
+      console.log('Profile created successfully:', response.data);
+      return response.data as ProfileData;
+    } catch (error) {
+      console.error('Profile creation error:', error);
+      throw error;
     }
-    throw new Error('Failed to create profile after all retries');
   },
 
   async updateProfile(userId: string, profileData: Partial<Omit<ProfileData, 'id' | 'user_id' | 'created_at'>>) {
     try {
-      const { data, error } = await supabaseClient
-        .from('profiles')
-        .update({
-          ...profileData,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', userId)
-        .eq('is_deleted', false)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data as ProfileData;
+      // First get the profile to get its ID
+      const profile = await this.getProfile(userId);
+      if (!profile) throw new Error('Profile not found');
+      
+      const response = await api.put(`/profiles/${profile.id}`, profileData);
+      return response.data as ProfileData;
     } catch (error) {
       console.error('Update profile error:', error);
       throw error;
@@ -120,21 +71,8 @@ export const profileService = {
 
   async checkProfileExists(userId: string) {
     try {
-      const { data, error } = await supabaseClient
-        .from('profiles')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('is_deleted', false)
-        .single();
-      
-      if (error) {
-        // PGRST116 means no rows found, which is expected when profile doesn't exist
-        if (error.code === 'PGRST116') {
-          return false;
-        }
-        throw error;
-      }
-      return Boolean(data);
+      const profile = await this.getProfile(userId);
+      return Boolean(profile);
     } catch (error) {
       console.error('Check profile exists error:', error);
       return false;
@@ -152,18 +90,11 @@ export const profileService = {
 
   async softDeleteProfile(userId: string) {
     try {
-      const now = new Date().toISOString();
-      const { error } = await supabaseClient
-        .from('profiles')
-        .update({
-          is_deleted: true,
-          deleted_at: now,
-          updated_at: now
-        })
-        .eq('user_id', userId)
-        .eq('is_deleted', false);
-
-      if (error) throw error;
+      // First get the profile to get its ID
+      const profile = await this.getProfile(userId);
+      if (!profile) throw new Error('Profile not found');
+      
+      await api.delete(`/profiles/${profile.id}`);
       return true;
     } catch (error) {
       console.error('Soft delete profile error:', error);

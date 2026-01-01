@@ -1,6 +1,9 @@
 import json
 import re
+import logging
 import pyshorteners
+
+logger = logging.getLogger(__name__)
 
 
 def clean_json_string(json_string):
@@ -13,7 +16,7 @@ def safe_json_loads(json_string):
         json_string = clean_json_string(json_string)
         return json.loads(json_string)
     except json.JSONDecodeError as e:
-        print("JSON Decode Error:", e)
+        logger.error(f"JSON Decode Error: {e}")
         return None
 
 
@@ -23,5 +26,5 @@ def shorten_link(url):
         shortened_url = s.tinyurl.short(url)
         return shortened_url
     except Exception as e:
-        print("Error shortening URL:", e)
+        logger.error(f"Error shortening URL: {e}")
         return url

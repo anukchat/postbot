@@ -25,7 +25,7 @@ class DatabaseConnectionManager:
 
     def __init__(self):
         if not hasattr(self, 'initialized'):
-            dsn = os.getenv("SUPABASE_POSTGRES_DSN", "")
+            dsn = os.getenv("DATABASE_URL")
             self.engine = create_engine(
                 dsn,
                 pool_pre_ping=True,

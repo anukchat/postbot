@@ -131,7 +131,7 @@ class DocumentExtractor:
             # Process each file in the input directory
             for input_file in input_dir.glob('*'):
 
-                print(f"Converting to markdown for file: {input_file}")
+                logger.info(f"Converting to markdown for file: {input_file}")
                 # Skip directories
                 if input_file.is_dir():
                     continue

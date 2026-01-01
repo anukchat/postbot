@@ -1,8 +1,13 @@
 import os
 from fastapi import FastAPI, HTTPException, Depends, Query, Security, Body, Request, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from src.backend.db.connection import DatabaseConnectionManager, session_context
 from src.backend.api.datamodel import *
+from src.backend.settings import get_settings
+from src.backend.exceptions import ConfigurationException
 import uvicorn
 from src.backend.agents.blogs import AgentWorkflow
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,30 +16,58 @@ from src.backend.utils.logger import setup_logger
 from src.backend.db.repositories import AuthRepository
 from cachetools import TTLCache
 
-from src.backend.api.routers import content, profiles, content_types, sources, templates, parameters, reddit
-# Auth cache to store token-to-user mappings with a TTL (Time To Live)
-# Cache size of 100 users, and tokens expire after 5 minutes
-auth_cache = TTLCache(maxsize=100, ttl=6000)  # 6000 seconds = 100 minutes
+from src.backend.api.routers import content, profiles, content_types, sources, templates, parameters, reddit, health
+from src.backend.api.middleware import register_exception_handlers, request_logging_middleware
 
-# Get settings from environment variables
-API_URL = os.getenv("API_URL", "http://localhost:5173")
-FRONTEND_URL = API_URL  # Use API_URL as the frontend URL
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", FRONTEND_URL).split(",")
+# Setup logger
+logger = setup_logger(__name__)
+
+# Validate environment and load settings
+try:
+    settings = get_settings()
+    logger.info(f"Application starting in {settings.environment} mode")
+except ConfigurationException as e:
+    logger.error(f"Configuration error: {e}")
+    raise
+
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
+# Auth cache to store token-to-user mappings with a TTL (Time To Live)
+auth_cache = TTLCache(maxsize=settings.auth_cache_size, ttl=settings.auth_cache_ttl)
+
 db_manager = DatabaseConnectionManager()
 security = HTTPBearer()
 
-app = FastAPI()
-app.include_router(content.router)
-app.include_router(profiles.router)
-app.include_router(content_types.router)
-app.include_router(sources.router)
-app.include_router(templates.router)
-app.include_router(parameters.router)
-app.include_router(reddit.router)
+app = FastAPI(
+    title="PostBot API",
+    version="1.0.0",
+    description="AI-powered content generation and management platform"
+)
+
+# Register exception handlers for consistent error responses
+register_exception_handlers(app)
+
+# Add request logging middleware
+app.middleware("http")(request_logging_middleware)
+
+# Add rate limit handler
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Include routers
+app.include_router(health.router)  # Health checks (no prefix for standard endpoints)
+app.include_router(content.router, prefix="/api")
+app.include_router(profiles.router, prefix="/api")
+app.include_router(content_types.router, prefix="/api")
+app.include_router(sources.router, prefix="/api")
+app.include_router(templates.router, prefix="/api")
+app.include_router(parameters.router, prefix="/api")
+app.include_router(reddit.router, prefix="/api")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=[
@@ -50,6 +83,13 @@ app.add_middleware(
     expose_headers=["Set-Cookie"],
     max_age=600
 )
+
+# Legacy health endpoint kept for backwards compatibility
+# Use /readiness for proper dependency checks
+@app.get("/")
+async def root():
+    """Root endpoint - redirects to /health"""
+    return {"message": "PostBot API", "version": "1.0.0", "health_endpoint": "/health"}
 
 @app.middleware("http")
 async def db_session_middleware(request: Request, call_next):
@@ -79,14 +119,12 @@ async def db_session_middleware(request: Request, call_next):
             except:
                 pass
 
-# Setup logger
-logger = setup_logger(__name__)
-
 # Initialize repositories
 auth_repository = AuthRepository()
 
 @app.post("/auth/signup", tags=["auth"])
-async def sign_up(email: str = Body(...), password: str = Body(...)):
+@limiter.limit("5/minute")
+async def sign_up(request: Request, email: str = Body(...), password: str = Body(...)):
     try:
         result = await auth_repository.sign_up(email, password)
         return result
@@ -94,17 +132,18 @@ async def sign_up(email: str = Body(...), password: str = Body(...)):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/auth/signin", tags=["auth"])
-async def sign_in(response: Response, email: str = Body(...), password: str = Body(...)):
+@limiter.limit("10/minute")
+async def sign_in(request: Request, response: Response, email: str = Body(...), password: str = Body(...)):
     try:
         result = await auth_repository.sign_in(email, password)
         
         # Set refresh token in HTTP-only cookie
         if result.get('refresh_token'):
             domain = None  # Let the browser set the appropriate domain
-            if FRONTEND_URL:
+            if settings.frontend_url:
                 try:
                     from urllib.parse import urlparse
-                    parsed_url = urlparse(FRONTEND_URL)
+                    parsed_url = urlparse(settings.frontend_url)
                     if parsed_url.hostname not in ('localhost', '127.0.0.1'):
                         domain = '.' + parsed_url.hostname  # Include subdomain support
                 except:
@@ -133,10 +172,10 @@ async def sign_out(response: Response):
         
         # Calculate domain for cookie removal
         domain = None
-        if FRONTEND_URL:
+        if settings.frontend_url:
             try:
                 from urllib.parse import urlparse
-                parsed_url = urlparse(FRONTEND_URL)
+                parsed_url = urlparse(settings.frontend_url)
                 if parsed_url.hostname not in ('localhost', '127.0.0.1'):
                     domain = '.' + parsed_url.hostname
             except:

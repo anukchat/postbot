@@ -14,3 +14,10 @@ python-dotenv>=1.0.0
 pydantic>=2.0.0
 postgrest>=0.10.6
 pyshorteners>=1.0.1
+slowapi>=0.1.9
+# Authentication providers
+httpx>=0.24.0  # For Auth0 and Clerk HTTP requests
+PyJWT>=2.8.0   # For JWT token decoding and verification
+python-jose[cryptography]>=3.3.0  # For advanced JWT operations
+passlib[bcrypt]>=1.7.4  # For password hashing (if implementing custom auth)
+alembic>=1.13.0

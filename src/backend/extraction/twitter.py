@@ -839,7 +839,7 @@ class TweetMetadataCollector:
                 raise ValueError(f"Source type '{source_type_name}' not found in source_types table.")
 
 
-        # Insert data into Supabase tables
+        # Insert data into database tables
         try:
             # Get source_type_id for 'twitter'
             source_type_id = get_source_type_id('twitter')

@@ -6,8 +6,6 @@ services:
     container_name: postbot-frontend
     ports:
       - "3000:3000"
-    env_file:
-      - .env
     restart: always
 
   backend:
@@ -15,6 +13,36 @@ services:
     container_name: postbot-backend
     ports:
       - "8000:8000"
-    env_file:
-      - .env
+    environment:
+      # Required environment variables (must be set)
+      - DATABASE_URL=${DATABASE_URL}
+      - AUTH_PROVIDER_URL=${AUTH_PROVIDER_URL}
+      - AUTH_PROVIDER_KEY=${AUTH_PROVIDER_KEY}
+      
+      # Optional API Keys
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - OLLAMA_API_KEY=${OLLAMA_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      
+      # Reddit API
+      - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID:-}
+      - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET:-}
+      - REDDIT_USER_AGENT=${REDDIT_USER_AGENT:-}
+      
+      # Additional APIs
+      - SERPER_API_KEY=${SERPER_API_KEY:-}
+      - PIXABAY_API_KEY=${PIXABAY_API_KEY:-}
+      
+      # Application Configuration
+      - API_URL=${API_URL:-http://localhost:8000}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      
+      # Cache Configuration
+      - AUTH_CACHE_TTL=${AUTH_CACHE_TTL:-300}
+      - AUTH_CACHE_SIZE=${AUTH_CACHE_SIZE:-100}
     restart: always

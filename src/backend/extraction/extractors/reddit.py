@@ -1,4 +1,5 @@
 import re
+import logging
 from src.backend.extraction.base import BaseExtractor
 from typing import Dict, Any, List
 import praw
@@ -6,6 +7,8 @@ import os
 from src.backend.clients.llm import LLMClient, HumanMessage
 from src.backend.utils.general import safe_json_loads
 import json
+
+logger = logging.getLogger(__name__)
 
 class RedditExtractor(BaseExtractor):
     def __init__(self, config_name: str = "default"):
@@ -181,7 +184,7 @@ class RedditExtractor(BaseExtractor):
                     hot_posts = subreddit.hot(limit=limit)
                     trending_data[subreddit_name] = self._process_trending_posts(hot_posts)
                 except Exception as e:
-                    print(f"Error fetching trending from r/{subreddit_name}: {str(e)}")
+                    logger.error(f"Error fetching trending from r/{subreddit_name}: {str(e)}")
                     trending_data[subreddit_name] = []
         
         return trending_data
@@ -294,7 +297,7 @@ class RedditExtractor(BaseExtractor):
             }
             
         except Exception as e:
-            print(f"Error fetching trending blogs: {str(e)}")
+            logger.error(f"Error fetching trending blogs: {str(e)}")
             return {
                 'category': 'blogs',
                 'content_ideas': [],
@@ -350,7 +353,7 @@ class RedditExtractor(BaseExtractor):
             }
             
         except Exception as e:
-            print(f"Error fetching trending discussions: {str(e)}")
+            logger.error(f"Error fetching trending discussions: {str(e)}")
             return {
                 'category': category,
                 'timeframe': timeframe,
@@ -414,5 +417,5 @@ class RedditExtractor(BaseExtractor):
             return active_subs
             
         except Exception as e:
-            print(f"Error fetching active subreddits: {str(e)}")
+            logger.error(f"Error fetching active subreddits: {str(e)}")
             return []

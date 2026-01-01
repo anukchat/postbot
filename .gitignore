@@ -44,6 +44,9 @@ wheel/
 
 # Environment variables
 .env
+.env.local
+.env.production
+.env.*.local
 
 tweet_collection/*
 *.log

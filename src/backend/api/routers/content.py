@@ -59,7 +59,7 @@ async def generate_generic_blog(
         logger.info(f"Generation limit check: {limit_response}")
         
         if limit_response['generations_used'] >= limit_response['max_generations']:
-            logger.warning(f"Generation limit reached for user {current_user['id']}")
+            logger.warning(f"Generation limit reached for user {current_user.id}")
             raise HTTPException(status_code=403, detail="Generation limit reached for this thread")
 
         # Proceed with generation

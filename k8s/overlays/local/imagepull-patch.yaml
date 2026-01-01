@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: postbot
+spec:
+  template:
+    spec:
+      containers:
+      - name: backend
+        imagePullPolicy: IfNotPresent  # Use local image, don't pull

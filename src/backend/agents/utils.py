@@ -178,7 +178,7 @@ def get_media_links(url):
         return unique_media_links
 
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching the URL: {e}")
+        logger.error(f"Error fetching the URL: {e}")
         return None
 
 def classify_url(url):
@@ -365,7 +365,7 @@ def get_url_metadata(url):
         #     content_type = response.headers.get('Content-Type', '').lower()
         #         # # Insert into media table
         #         # for media in tweet["media"]:
-        #         #     supabase_client.table('media').insert({
+        #         #     db_client.table('media').insert({
         #         #         "media_id": str(uuid.uuid4()),
         #         #         "source_id": source_id,
         #         #         "media_url": media["original_url"],

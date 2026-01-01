@@ -1,4 +1,4 @@
-name: Deploy to EC2
+name: Build and Deploy to Kubernetes
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -31,10 +31,14 @@ jobs:
           context: .
           file: ./Dockerfile.frontend
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/postbot-frontend:latest
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/postbot-frontend:latest
+            ghcr.io/${{ github.repository_owner }}/postbot-frontend:${{ github.sha }}
           build-args: |
             VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
             VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}
+            VITE_AUTH_PROVIDER_URL=${{ secrets.AUTH_PROVIDER_URL }}
+            VITE_AUTH_PROVIDER_KEY=${{ secrets.AUTH_PROVIDER_KEY }}
             VITE_API_URL=${{ secrets.API_URL }}
             VITE_REDIRECT_URL=${{ secrets.REDIRECT_URL }}
           cache-from: type=gha
@@ -46,145 +50,79 @@ jobs:
           context: .
           file: ./Dockerfile.backend
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/postbot-backend:latest
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/postbot-backend:latest
+            ghcr.io/${{ github.repository_owner }}/postbot-backend:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy:
-    needs: build
+  deploy-kubernetes:
+    needs: build-and-push
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     steps:
-      - name: Check if EC2 is reachable
-        run: |
-          echo "Checking if ${{ secrets.EC2_HOST }} is reachable on port 22..."
-          timeout 10 nc -zv ${{ secrets.EC2_HOST }} 22 || echo "Cannot connect to EC2 instance on port 22"
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.repository_owner }}
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script_stop: true
-          command_timeout: "30m"
-          envs: GITHUB_TOKEN,GITHUB_USERNAME
-          script: |
-            echo "Starting deployment process at $(date)"
-            cd /home/ubuntu/postbot
-            
-            # Create fresh .env file
-            echo "Creating .env file with secrets..."
-            cat > .env << EOL
-            SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-            REDDIT_CLIENT_ID=${{ secrets.REDDIT_CLIENT_ID }}
-            REDDIT_CLIENT_SECRET=${{ secrets.REDDIT_CLIENT_SECRET }}
-            REDDIT_USER_AGENT=${{ secrets.REDDIT_USER_AGENT }}
-            SERPER_API_KEY=${{ secrets.SERPER_API_KEY }}
-            SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
-            SUPABASE_POSTGRES_DSN=${{ secrets.SUPABASE_POSTGRES_DSN }}
-            API_URL=${{ secrets.API_URL }}
-            REDIRECT_URL=${{ secrets.REDIRECT_URL }}
-            VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-            VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}
-            VITE_API_URL=${{ secrets.API_URL }}
-            VITE_REDIRECT_URL=${{ secrets.REDIRECT_URL }}
-            EOL
-            
-            # Set proper permissions for .env
-            chmod 600 .env
-            
-            # Export GitHub auth variables
-            export GITHUB_TOKEN="${GITHUB_TOKEN}"
-            export GITHUB_USERNAME="${GITHUB_USERNAME}"
+          version: 'v1.28.0'
 
-            # Login to GitHub Container Registry
-            echo "Logging in to GitHub Container Registry..."
-            echo "${GITHUB_TOKEN}" | docker login ghcr.io -u ${GITHUB_USERNAME} --password-stdin
-            
-            echo "Running deployment script..."
-            # Run the deployment script
-            /home/ubuntu/deploy.sh
-            
-            # Prune old Docker images to save disk space
-            echo "Pruning old Docker images..."
-            docker image prune -af
-            
-            # Verify containers are running after deployment
-            echo "Verifying deployment:"
-            docker ps
-            # Create site configuration file
-            echo "Creating site configuration file..."
-            cat > /etc/nginx/sites-available/riteup.mlguide.in << EOL
-            server {
-                server_name riteup.mlguide.in;
-                client_max_body_size 10M;
+      - name: Configure Kubernetes context
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
 
-                # ACME Challenge
-                location ^~ /.well-known/acme-challenge/ {
-                    root /var/www/riteup.mlguide.in;
-                    allow all;
-                }
+      - name: Verify cluster connection
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
 
-                # Proxy to Node.js (port 3000)
-                location / {
-                    proxy_pass http://localhost:3000;
-                    proxy_http_version 1.1;
-                    proxy_set_header Upgrade \$http_upgrade;
-                    proxy_set_header Connection 'upgrade';
-                    proxy_set_header Host \$host;
-                    proxy_cache_bypass \$http_upgrade;
-                    proxy_connect_timeout 90s;
-                    proxy_send_timeout 90s;
-                    proxy_read_timeout 120s;
-                }
+      - name: Create or update secrets
+        run: |
+          kubectl create namespace postbot --dry-run=client -o yaml | kubectl apply -f -
+          
+          kubectl create secret generic postbot-secrets \
+            --from-literal=DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+            --from-literal=AUTH_PROVIDER_URL="${{ secrets.AUTH_PROVIDER_URL }}" \
+            --from-literal=AUTH_PROVIDER_KEY="${{ secrets.AUTH_PROVIDER_KEY }}" \
+            --from-literal=FRONTEND_URL="${{ secrets.FRONTEND_URL }}" \
+            --from-literal=GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
+            --from-literal=GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}" \
+            --from-literal=REDDIT_CLIENT_ID="${{ secrets.REDDIT_CLIENT_ID }}" \
+            --from-literal=REDDIT_CLIENT_SECRET="${{ secrets.REDDIT_CLIENT_SECRET }}" \
+            --from-literal=REDDIT_USER_AGENT="${{ secrets.REDDIT_USER_AGENT }}" \
+            --from-literal=SERPER_API_KEY="${{ secrets.SERPER_API_KEY }}" \
+            --from-literal=API_URL="${{ secrets.API_URL }}" \
+            --from-literal=REDIRECT_URL="${{ secrets.REDIRECT_URL }}" \
+            --namespace=postbot \
+            --dry-run=client -o yaml | kubectl apply -f -
 
-                # Proxy to Backend API (port 8000)
-                location /api/ {
-                    proxy_pass http://localhost:8000/;
-                    proxy_http_version 1.1;
-                    proxy_set_header Upgrade \$http_upgrade;
-                    proxy_set_header Connection 'upgrade';
-                    proxy_set_header Host \$host;
-                    proxy_cache_bypass \$http_upgrade;
-                    proxy_connect_timeout 90s;
-                    proxy_send_timeout 90s;
-                    proxy_read_timeout 120s;
-                }
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -k k8s/overlays/production
+          
+      - name: Force rollout restart
+        run: |
+          kubectl rollout restart deployment/backend -n postbot
+          kubectl rollout restart deployment/frontend -n postbot
 
-                # SSL Configuration
-                listen 443 ssl;
-                ssl_certificate /etc/letsencrypt/live/riteup.mlguide.in/fullchain.pem;
-                ssl_certificate_key /etc/letsencrypt/live/riteup.mlguide.in/privkey.pem;
-                include /etc/letsencrypt/options-ssl-nginx.conf;
-                ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+      - name: Wait for rollout to complete
+        run: |
+          kubectl rollout status deployment/backend -n postbot --timeout=5m
+          kubectl rollout status deployment/frontend -n postbot --timeout=5m
 
-                # Security Headers
-                add_header X-Content-Type-Options "nosniff" always;
-                add_header X-Frame-Options "SAMEORIGIN" always;
-                add_header X-XSS-Protection "1; mode=block" always;
-                add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
-            }
-
-            # HTTP-to-HTTPS Redirect
-            server {
-                listen 80;
-                server_name riteup.mlguide.in;
-                return 301 https://\$host\$request_uri;
-            }
-            EOL
-
-            # Enable the site
-            sudo ln -s /etc/nginx/sites-available/riteup.mlguide.in /etc/nginx/sites-enabled/
-            sudo systemctl reload nginx
-
-            # Set up SSL
-            sudo apt install certbot python3-certbot-nginx -y
-            sudo certbot --nginx -d riteup.mlguide.in
-
-            # Verify Nginx is running
-            echo "Checking Nginx status:"
-            systemctl status nginx
+      - name: Verify deployment
+        run: |
+          echo "=== Pods Status ==="
+          kubectl get pods -n postbot
+          echo ""
+          echo "=== Services ==="
+          kubectl get services -n postbot
+          echo ""
+          echo "=== Ingress ==="
+          kubectl get ingress -n postbot
+          echo ""
+          echo "✅ Deployment completed successfully!"

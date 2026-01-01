@@ -65,7 +65,7 @@ def extract_github_readme():
 
     # Iterate through HTML files in the input folder
     for filename in os.listdir(input_folder):
-        print(f"Extracting github readme from {filename}")
+        logger.info(f"Extracting github readme from {filename}")
         if filename.endswith('.html'):
             file_path = os.path.join(input_folder, filename)
             
@@ -128,8 +128,8 @@ def tweets_meta_collector(recent_k=50):
         
         if not csv_files:
             logger.error("No Twitter Bookmarks CSV files found in 'data/' directory.")
-            print("Error: Please place your Twitter Bookmarks CSV in the 'data/' directory.")
-            print("Filename should start with 'twitter-Bookmarks-'")
+            logger.error("Error: Please place your Twitter Bookmarks CSV in the 'data/' directory.")
+            logger.error("Filename should start with 'twitter-Bookmarks-'")
             sys.exit(1)
         
         # Select the most recent CSV file
@@ -151,13 +151,13 @@ def tweets_meta_collector(recent_k=50):
         processed_tweets = collector.process_tweet_collection(tweets_df)
         
         # Print summary
-        print(f"Processed {len(processed_tweets)} tweets")
-        print(f"Metadata saved to {collector.dirs['metadata'] / 'processed_tweets.json'}")
-        print(f"Detailed logs in tweet_collector.log")
+        logger.info(f"Processed {len(processed_tweets)} tweets")
+        logger.info(f"Metadata saved to {collector.dirs['metadata'] / 'processed_tweets.json'}")
+        logger.info(f"Detailed logs in tweet_collector.log")
     
     except Exception as e:
         logger.error(f"Unexpected error in main execution: {e}")
-        print(f"Error: {e}")
+        logger.error(f"Error: {e}")
         sys.exit(1)
 
 def read_tweet_metadata(tweet_id):
@@ -198,7 +198,7 @@ def download_pdfs_from_arxiv():
 
     # Iterate through HTML files in the input folder
     for filename in os.listdir(input_folder):
-        print(f"Downloading pdfs from arxiv {filename}")
+        logger.info(f"Downloading pdfs from arxiv {filename}")
         if filename.endswith('.html'):
             file_path = os.path.join(input_folder, filename)
             with open(file_path, 'r') as file:
@@ -215,7 +215,7 @@ def download_pdfs_from_arxiv():
                         response = requests.get(urllib.parse.urljoin("https://arxiv.org/",pdf_url))
                         with open(pdf_path, 'wb') as pdf_file:
                             pdf_file.write(response.content)
-                            print(f'Downloaded: {pdf_name}')
+                            logger.info(f'Downloaded: {pdf_name}')
 
 def process_from_arxiv_pdf(url):
     response = requests.get(url)
@@ -239,7 +239,7 @@ def process_from_arxiv_pdf(url):
             markdown_path = os.path.join('tweet_collection/arxiv', pdf_name.replace('.pdf', '.md'))
             with open(markdown_path, 'w') as md_file:
                 md_file.write(markdown_content)
-                print(f'Converted to Markdown: {markdown_path}')
+                logger.info(f'Converted to Markdown: {markdown_path}')
 
 if __name__ == "__main__":
     extractor = DocumentExtractor()

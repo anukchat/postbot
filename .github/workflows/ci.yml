@@ -7,11 +7,64 @@ permissions:
 on:
   push:
     branches: [ develop ]
+  pull_request:
+    branches: [ main, develop ]
   workflow_dispatch:
 
 jobs:
+  validate-kubernetes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+      
+      - name: Validate Kubernetes manifests
+        run: |
+          echo "Validating Kubernetes manifests..."
+          
+          # Check if k8s directory exists
+          if [ ! -d "k8s/base" ]; then
+            echo "❌ Error: k8s/base directory not found"
+            exit 1
+          fi
+          
+          # Dry-run validation of all manifests
+          for file in k8s/base/*.yaml; do
+            echo "Validating $file..."
+            kubectl apply --dry-run=client -f "$file"
+          done
+          
+          echo "✅ All Kubernetes manifests are valid"
+      
+      - name: Validate Docker configurations
+        run: |
+          echo "Checking Docker configurations..."
+          
+          # Check if Dockerfiles exist
+          if [ ! -f "Dockerfile.frontend" ]; then
+            echo "❌ Error: Dockerfile.frontend not found"
+            exit 1
+          fi
+          
+          if [ ! -f "Dockerfile.backend" ]; then
+            echo "❌ Error: Dockerfile.backend not found"
+            exit 1
+          fi
+          
+          if [ ! -f "docker-compose.yml" ]; then
+            echo "❌ Error: docker-compose.yml not found"
+            exit 1
+          fi
+          
+          echo "✅ All Docker configurations found"
+
   build-and-push:
     runs-on: ubuntu-latest
+    needs: validate-kubernetes
     steps:
       - uses: actions/checkout@v3
 
@@ -25,27 +78,33 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create .env file
-        run: |
-          echo "VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
-          echo "VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}" >> .env
-          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
-          echo "SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}" >> .env
-          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
-          echo "REDDIT_CLIENT_ID=${{ secrets.REDDIT_CLIENT_ID }}" >> .env
-          echo "REDDIT_CLIENT_SECRET=${{ secrets.REDDIT_CLIENT_SECRET }}" >> .env
-          echo "REDDIT_USER_AGENT=${{ secrets.REDDIT_USER_AGENT }}" >> .env
-          echo "SERPER_API_KEY=${{ secrets.SERPER_API_KEY }}" >> .env
-          echo "API_URL=${{ secrets.API_URL }}" >> .env
-          echo "VITE_API_URL=${{ secrets.API_URL }}" >> .env
-          echo "REDIRECT_URL=${{ secrets.REDIRECT_URL }}" >> .env
-          echo "VITE_REDIRECT_URL=${{ secrets.REDIRECT_URL }}" >> .env
-          echo "SUPABASE_POSTGRES_DSN=${{ secrets.SUPABASE_POSTGRES_DSN }}" >> .env
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile.frontend
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/postbot-frontend:latest
+            ghcr.io/${{ github.repository_owner }}/postbot-frontend:${{ github.sha }}
+          build-args: |
+            VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+            VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}
+            VITE_AUTH_PROVIDER_URL=${{ secrets.AUTH_PROVIDER_URL }}
+            VITE_AUTH_PROVIDER_KEY=${{ secrets.AUTH_PROVIDER_KEY }}
+            VITE_API_URL=${{ secrets.API_URL }}
+            VITE_REDIRECT_URL=${{ secrets.REDIRECT_URL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Build and push images
-        env:
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_SHA: ${{ github.sha }}
-        run: |
-          docker compose build
-          docker compose push
+      - name: Build and push backend image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile.backend
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/postbot-backend:latest
+            ghcr.io/${{ github.repository_owner }}/postbot-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
