@@ -251,4 +251,4 @@ For future changes, always use Alembic migrations instead of modifying schema.sq
 
 - [Alembic Documentation](https://alembic.sqlalchemy.org/)
 - [SQLAlchemy Documentation](https://docs.sqlalchemy.org/)
-- [Database Setup Guide](../docs/DATABASE_SETUP.md)
+- [Database Setup Guide](../README.md#database-setup)
