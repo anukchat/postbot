@@ -8,97 +8,55 @@
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-18+-61DAFB.svg?logo=react)](https://reactjs.org/)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-Ready-326CE5.svg?logo=kubernetes)](https://kubernetes.io/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-**[Quick Start](#-quick-start-10-minutes)** • **[Features](#-features)** • **[Architecture](#-architecture)** • **[Production Deployment](#-production-deployment)** • **[Contributing](#-contributing)**
+**[Deploy](#-deploy-ec2--vm)** • **[Demo](#-demo)** • **[Quick Start](#-quick-start-10-minutes)** • **[Features](#-features)** • **[Architecture](#-architecture)** • **[Agent Architecture](#-agent-architecture)** • **[Contributing](#-contributing)**
 
 </div>
-## 🚀 Production Deployment (Docker Compose on a VM)
 
-This repo keeps Kubernetes manifests for **local demo/learning**, but the recommended production deployment path is **Docker Compose** on a single VM (OCI/AWS/etc).
+## 🚀 Deploy (EC2 / VM)
 
-### Option A: Manual deploy on a VM
+Production deployment is intentionally simple: **one VM + Docker Compose**.
 
-1. Provision a VM (Ubuntu 22.04 is fine) and install:
-    - Docker + Docker Compose plugin
-2. Copy `docker-compose.yml` to the VM.
-3. Create a `.env` on the VM (start from `.env.template`).
-4. Run:
+- One-time EC2 setup (Docker install + optional Nginx): [docs/ec2.md](docs/ec2.md)
+- Ongoing deploy automation:
+    - A single GitHub Actions pipeline runs **Build → Test → Deploy**.
+    - Deploy runs only on pushes to `main` (or manual dispatch) and updates the VM with `docker compose up -d --build`.
 
-```bash
-docker compose pull
-docker compose up -d --remove-orphans
-```
+### What’s “one-time” vs “every deploy”
 
-### Option B: Automatic deploy from GitHub Actions (recommended)
+- **One-time on the VM:** Docker install + (optional) Nginx reverse proxy.
+    - Script: `scripts/ec2_bootstrap.sh`
+    - Nginx template you can edit: `scripts/nginx/postbot.conf.template`
+- **Every deploy:** pull latest code + rebuild containers + run migrations.
+    - Automated by GitHub Actions: `.github/workflows/ci.yml`
 
-This repo keeps the production automation simple:
+### GitHub Actions secrets (for automated deploy)
 
-1) **One-time VM setup (manual trigger):** installs Docker + Docker Compose, and can optionally configure Nginx + HTTPS.
-    - Workflow: [.github/workflows/bootstrap.yml](.github/workflows/bootstrap.yml)
-2) **Deploy on every push to `main`:** builds and pushes images to GHCR, then SSHes into your VM to run `docker compose pull && docker compose up`.
-    - Workflow: [.github/workflows/deploy.yml](.github/workflows/deploy.yml)
+Required repo secrets:
+- `DEPLOY_HOST`
+- `DEPLOY_USER`
+- `DEPLOY_PORT`
+- `DEPLOY_SSH_KEY`
+- `DEPLOY_PATH`
 
-#### GitHub Secrets you must set
+The VM must also have a `.env` file at `DEPLOY_PATH/.env` (it is not stored in GitHub secrets).
 
-| Secret | Required | Used by | Notes |
-|---|---:|---|---|
-| `DEPLOY_HOST` | yes | bootstrap + deploy | VM public IP / DNS |
-| `DEPLOY_USER` | yes | bootstrap + deploy | SSH user (e.g. `ubuntu`) |
-| `DEPLOY_PORT` | yes | bootstrap + deploy | Usually `22` |
-| `DEPLOY_SSH_KEY` | yes | bootstrap + deploy | Private key contents |
-| `DEPLOY_PATH` | yes | bootstrap + deploy | Recommend under SSH home (e.g. `/home/ubuntu/postbot`) |
-| `POSTBOT_ENV` | yes | deploy | Multiline secret = VM `.env` contents |
-| `GHCR_USERNAME` | maybe | deploy | Needed only if GHCR images are private |
-| `GHCR_PAT` | maybe | deploy | PAT with `read:packages` |
-| `SUPABASE_URL` | yes | build | Frontend build arg |
-| `SUPABASE_KEY` | yes | build | Frontend build arg |
-| `AUTH_PROVIDER_URL` | yes | build | Frontend build arg |
-| `AUTH_PROVIDER_KEY` | yes | build | Frontend build arg |
-| `API_URL` | yes | build | Frontend build arg |
-| `REDIRECT_URL` | yes | build | Frontend build arg |
-| `DEPLOY_DOMAIN` | no | bootstrap | Only if configuring Nginx |
-| `LETSENCRYPT_EMAIL` | no | bootstrap | Only if enabling HTTPS |
+Manual deploy for PR/branch testing:
+- Actions → “Build, Test, Deploy” → Run workflow
+- Defaults to deploying the selected ref’s current commit SHA (temporary testing)
+- Optionally set `deploy_ref` to a branch/tag/SHA
+- Optionally set `deploy_path` if you deploy PR builds to a separate folder/VM
 
-**1) VM SSH (required):**
-```bash
-DEPLOY_HOST=your.server.ip.or.hostname
-DEPLOY_USER=ubuntu
-DEPLOY_PORT=22
-DEPLOY_SSH_KEY=<private key with access to the server>
-# Tip: prefer a path under the SSH user's home to avoid needing sudo
-DEPLOY_PATH=/home/ubuntu/postbot
-```
+## 🎬 Demo
 
-**1b) Nginx/TLS (optional, used by the bootstrap workflow):**
-```bash
-DEPLOY_DOMAIN=postbot.yourdomain.com
-LETSENCRYPT_EMAIL=you@yourdomain.com
-```
+Demo GIF:
 
-**2) Runtime env (required):**
-Store your `.env` file contents as a single multiline secret:
-```bash
-POSTBOT_ENV=<contents of your .env file>
-```
+![Postbot demo](assets/demo.gif)
 
-**3) GHCR pull auth (required if images are private):**
-```bash
-GHCR_USERNAME=your-github-username
-GHCR_PAT=<a GitHub PAT with read:packages>
-```
+UI screenshot:
 
-**4) Frontend build args (only for your deployment):**
-These are used when building the frontend image in CI:
-```bash
-SUPABASE_URL=...
-SUPABASE_KEY=...
-AUTH_PROVIDER_URL=...
-AUTH_PROVIDER_KEY=...
-API_URL=...
-REDIRECT_URL=...
-```
+![Postbot UX](assets/images/UX.png)
 
 ## ⚡ Quick Start (10 minutes)
 
@@ -106,7 +64,18 @@ This is the simplest way to run PostBot locally.
 
 **Prereqs:** Docker + Docker Compose.
 
-> Want the local Kubernetes (Kind) demo instead? See [k8s/README.md](k8s/README.md).
+### 0. Create a local `.env`
+
+```bash
+cp .env.example .env
+```
+
+Minimum required values in `.env`:
+- `DATABASE_URL`
+- `SUPABASE_URL` + `SUPABASE_KEY` (default auth)
+- `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`
+- `VITE_API_URL` + `VITE_REDIRECT_URL`
+- At least one LLM key (example: `GROQ_API_KEY`)
 
 ### 1. Set Up Database
 
@@ -148,13 +117,6 @@ DEEPSEEK_API_KEY=your-key         # DeepSeek
 - **Gemini**: [makersuite.google.com/app/apikey](https://makersuite.google.com/app/apikey)
 
 ### 3. Run Locally
-
-Create your local environment file:
-
-```bash
-cp .env.template .env
-```
-
 Start the app:
 
 ```bash
@@ -231,24 +193,27 @@ docker compose -f docker-compose.local.yml down
 
 ## 🏗️ Architecture
 
+![Postbot architecture diagram](assets/images/RiteUp%20Architecture.png)
+
+High-level system view:
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        User's Browser                            │
 │                   (React 18 + TypeScript)                        │
 └───────────────────────────┬─────────────────────────────────────┘
-                            │ HTTPS
+                │ HTTP(S)
                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Kubernetes Cluster                           │
+│                VM / EC2 (Docker Compose)                         │
 │                                                                   │
-│    ┌──────────────┐         ┌──────────────┐                   │
-│    │   Frontend   │         │   Backend    │                   │
-│    │   (Nginx)    │◄────────┤   (FastAPI)  │                   │
-│    │  Replicas: 2 │         │  Replicas: 2 │                   │
-│    └──────────────┘         └──────┬───────┘                   │
-│                                     │                            │
-└─────────────────────────────────────┼────────────────────────────┘
-                                      │
+│    ┌──────────────┐         ┌──────────────┐                     │
+│    │   Frontend   │         │   Backend    │                     │
+│    │ (Vite build) │◄────────┤   (FastAPI)  │                     │
+│    └──────────────┘         └──────┬───────┘                     │
+│                                     │                              │
+└─────────────────────────────────────┼──────────────────────────────┘
+                      │
                     ┌─────────────────┼─────────────────┐
                     │                 │                 │
                     ▼                 ▼                 ▼
@@ -267,7 +232,7 @@ docker compose -f docker-compose.local.yml down
 | **Database** | PostgreSQL (any provider), Qdrant vector DB |
 | **Auth** | Supabase / Auth0 / Clerk (pluggable) |
 | **LLMs** | OpenAI, Claude, Gemini, Groq (with fallbacks) |
-| **Infrastructure** | Docker, Docker Compose, GitHub Actions, GHCR (optional Nginx) |
+| **Infrastructure** | Docker, Docker Compose |
 
 ### Key Features
 
@@ -276,6 +241,83 @@ docker compose -f docker-compose.local.yml down
 - **Agentic Workflow**: LangGraph agents for intelligent content generation
 - **Vector Search**: Semantic search using Qdrant embeddings
 - **Production-Ready**: Health checks and repeatable deployments
+
+---
+
+## 🧠 Agent Architecture
+
+Postbot’s generation pipeline is built as a **LangGraph state machine** that produces:
+
+- A structured blog post (multi-section)
+- Optional social posts (Twitter/X, LinkedIn)
+- Optional tags
+
+Agent architecture diagram:
+
+![Postbot architecture diagram](assets/images/RiteUp%20Architecture.png)
+
+### Core workflow (LangGraph)
+
+Implementation: `src/backend/agents/blogs.py` (`AgentWorkflow`).
+
+Key nodes:
+
+1. **`generate_blog_plan`**
+    - Creates a section outline from a template + user instructions.
+2. **`write_section`** (map over main-body sections)
+    - Writes each main-body section.
+3. **`gather_completed_sections`**
+    - Aggregates the completed main body into a single context block.
+4. **`write_final_sections`** (map over non-main-body sections)
+    - Writes intro/conclusion using the completed main-body context.
+5. **`compile_final_blog`**
+    - Concatenates sections and extracts a title.
+6. **Optional post generation**
+    - **`write_linkedin_post`** and/or **`write_twitter_post`** based on requested `post_types`.
+7. **Feedback loop**
+    - **`handle_feedback`** can route back to continue generating posts after feedback.
+
+### State model
+
+The graph carries a typed state object from `src/backend/agents/state.py`:
+
+- `BlogState` (internal state)
+- `BlogStateInput` (what the API provides)
+- `BlogStateOutput` (what the API returns)
+
+Important state fields:
+
+- `sections` / `completed_sections` / `final_blog`
+- `post_types` → drives whether LinkedIn/Twitter posts are generated
+- `feedback` → triggers feedback routing
+- `thread_id` → used for checkpointing/resume
+
+### Checkpointing + resume
+
+The workflow uses **LangGraph Postgres checkpointing** (`PostgresSaver`) so a run can be resumed/continued:
+
+- Checkpointer: `langgraph.checkpoint.postgres.PostgresSaver`
+- Storage: PostgreSQL (your `DATABASE_URL`)
+- Tables: created via Alembic migration (checkpoint tables)
+
+### Reference enrichment
+
+Before/while generating, Postbot can enrich context via:
+
+- URL extraction / conversion (`src/backend/extraction/…`)
+- Web search (`WebSearch`)
+- Image search (`ImageSearch`)
+- Reddit search (`RedditSearch`)
+
+These tools live in `src/backend/agents/tools.py` and are enabled only if you set the corresponding API keys.
+
+### Templates + style control
+
+The blog generation prompt is driven by templates and parameters:
+
+- Prompts: `src/backend/agents/prompts.py`
+- Default template parameters live in `AgentWorkflow.DEFAULT_TEMPLATE_PARAMS`
+- You can provide a template payload (`template`) that overrides persona/tone/length/etc.
 
 ---
 
@@ -454,7 +496,7 @@ print(response.json()["generated_text"])
 
 ## 🛠️ Development
 
-### Manual Run (Without Kubernetes)
+### Manual Run (without Docker)
 
 **Backend:**
 ```bash
@@ -492,9 +534,6 @@ Access:
 postbot/
 ├── .github/workflows/    # CI/CD pipelines
 ├── alembic/             # Database migrations
-├── k8s/                 # Kubernetes manifests
-│   ├── base/            # Base configs
-│   └── overlays/        # Environment-specific
 ├── src/
 │   ├── backend/
 │   │   ├── agents/      # LangGraph AI agents
@@ -507,7 +546,7 @@ postbot/
 ├── Makefile            # Development commands
 ├── docker-compose.local.yml  # Local dev (Docker Compose)
 ├── docker-compose.yml        # Production deploy (Docker Compose on VM)
-└── .env.template       # Environment template
+└── .env.example              # Environment template
 ```
 
 ### Useful Commands
@@ -518,8 +557,7 @@ docker compose -f docker-compose.local.yml up --build
 docker compose -f docker-compose.local.yml logs -f
 docker compose -f docker-compose.local.yml down
 
-# Local Kubernetes demo (optional)
-# See: k8s/README.md
+\
 
 # Database
 alembic upgrade head  # Run migrations
@@ -544,7 +582,7 @@ cd postbot
 git checkout -b feature/your-feature
 
 # Make changes and test locally
-cp .env.template .env
+cp .env.example .env
 docker compose -f docker-compose.local.yml up --build
 
 # Commit and push
@@ -591,7 +629,8 @@ docker logs postbot-frontend-local --tail 200
 # 2. Database connection
 # Verify DATABASE_URL is correct and database is accessible
 
-# If you're using the optional local Kubernetes demo, see k8s/README.md.
+# If this is a fresh deploy, run migrations:
+# docker compose run --rm backend alembic upgrade head
 ```
 
 </details>
@@ -626,8 +665,6 @@ docker exec -it postbot-backend-local env | grep AUTH
 
 # Check CORS settings match your domain
 docker exec -it postbot-backend-local env | grep ALLOWED_ORIGINS
-
-# If you're using the optional local Kubernetes demo, see k8s/README.md.
 ```
 
 </details>
@@ -644,19 +681,6 @@ curl -H "Authorization: Bearer $GROQ_API_KEY" https://api.groq.com/v1/models
 
 # Check logs for specific error
 docker logs postbot-backend-local --tail 200 | grep -i error
-
-# If you're using the optional local Kubernetes demo, see k8s/README.md.
-```
-
-</details>
-
-<details>
-<summary><b>Images not pulling from GHCR</b></summary>
-
-```bash
-# For VM deploys (Docker Compose), images pull via `docker login`.
-# Ensure GHCR packages are public, OR set GHCR_USERNAME/GHCR_PAT secrets.
-# Then re-run the deploy workflow.
 ```
 
 </details>
@@ -673,25 +697,6 @@ docker logs postbot-backend-local --tail 200
 
 # Check VITE_API_URL in your .env matches where backend is exposed
 # (default in docker-compose.local.yml is http://localhost:8000)
-```
-
-</details>
-
-<details>
-<summary><b>SSL certificate not issuing</b></summary>
-
-```bash
-# If you used the VM bootstrap workflow with Nginx/certbot:
-sudo nginx -t
-sudo systemctl status nginx
-sudo certbot certificates
-
-# DNS must be pointing to your VM
-dig yourdomain.com
-
-# Also ensure ports 80/443 are open in your firewall/security group.
-
-# If you're using the optional local Kubernetes demo, see k8s/README.md.
 ```
 
 </details>
@@ -756,7 +761,7 @@ POST BOT is built on the shoulders of giants:
 - **Vector Search**: [Qdrant](https://qdrant.tech/)
 - **Frontend**: [React](https://react.dev/), [Tailwind CSS](https://tailwindcss.com/)
 - **Backend**: [FastAPI](https://fastapi.tiangolo.com/), [SQLAlchemy](https://www.sqlalchemy.org/)
-- **Infrastructure**: [Kubernetes](https://kubernetes.io/), [Docker](https://www.docker.com/)
+- **Infrastructure**: [Docker](https://www.docker.com/)
 
 Special thanks to all [contributors](https://github.com/your-username/postbot/graphs/contributors)!
 

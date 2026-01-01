@@ -64,7 +64,7 @@ class Settings:
         
         if auth_provider == "supabase":
             # Supabase requires URL and key.
-            # Support legacy/compat env vars used by docker-compose/k8s: AUTH_PROVIDER_URL/AUTH_PROVIDER_KEY.
+            # Support legacy/compat env vars used by older compose configs: AUTH_PROVIDER_URL/AUTH_PROVIDER_KEY.
             has_url = bool(os.getenv("SUPABASE_URL") or os.getenv("AUTH_PROVIDER_URL"))
             has_key = bool(os.getenv("SUPABASE_KEY") or os.getenv("AUTH_PROVIDER_KEY"))
 

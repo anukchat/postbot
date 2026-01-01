@@ -185,25 +185,6 @@ alembic upgrade head
     DATABASE_URL: ${{ secrets.DATABASE_URL }}
 ```
 
-### Kubernetes Job
-```yaml
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: db-migration
-spec:
-  template:
-    spec:
-      containers:
-      - name: alembic
-        image: postbot-backend:latest
-        command: ["alembic", "upgrade", "head"]
-        envFrom:
-        - secretRef:
-            name: postbot-secrets
-      restartPolicy: Never
-```
-
 ## Troubleshooting
 
 ### "Target database is not up to date"

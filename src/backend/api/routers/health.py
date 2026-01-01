@@ -1,6 +1,4 @@
-"""
-Health check endpoints for monitoring and Kubernetes probes.
-"""
+"""Health check endpoints for monitoring and uptime checks."""
 from fastapi import APIRouter, HTTPException
 from datetime import datetime
 from typing import Dict, Any
@@ -16,7 +14,7 @@ async def health_check() -> Dict[str, Any]:
     Basic health check endpoint.
     Returns 200 if service is running.
     
-    Use for: Kubernetes liveness probe
+    Suitable for: basic liveness checks
     """
     return {
         "status": "healthy",
@@ -33,7 +31,6 @@ async def readiness_check() -> Dict[str, Any]:
     - Database connectivity
     - Auth provider configuration
     
-    Use for: Kubernetes readiness probe
     Returns 503 if any dependency fails.
     """
     settings = get_settings()
@@ -102,7 +99,7 @@ async def readiness_check() -> Dict[str, Any]:
     # Set overall status
     checks["status"] = "ready" if all_healthy else "not_ready"
     
-    # Return 503 if not ready (tells Kubernetes to not route traffic)
+    # Return 503 if not ready (tells a load balancer to stop routing traffic)
     if not all_healthy:
         raise HTTPException(status_code=503, detail=checks)
     
@@ -115,7 +112,7 @@ async def startup_check() -> Dict[str, Any]:
     Startup probe to ensure application has fully initialized.
     More lenient than readiness - just checks if service is responsive.
     
-    Use for: Kubernetes startup probe (for slow-starting containers)
+    Suitable for: startup checks (for slow-starting containers)
     """
     return {
         "status": "started",
