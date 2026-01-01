@@ -103,8 +103,9 @@ async def db_session_middleware(request: Request, call_next):
         if session:
             try:
                 session.commit()
-            except:
+            except SQLAlchemyError as e:
                 session.rollback()
+                logger.error(f"Database commit failed in middleware: {e}")
                 raise
         return response
     except Exception as e:
@@ -116,8 +117,11 @@ async def db_session_middleware(request: Request, call_next):
             session.close()
             try:
                 session_context.set(None)
-            except:
+            except LookupError:
+                # Expected when context was never set
                 pass
+            except Exception as e:
+                logger.warning(f"Failed to clear session context: {e}")
 
 # Initialize repositories
 auth_repository = AuthRepository()
@@ -146,8 +150,8 @@ async def sign_in(request: Request, response: Response, email: str = Body(...), 
                     parsed_url = urlparse(settings.frontend_url)
                     if parsed_url.hostname not in ('localhost', '127.0.0.1'):
                         domain = '.' + parsed_url.hostname  # Include subdomain support
-                except:
-                    pass
+                except (ValueError, AttributeError) as e:
+                    logger.warning(f"Failed to parse frontend URL for cookie domain: {e}")
                     
             response.set_cookie(
                 key="refresh_token",
@@ -178,8 +182,8 @@ async def sign_out(response: Response):
                 parsed_url = urlparse(settings.frontend_url)
                 if parsed_url.hostname not in ('localhost', '127.0.0.1'):
                     domain = '.' + parsed_url.hostname
-            except:
-                pass
+            except (ValueError, AttributeError) as e:
+                logger.warning(f"Failed to parse frontend URL for cookie domain: {e}")
         
         # Clear the refresh token cookie with matching domain
         response.delete_cookie(

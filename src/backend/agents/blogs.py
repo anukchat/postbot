@@ -323,7 +323,8 @@ class AgentWorkflow:
             try:
                 tags = ast.literal_eval(tags_string)
                 tags = [tag.strip().strip('"') for tag in tags]
-            except:
+            except (ValueError, SyntaxError):
+                # Fallback to simple split if not valid Python literal
                 tags = [tag.strip().strip('"[]') for tag in tags_string.split(",")]
         else:
             tags = []

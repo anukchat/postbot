@@ -77,8 +77,11 @@ class DatabaseConnectionManager:
             session.close()
             try:
                 session_context.set(None)
-            except:
+            except LookupError:
+                # Expected when context was never set
                 pass
+            except Exception as e:
+                logger.warning(f"Failed to clear session context: {e}")
 
 def db_retry(retries=3, delay=1):
     """Decorator for database operations with retry logic"""

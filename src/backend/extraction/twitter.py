@@ -377,7 +377,7 @@ class TweetMetadataCollector:
                     filename = f"{url_type['type']}_{url_hash}_{index}{file_extension}"
                     # Determine save directory
                     save_dir = self.dirs.get(url_type['type'])
-                    print(filename)
+                    logger.debug(f"Generated filename: {filename}")
                     
                     # if file_extension==".pdf":
                     file_path_md = os.path.join(save_dir,"markdown",f"{url_type['type']}_{url_hash}_{index}.md")
@@ -889,9 +889,9 @@ class TweetMetadataCollector:
                         "created_at": datetime.now().isoformat()
                     }).execute()
 
-            print("Data inserted successfully!")
+            logger.info("Data inserted successfully!")
         except Exception as e:
-            print(f"Error inserting data: {e}")
+            logger.error(f"Error inserting data: {e}")
 
     def read_tweet_data(self,csv_path, recent_k=None):
         """
@@ -929,8 +929,8 @@ if __name__ == "__main__":
         
         if not csv_files:
             logger.error("No Twitter Bookmarks CSV files found in 'data/' directory.")
-            print("Error: Please place your Twitter Bookmarks CSV in the 'data/' directory.")
-            print("Filename should start with 'twitter-Bookmarks-'")
+            logger.error("Error: Please place your Twitter Bookmarks CSV in the 'data/' directory.")
+            logger.error("Filename should start with 'twitter-Bookmarks-'")
             sys.exit(1)
         
         # Select the most recent CSV file
@@ -955,9 +955,8 @@ if __name__ == "__main__":
         collector.process_tweets_batch(processed_tweets)
         
         # Print summary
-        print(f"Processed {len(processed_tweets)} tweets")
+        logger.info(f"Processed {len(processed_tweets)} tweets")
     
     except Exception as e:
         logger.error(f"Unexpected error in main execution: {e}")
-        print(f"Error: {e}")
         sys.exit(1)

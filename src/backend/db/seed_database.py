@@ -18,6 +18,14 @@ import argparse
 from typing import Optional
 import psycopg2
 from psycopg2 import sql
+import logging
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -63,7 +71,7 @@ def get_database_url(env: Optional[str] = None) -> str:
 
 def seed_generation_limits(cursor):
     """Seed generation_limits table."""
-    print("Seeding generation_limits...")
+    logger.info("Seeding generation_limits...")
     for limit in SEED_DATA["generation_limits"]:
         cursor.execute(
             """
@@ -76,12 +84,12 @@ def seed_generation_limits(cursor):
         )
     cursor.execute("SELECT COUNT(*) FROM generation_limits")
     count = cursor.fetchone()[0]
-    print(f"  ✓ {count} generation limit tiers")
+    logger.info(f"  ✓ {count} generation limit tiers")
 
 
 def seed_source_types(cursor):
     """Seed source_types table."""
-    print("Seeding source_types...")
+    logger.info("Seeding source_types...")
     for source_type in SEED_DATA["source_types"]:
         cursor.execute(
             """
@@ -93,13 +101,15 @@ def seed_source_types(cursor):
         )
     cursor.execute("SELECT COUNT(*) FROM source_types")
     count = cursor.fetchone()[0]
-    print(f"  ✓ {count} source types")
+    logger.info(f"  ✓ {count} source types")
 
 
 def seed_database(database_url: str):
     """Seed the database with reference data."""
-    print(f"\n🌱 Seeding database...")
-    print(f"Database: {database_url.split('@')[1] if '@' in database_url else database_url}\n")
+    # Redact password from connection string for logging
+    safe_url = database_url.split('@')[1] if '@' in database_url else database_url
+    logger.info(f"\n🌱 Seeding database...")
+    logger.info(f"Database: {safe_url}\n")
     
     try:
         conn = psycopg2.connect(database_url)
@@ -111,18 +121,18 @@ def seed_database(database_url: str):
             seed_source_types(cursor)
             
             conn.commit()
-            print("\n✅ Database seeded successfully!")
+            logger.info("\n✅ Database seeded successfully!")
             
         except Exception as e:
             conn.rollback()
-            print(f"\n❌ Error seeding database: {e}")
+            logger.error(f"\n❌ Error seeding database: {e}")
             raise
         finally:
             cursor.close()
             conn.close()
             
     except psycopg2.Error as e:
-        print(f"❌ Database connection error: {e}")
+        logger.error(f"❌ Database connection error: {e}")
         sys.exit(1)
 
 
@@ -149,7 +159,7 @@ def main():
         seed_database(database_url)
         
     except Exception as e:
-        print(f"❌ Error: {e}")
+        logger.error(f"❌ Error: {e}")
         sys.exit(1)
 
 
