@@ -14,8 +14,9 @@ class AuthRepository(SQLAlchemyRepository[Profile]):
     def __init__(self):
         super().__init__(Profile)
         # Initialize auth provider client
-        url = os.getenv("AUTH_PROVIDER_URL")
-        key = os.getenv("AUTH_PROVIDER_KEY")
+        # Prefer explicit Supabase env vars, but support legacy/compat names.
+        url = os.getenv("SUPABASE_URL") or os.getenv("AUTH_PROVIDER_URL")
+        key = os.getenv("SUPABASE_KEY") or os.getenv("AUTH_PROVIDER_KEY")
         self.supabase: Client = create_client(url, key)
 
     async def sign_up(self, email: str, password: str) -> Dict[str, Any]:
