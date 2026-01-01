@@ -14,122 +14,101 @@
 **[Quick Start](#-quick-start-10-minutes)** • **[Features](#-features)** • **[Architecture](#-architecture)** • **[Production Deployment](#-production-deployment)** • **[Contributing](#-contributing)**
 
 </div>
+## 🚀 Production Deployment (Docker Compose on a VM)
 
----
+This repo keeps Kubernetes manifests for **local demo/learning**, but the recommended production deployment path is **Docker Compose** on a single VM (OCI/AWS/etc).
 
-## 📖 What is POST BOT?
+### Option A: Manual deploy on a VM
 
-POST BOT is an **AI-powered content generation platform** that helps you create professional blog posts from Twitter bookmarks. Just import your bookmarks, and POST BOT will:
-
-✨ Extract tweets and analyze embedded content (GitHub repos, PDFs, articles)  
-🤖 Use AI agents (powered by LangGraph) to generate well-structured blog posts  
-🎨 Support multiple writing styles and personas  
-📊 Store and manage your content with full-text search  
-
-**Perfect for:**
-- 📝 Content creators who bookmark interesting tweets
-- 🎓 Researchers documenting Twitter threads
-- 💼 Teams creating content from social media trends
-- 🚀 Anyone wanting to turn Twitter insights into blogs
-
-**Key Features:**
-- 🚢 **Production-ready:** Kubernetes deployment with auto-scaling
-- 🔒 **Flexible Auth:** Choose Supabase, Auth0, or Clerk
-- 🤖 **Multi-LLM:** OpenAI, Claude, Gemini, Groq with smart fallbacks
-- 📊 **Robust Storage:** PostgreSQL + Qdrant vector database
-- ⚡ **Auto-deploy:** Push to GitHub → Deployed automatically
-
----
-
-## 🚀 Quick Start (10 Minutes)
-
-Get POST BOT running locally in just 3 commands:
-
-### Prerequisites
-
-**Required:**
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (running)
-- [kubectl](https://kubernetes.io/docs/tasks/tools/) installed
-- **5GB free RAM** and **20GB free disk space**
-
-**For authentication, choose ONE:**
-- [Supabase](https://supabase.com/) account (recommended - free tier) 
-- [Auth0](https://auth0.com/) account (enterprise features)
-- [Clerk](https://clerk.com/) account (modern UI)
-
-### 1. Clone and Configure
+1. Provision a VM (Ubuntu 22.04 is fine) and install:
+    - Docker + Docker Compose plugin
+2. Copy `docker-compose.yml` to the VM.
+3. Create a `.env` on the VM (start from `.env.template`).
+4. Run:
 
 ```bash
-# Clone repository
-git clone https://github.com/yourusername/postbot.git
-cd postbot
-
-# Copy environment template
-cp .env.template .env.local
-
-# Edit with your credentials (see Authentication section below)
-nano .env.local  # or use your favorite editor
+docker compose pull
+docker compose up -d --remove-orphans
 ```
 
-### 2. Set Up Authentication
+### Option B: Automatic deploy from GitHub Actions (recommended)
 
-<details>
-<summary><b>Option A: Supabase (Recommended)</b></summary>
+This repo keeps the production automation simple:
 
+1) **One-time VM setup (manual trigger):** installs Docker + Docker Compose, and can optionally configure Nginx + HTTPS.
+    - Workflow: [.github/workflows/bootstrap.yml](.github/workflows/bootstrap.yml)
+2) **Deploy on every push to `main`:** builds and pushes images to GHCR, then SSHes into your VM to run `docker compose pull && docker compose up`.
+    - Workflow: [.github/workflows/deploy.yml](.github/workflows/deploy.yml)
+
+#### GitHub Secrets you must set
+
+| Secret | Required | Used by | Notes |
+|---|---:|---|---|
+| `DEPLOY_HOST` | yes | bootstrap + deploy | VM public IP / DNS |
+| `DEPLOY_USER` | yes | bootstrap + deploy | SSH user (e.g. `ubuntu`) |
+| `DEPLOY_PORT` | yes | bootstrap + deploy | Usually `22` |
+| `DEPLOY_SSH_KEY` | yes | bootstrap + deploy | Private key contents |
+| `DEPLOY_PATH` | yes | bootstrap + deploy | Recommend under SSH home (e.g. `/home/ubuntu/postbot`) |
+| `POSTBOT_ENV` | yes | deploy | Multiline secret = VM `.env` contents |
+| `GHCR_USERNAME` | maybe | deploy | Needed only if GHCR images are private |
+| `GHCR_PAT` | maybe | deploy | PAT with `read:packages` |
+| `SUPABASE_URL` | yes | build | Frontend build arg |
+| `SUPABASE_KEY` | yes | build | Frontend build arg |
+| `AUTH_PROVIDER_URL` | yes | build | Frontend build arg |
+| `AUTH_PROVIDER_KEY` | yes | build | Frontend build arg |
+| `API_URL` | yes | build | Frontend build arg |
+| `REDIRECT_URL` | yes | build | Frontend build arg |
+| `DEPLOY_DOMAIN` | no | bootstrap | Only if configuring Nginx |
+| `LETSENCRYPT_EMAIL` | no | bootstrap | Only if enabling HTTPS |
+
+**1) VM SSH (required):**
 ```bash
-# In .env.local, set:
-AUTH_PROVIDER=supabase
-VITE_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key-here
-SUPABASE_URL=https://YOUR-PROJECT.supabase.co
-SUPABASE_KEY=your-service-role-key-here
+DEPLOY_HOST=your.server.ip.or.hostname
+DEPLOY_USER=ubuntu
+DEPLOY_PORT=22
+DEPLOY_SSH_KEY=<private key with access to the server>
+# Tip: prefer a path under the SSH user's home to avoid needing sudo
+DEPLOY_PATH=/home/ubuntu/postbot
 ```
 
-**Get credentials:**
-1. Create account at [supabase.com](https://supabase.com)
-2. Create new project
-3. Go to Settings → API → Copy URL and keys
-
-</details>
-
-<details>
-<summary><b>Option B: Auth0</b></summary>
-
+**1b) Nginx/TLS (optional, used by the bootstrap workflow):**
 ```bash
-# In .env.local, set:
-AUTH_PROVIDER=auth0
-VITE_AUTH0_DOMAIN=your-tenant.auth0.com
-VITE_AUTH0_CLIENT_ID=your-client-id
-AUTH0_DOMAIN=your-tenant.auth0.com
-AUTH0_CLIENT_ID=your-client-id
-AUTH0_CLIENT_SECRET=your-secret
+DEPLOY_DOMAIN=postbot.yourdomain.com
+LETSENCRYPT_EMAIL=you@yourdomain.com
 ```
 
-**Get credentials:**
-1. Create account at [auth0.com](https://auth0.com)
-2. Create Application → Single Page Application
-3. Copy Domain, Client ID, and Secret
-
-</details>
-
-<details>
-<summary><b>Option C: Clerk</b></summary>
-
+**2) Runtime env (required):**
+Store your `.env` file contents as a single multiline secret:
 ```bash
-# In .env.local, set:
-AUTH_PROVIDER=clerk
-VITE_CLERK_PUBLISHABLE_KEY=pk_test_xxx
-CLERK_SECRET_KEY=sk_test_xxx
+POSTBOT_ENV=<contents of your .env file>
 ```
 
-**Get credentials:**
-1. Create account at [clerk.com](https://clerk.com)
-2. Create Application
-3. Copy Publishable Key and Secret Key
+**3) GHCR pull auth (required if images are private):**
+```bash
+GHCR_USERNAME=your-github-username
+GHCR_PAT=<a GitHub PAT with read:packages>
+```
 
-</details>
+**4) Frontend build args (only for your deployment):**
+These are used when building the frontend image in CI:
+```bash
+SUPABASE_URL=...
+SUPABASE_KEY=...
+AUTH_PROVIDER_URL=...
+AUTH_PROVIDER_KEY=...
+API_URL=...
+REDIRECT_URL=...
+```
 
-### 3. Set Up Database
+## ⚡ Quick Start (10 minutes)
+
+This is the simplest way to run PostBot locally.
+
+**Prereqs:** Docker + Docker Compose.
+
+> Want the local Kubernetes (Kind) demo instead? See [k8s/README.md](k8s/README.md).
+
+### 1. Set Up Database
 
 **Easy Option** - Use Supabase (free PostgreSQL):
 ```bash
@@ -154,7 +133,7 @@ DATABASE_URL=postgresql://your_username@localhost:5432/postbot_dev
 
 </details>
 
-### 4. Add at Least One LLM API Key
+### 2. Add at Least One LLM API Key
 
 ```bash
 # In .env.local, add at least ONE of these:
@@ -168,23 +147,21 @@ DEEPSEEK_API_KEY=your-key         # DeepSeek
 - **Groq** (recommended): [console.groq.com](https://console.groq.com)
 - **Gemini**: [makersuite.google.com/app/apikey](https://makersuite.google.com/app/apikey)
 
-### 5. Run Everything
+### 3. Run Locally
+
+Create your local environment file:
 
 ```bash
-# One command to rule them all! 🎉
-make local-all
+cp .env.template .env
 ```
 
-**This will:**
-1. Create local Kubernetes cluster (Kind)
-2. Build Docker images
-3. Deploy backend + frontend
-4. Run database migrations
-5. Forward ports for access
+Start the app:
 
-**Wait 2-3 minutes** for everything to start...
+```bash
+docker compose -f docker-compose.local.yml up --build
+```
 
-### 6. Access Your Application
+### 4. Access Your Application
 
 Once deployment is complete:
 
@@ -200,7 +177,7 @@ Once deployment is complete:
 ### 🛑 Stop Everything
 
 ```bash
-make local-clean  # Stops and removes everything
+docker compose -f docker-compose.local.yml down
 ```
 
 ---
@@ -290,7 +267,7 @@ make local-clean  # Stops and removes everything
 | **Database** | PostgreSQL (any provider), Qdrant vector DB |
 | **Auth** | Supabase / Auth0 / Clerk (pluggable) |
 | **LLMs** | OpenAI, Claude, Gemini, Groq (with fallbacks) |
-| **Infrastructure** | Kubernetes, Docker, GitHub Actions, GHCR |
+| **Infrastructure** | Docker, Docker Compose, GitHub Actions, GHCR (optional Nginx) |
 
 ### Key Features
 
@@ -298,174 +275,7 @@ make local-clean  # Stops and removes everything
 - **Multi-LLM Support**: Automatically falls back if primary LLM fails
 - **Agentic Workflow**: LangGraph agents for intelligent content generation
 - **Vector Search**: Semantic search using Qdrant embeddings
-- **Production-Ready**: Health checks, auto-scaling, zero-downtime deploys
-
----
-
-## 🚀 Production Deployment
-
-Deploy POST BOT to production with **automated CI/CD** on every git push.
-
-### Prerequisites
-
-**Required:**
-- Kubernetes cluster (GKE, EKS, AKS, or DigitalOcean)
-- Domain name with DNS access
-- GitHub account (for Actions)
-
-**Cost-Effective Options:**
-- **Free Tier**: Oracle Cloud (永久免费 24GB RAM)
-- **Low Cost**: DigitalOcean ($12/month), Linode ($10/month)
-- **Managed**: GKE, EKS, AKS ($70+/month)
-
-### One-Time Setup
-
-#### 1. Configure Your Deployment
-
-```bash
-# Run setup script
-./setup-k8s.sh
-
-# Prompts:
-# - GitHub username: your-username
-# - Domain: yourdomain.com
-```
-
-This updates:
-- `k8s/overlays/production/kustomization.yaml` → Your GitHub registry
-- `k8s/overlays/production/ingress-patch.yaml` → Your domain
-
-#### 2. Set Up GitHub Secrets
-
-Go to **GitHub Repository → Settings → Secrets → Actions** and add:
-
-<details>
-<summary><b>Required Secrets (Click to expand)</b></summary>
-
-**Kubernetes:**
-```bash
-KUBECONFIG=<base64-encoded-kubeconfig>
-```
-
-**Database:**
-```bash
-DATABASE_URL=postgresql://user:pass@host:5432/dbname
-```
-
-**Authentication** (choose one):
-```bash
-# Supabase
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-service-role-key
-
-# OR Auth0
-AUTH0_DOMAIN=your-tenant.auth0.com
-AUTH0_CLIENT_ID=your-client-id
-AUTH0_CLIENT_SECRET=your-secret
-
-# OR Clerk
-CLERK_SECRET_KEY=sk_live_xxx
-CLERK_PUBLISHABLE_KEY=pk_live_xxx
-```
-
-**LLM APIs** (at least one):
-```bash
-GROQ_API_KEY=your-key
-GEMINI_API_KEY=your-key
-OPENROUTER_API_KEY=your-key
-```
-
-**URLs:**
-```bash
-API_URL=https://yourdomain.com/api
-FRONTEND_URL=https://yourdomain.com
-REDIRECT_URL=https://yourdomain.com/app
-```
-
-</details>
-
-<details>
-<summary><b>Optional Secrets</b></summary>
-
-```bash
-REDDIT_CLIENT_ID=your-id
-REDDIT_CLIENT_SECRET=your-secret
-REDDIT_USER_AGENT=postbot:v1.0.0
-SERPER_API_KEY=your-key
-PIXABAY_API_KEY=your-key
-```
-
-</details>
-
-#### 3. Deploy
-
-```bash
-git add .
-git commit -m "Configure for production"
-git push origin main
-```
-
-**That's it!** GitHub Actions will:
-1. ✅ Build Docker images
-2. ✅ Push to GitHub Container Registry
-3. ✅ Create/update Kubernetes secrets
-4. ✅ Deploy to your cluster
-5. ✅ Wait for rollout completion
-6. ✅ Verify deployment
-
-**Monitor deployment:**
-```bash
-# Watch progress
-kubectl get pods -n postbot -w
-
-# Check logs
-kubectl logs -f deployment/backend -n postbot
-kubectl logs -f deployment/frontend -n postbot
-```
-
-### SSL Certificate (Automatic)
-
-POST BOT uses **cert-manager** for automatic SSL:
-
-```bash
-# Install cert-manager (one-time)
-kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
-
-# Certificate will be issued automatically
-# Check status:
-kubectl get certificate -n postbot
-```
-
-### Post-Deployment
-
-**Verify everything works:**
-```bash
-# Check all pods are running
-kubectl get pods -n postbot
-
-# Check ingress
-kubectl get ingress -n postbot
-
-# Test endpoints
-curl https://yourdomain.com/api/health
-curl https://yourdomain.com
-```
-
-**Access your app:**
-1. Open https://yourdomain.com
-2. Login with your auth provider
-3. Start creating content!
-
-### Updating
-
-Just push to main branch:
-```bash
-git push origin main  # Auto-deploys! 🚀
-```
-
-**Zero-downtime updates:**
-- Old pods kept running until new ones are ready
-- Automatic rollback if health checks fail
+- **Production-Ready**: Health checks and repeatable deployments
 
 ---
 
@@ -695,33 +505,26 @@ postbot/
 │   └── frontend/
 │       └── project/     # React application
 ├── Makefile            # Development commands
-├── docker-compose.yml  # Local testing
+├── docker-compose.local.yml  # Local dev (Docker Compose)
+├── docker-compose.yml        # Production deploy (Docker Compose on VM)
 └── .env.template       # Environment template
 ```
 
 ### Useful Commands
 
 ```bash
-# Kubernetes (Local)
-make local-all        # Start everything
-make logs             # View all logs
-make logs-backend     # Backend logs only
-make logs-frontend    # Frontend logs only
-make status          # Cluster status
-make local-clean     # Stop and cleanup
+# Local (Docker Compose)
+docker compose -f docker-compose.local.yml up --build
+docker compose -f docker-compose.local.yml logs -f
+docker compose -f docker-compose.local.yml down
 
-# Docker Compose
-docker-compose up -d  # Start services
-docker-compose logs -f # View logs
-docker-compose down   # Stop services
+# Local Kubernetes demo (optional)
+# See: k8s/README.md
 
 # Database
 alembic upgrade head  # Run migrations
 alembic history       # View history
 alembic current       # Current version
-
-# Build
-make build ENV=local  # Build Docker images
 ```
 
 ---
@@ -741,7 +544,8 @@ cd postbot
 git checkout -b feature/your-feature
 
 # Make changes and test locally
-make local-all
+cp .env.template .env
+docker compose -f docker-compose.local.yml up --build
 
 # Commit and push
 git commit -m "Add your feature"
@@ -772,22 +576,22 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.
 ## 🐛 Troubleshooting
 
 <details>
-<summary><b>Pods won't start / CrashLoopBackOff</b></summary>
+<summary><b>Containers won't start</b></summary>
 
 ```bash
-# Check pod logs
-kubectl logs -f deployment/backend -n postbot
+# Check container logs
+docker compose -f docker-compose.local.yml ps
+docker logs postbot-backend-local --tail 200
+docker logs postbot-frontend-local --tail 200
 
 # Common issues:
-# 1. Missing secrets
-kubectl get secrets -n postbot
-kubectl describe secret postbot-secrets -n postbot
+# 1. Missing env vars
+# Ensure .env exists and includes DATABASE_URL and auth vars
 
 # 2. Database connection
 # Verify DATABASE_URL is correct and database is accessible
 
-# 3. Resource limits
-kubectl describe pod -n postbot  # Check resource requests
+# If you're using the optional local Kubernetes demo, see k8s/README.md.
 ```
 
 </details>
@@ -818,10 +622,12 @@ psql "$DATABASE_URL"
 curl -v https://your-project.supabase.co
 
 # Verify environment variables
-kubectl exec -it deployment/backend -n postbot -- env | grep AUTH
+docker exec -it postbot-backend-local env | grep AUTH
 
 # Check CORS settings match your domain
-kubectl exec -it deployment/backend -n postbot -- env | grep ALLOWED_ORIGINS
+docker exec -it postbot-backend-local env | grep ALLOWED_ORIGINS
+
+# If you're using the optional local Kubernetes demo, see k8s/README.md.
 ```
 
 </details>
@@ -831,13 +637,15 @@ kubectl exec -it deployment/backend -n postbot -- env | grep ALLOWED_ORIGINS
 
 ```bash
 # Check API keys are set
-kubectl exec -it deployment/backend -n postbot -- env | grep API_KEY
+docker exec -it postbot-backend-local env | grep API_KEY
 
 # Test API key manually
 curl -H "Authorization: Bearer $GROQ_API_KEY" https://api.groq.com/v1/models
 
 # Check logs for specific error
-kubectl logs -f deployment/backend -n postbot | grep -i error
+docker logs postbot-backend-local --tail 200 | grep -i error
+
+# If you're using the optional local Kubernetes demo, see k8s/README.md.
 ```
 
 </details>
@@ -846,16 +654,9 @@ kubectl logs -f deployment/backend -n postbot | grep -i error
 <summary><b>Images not pulling from GHCR</b></summary>
 
 ```bash
-# Ensure images are public or create imagePullSecret
-kubectl create secret docker-registry ghcr-secret \
-  --docker-server=ghcr.io \
-  --docker-username=your-github-username \
-  --docker-password=your-github-token \
-  --namespace=postbot
-
-# Add to deployment:
-# spec.template.spec.imagePullSecrets:
-#   - name: ghcr-secret
+# For VM deploys (Docker Compose), images pull via `docker login`.
+# Ensure GHCR packages are public, OR set GHCR_USERNAME/GHCR_PAT secrets.
+# Then re-run the deploy workflow.
 ```
 
 </details>
@@ -864,15 +665,14 @@ kubectl create secret docker-registry ghcr-secret \
 <summary><b>Frontend shows "Cannot connect to server"</b></summary>
 
 ```bash
-# Check backend is running
-kubectl get pods -n postbot
+# Check containers are running
+docker compose -f docker-compose.local.yml ps
 
-# Verify ingress routing
-kubectl get ingress -n postbot
-kubectl describe ingress postbot-ingress -n postbot
+# Check backend logs
+docker logs postbot-backend-local --tail 200
 
-# Check API URL in frontend
-kubectl exec -it deployment/frontend -n postbot -- cat /usr/share/nginx/html/env.js
+# Check VITE_API_URL in your .env matches where backend is exposed
+# (default in docker-compose.local.yml is http://localhost:8000)
 ```
 
 </details>
@@ -881,30 +681,29 @@ kubectl exec -it deployment/frontend -n postbot -- cat /usr/share/nginx/html/env
 <summary><b>SSL certificate not issuing</b></summary>
 
 ```bash
-# Check cert-manager is installed
-kubectl get pods -n cert-manager
+# If you used the VM bootstrap workflow with Nginx/certbot:
+sudo nginx -t
+sudo systemctl status nginx
+sudo certbot certificates
 
-# Check certificate status
-kubectl get certificate -n postbot
-kubectl describe certificate postbot-tls -n postbot
-
-# Check cert-manager logs
-kubectl logs -n cert-manager deployment/cert-manager
-
-# DNS must be pointing to your cluster
+# DNS must be pointing to your VM
 dig yourdomain.com
+
+# Also ensure ports 80/443 are open in your firewall/security group.
+
+# If you're using the optional local Kubernetes demo, see k8s/README.md.
 ```
 
 </details>
 
 ### Still Stuck?
 
-1. **Check Logs**: `kubectl logs -f deployment/backend -n postbot`
-2. **Describe Resources**: `kubectl describe pod -n postbot`
+1. **Check Logs**: `docker logs postbot-backend-local --tail 200`
+2. **Check Status**: `docker compose -f docker-compose.local.yml ps`
 3. **Open Issue**: [GitHub Issues](https://github.com/your-username/postbot/issues) with:
    - Steps to reproduce
    - Error messages
-   - Environment (local/production, K8s version)
+    - Environment (local/production)
 
 ---
 

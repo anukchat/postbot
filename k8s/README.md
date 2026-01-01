@@ -2,12 +2,12 @@
 
 ## Philosophy
 
-**Production-standard patterns, $0 cost, no complexity.**
+**Local demo patterns, $0 cost, no complexity.**
 
 - ✅ Plain Kubernetes YAML (no Helm)
 - ✅ Runs locally with Kind (free)
-- ✅ Same files work in production
 - ✅ Simple to understand and modify
+- ℹ️ For production, this repo recommends Docker Compose on a VM (see top-level README)
 
 ## Quick Start
 
@@ -110,55 +110,11 @@ kubectl exec -it <pod-name> -n postbot -- /bin/sh
 kubectl get events -n postbot --sort-by='.lastTimestamp'
 ```
 
-## Deploying to Production (Free Tier Options)
+## Production Note
 
-### Option 1: Oracle Cloud Free Tier
-- 2 AMD VMs (1/8 OCPU, 1GB RAM each)
-- Install k3s
-- Use same YAML files
-- **Cost: $0 forever**
+This Kubernetes setup is intentionally kept as a **local demo** for users who want to learn or experiment.
 
-### Option 2: AWS Free Tier (12 months)
-- t2.micro EC2 instance
-- Install k3s
-- Use same YAML files
-- **Cost: $0 for 1 year**
-
-### Option 3: Google Cloud Free Tier
-- e2-micro VM
-- Install k3s
-- Use same YAML files
-- **Cost: $0 with free credits**
-
-## Production Deployment
-
-```bash
-# 1. SSH into server
-ssh ubuntu@your-server
-
-# 2. Install k3s
-curl -sfL https://get.k3s.io | sh -
-
-# 3. Copy kubeconfig
-sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
-sudo chown $USER ~/.kube/config
-
-# 4. Clone repo
-git clone https://github.com/yourusername/postbot.git
-cd postbot
-
-# 5. Create secrets
-kubectl create secret generic postbot-secrets \
-  --from-literal=DATABASE_URL="$DATABASE_URL" \
-  --from-literal=AUTH_PROVIDER_URL="$AUTH_PROVIDER_URL" \
-  # ... add all secrets
-
-# 6. Deploy
-kubectl apply -f k8s/base/
-
-# 7. Setup ingress with your domain
-kubectl apply -f k8s/production/ingress.yaml
-```
+For production deployment, use Docker Compose on a VM (OCI/AWS/etc). See the top-level README “Production Deployment (Docker Compose on a VM)” section.
 
 ## Why Plain YAML Instead of Helm?
 

@@ -1,4 +1,4 @@
-# PostBot - Kubernetes Development Commands
+# PostBot - Kubernetes (Local Demo) Commands
 
 .PHONY: help
 help: ## Show this help
@@ -13,7 +13,7 @@ local-cluster: ## Create local Kind cluster
 local-delete: ## Delete local Kind cluster
 	kind delete cluster --name postbot
 
-# Environment selection: ENV=local (default) or ENV=production
+# Environment selection (local demo)
 ENV ?= local
 
 .PHONY: build
@@ -54,10 +54,6 @@ deploy-local: ## Deploy to local cluster using Kustomize
 	rm /tmp/.env-no-quotes
 	kubectl apply -k k8s/overlays/local
 	kubectl apply -k k8s/overlays/local
-
-.PHONY: deploy-prod
-deploy-prod: ## Deploy to production cluster using Kustomize
-	kubectl apply -k k8s/overlays/production
 
 .PHONY: local-all
 local-all: local-cluster build load-images deploy-local ## Complete local setup (cluster + build + deploy)

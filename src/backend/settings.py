@@ -54,22 +54,34 @@ class Settings:
     @staticmethod
     def validate_required_env_vars():
         """Validate that all required environment variables are set"""
-        required_vars = ["DATABASE_URL"]
+        missing_vars: List[str] = []
+
+        if not os.getenv("DATABASE_URL"):
+            missing_vars.append("DATABASE_URL")
         
         # Check auth provider configuration
         auth_provider = os.getenv("AUTH_PROVIDER", "supabase").lower()
         
         if auth_provider == "supabase":
-            # Supabase requires URL and key
-            required_vars.extend(["SUPABASE_URL", "SUPABASE_KEY"])
+            # Supabase requires URL and key.
+            # Support legacy/compat env vars used by docker-compose/k8s: AUTH_PROVIDER_URL/AUTH_PROVIDER_KEY.
+            has_url = bool(os.getenv("SUPABASE_URL") or os.getenv("AUTH_PROVIDER_URL"))
+            has_key = bool(os.getenv("SUPABASE_KEY") or os.getenv("AUTH_PROVIDER_KEY"))
+
+            if not has_url:
+                missing_vars.append("SUPABASE_URL (or AUTH_PROVIDER_URL)")
+            if not has_key:
+                missing_vars.append("SUPABASE_KEY (or AUTH_PROVIDER_KEY)")
         elif auth_provider == "auth0":
             # Auth0 requires domain, client ID, and secret
-            required_vars.extend(["AUTH0_DOMAIN", "AUTH0_CLIENT_ID", "AUTH0_CLIENT_SECRET"])
+            for var in ["AUTH0_DOMAIN", "AUTH0_CLIENT_ID", "AUTH0_CLIENT_SECRET"]:
+                if not os.getenv(var):
+                    missing_vars.append(var)
         elif auth_provider == "clerk":
             # Clerk requires secret and publishable keys
-            required_vars.extend(["CLERK_SECRET_KEY", "CLERK_PUBLISHABLE_KEY"])
-        
-        missing_vars = [var for var in required_vars if not os.getenv(var)]
+            for var in ["CLERK_SECRET_KEY", "CLERK_PUBLISHABLE_KEY"]:
+                if not os.getenv(var):
+                    missing_vars.append(var)
         
         if missing_vars:
             raise ConfigurationException(

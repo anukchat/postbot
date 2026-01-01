@@ -3,37 +3,24 @@ Pytest configuration and shared fixtures.
 """
 import os
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 
-# Set test environment
+# Ensure required env vars exist BEFORE importing src.backend.api.api (which validates settings at import time)
+# Force deterministic values for the test run so developers' local env doesn't leak into test behavior.
 os.environ["ENVIRONMENT"] = "test"
-os.environ["DATABASE_URL"] = os.getenv("TEST_DATABASE_URL", "sqlite:///./test.db")
+os.environ["AUTH_PROVIDER"] = "supabase"
 
+# Provide dummy Supabase config for settings validation.
+# These should NOT be real secrets.
+os.environ.setdefault("SUPABASE_URL", "https://example.supabase.co")
+os.environ.setdefault("SUPABASE_KEY", "test-key")
 
-@pytest.fixture(scope="session")
-def test_db_engine():
-    """Create test database engine."""
-    from src.backend.db.models import Base
-    
-    engine = create_engine(
-        os.environ["DATABASE_URL"],
-        connect_args={"check_same_thread": False} if "sqlite" in os.environ["DATABASE_URL"] else {}
-    )
-    Base.metadata.create_all(bind=engine)
-    yield engine
-    Base.metadata.drop_all(bind=engine)
-
-
-@pytest.fixture
-def test_db_session(test_db_engine):
-    """Create a test database session."""
-    TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_db_engine)
-    session = TestSessionLocal()
-    yield session
-    session.rollback()
-    session.close()
+# Use a syntactically valid Postgres URL by default so SQLAlchemy + psycopg can parse it.
+# The database does not need to be running for most tests; readiness may return 503.
+os.environ["DATABASE_URL"] = os.getenv(
+    "TEST_DATABASE_URL",
+    "postgresql://postgres:postgres@localhost:5432/postbot_test",
+)
 
 
 @pytest.fixture

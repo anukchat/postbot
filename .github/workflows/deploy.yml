@@ -1,4 +1,4 @@
-name: Build and Deploy to Kubernetes
+name: Build and Deploy (Docker Compose)
 
 on:
   push:
@@ -56,7 +56,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy-kubernetes:
+  deploy-compose:
     needs: build-and-push
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
@@ -64,65 +64,68 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v3
+      - name: Upload docker-compose.yml to server
+        uses: appleboy/scp-action@v0.1.7
         with:
-          version: 'v1.28.0'
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          source: "docker-compose.yml"
+          target: ${{ secrets.DEPLOY_PATH }}
 
-      - name: Configure Kubernetes context
-        run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
+      - name: Deploy via Docker Compose over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script: |
+            set -euo pipefail
 
-      - name: Verify cluster connection
-        run: |
-          kubectl cluster-info
-          kubectl get nodes
+            DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
 
-      - name: Create or update secrets
-        run: |
-          kubectl create namespace postbot --dry-run=client -o yaml | kubectl apply -f -
-          
-          kubectl create secret generic postbot-secrets \
-            --from-literal=DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-            --from-literal=AUTH_PROVIDER_URL="${{ secrets.AUTH_PROVIDER_URL }}" \
-            --from-literal=AUTH_PROVIDER_KEY="${{ secrets.AUTH_PROVIDER_KEY }}" \
-            --from-literal=FRONTEND_URL="${{ secrets.FRONTEND_URL }}" \
-            --from-literal=GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
-            --from-literal=GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}" \
-            --from-literal=REDDIT_CLIENT_ID="${{ secrets.REDDIT_CLIENT_ID }}" \
-            --from-literal=REDDIT_CLIENT_SECRET="${{ secrets.REDDIT_CLIENT_SECRET }}" \
-            --from-literal=REDDIT_USER_AGENT="${{ secrets.REDDIT_USER_AGENT }}" \
-            --from-literal=SERPER_API_KEY="${{ secrets.SERPER_API_KEY }}" \
-            --from-literal=API_URL="${{ secrets.API_URL }}" \
-            --from-literal=REDIRECT_URL="${{ secrets.REDIRECT_URL }}" \
-            --namespace=postbot \
-            --dry-run=client -o yaml | kubectl apply -f -
+            cd "$DEPLOY_PATH"
 
-      - name: Deploy to Kubernetes
-        run: |
-          kubectl apply -k k8s/overlays/production
-          
-      - name: Force rollout restart
-        run: |
-          kubectl rollout restart deployment/backend -n postbot
-          kubectl rollout restart deployment/frontend -n postbot
+            # Preflight: VM should be bootstrapped once via the manual workflow.
+            if ! command -v docker >/dev/null 2>&1; then
+              echo "ERROR: Docker is not installed on the VM." >&2
+              echo "Run the 'VM Bootstrap (one-time)' workflow (.github/workflows/bootstrap.yml) first." >&2
+              exit 1
+            fi
 
-      - name: Wait for rollout to complete
-        run: |
-          kubectl rollout status deployment/backend -n postbot --timeout=5m
-          kubectl rollout status deployment/frontend -n postbot --timeout=5m
+            DOCKER_BIN="docker"
+            if ! docker info >/dev/null 2>&1; then
+              if sudo -n docker info >/dev/null 2>&1; then
+                DOCKER_BIN="sudo -n docker"
+              else
+                echo "ERROR: Docker is installed but not usable by this SSH user." >&2
+                echo "Fix options: add user to 'docker' group, allow NOPASSWD sudo for docker, or deploy as root." >&2
+                exit 1
+              fi
+            fi
 
-      - name: Verify deployment
-        run: |
-          echo "=== Pods Status ==="
-          kubectl get pods -n postbot
-          echo ""
-          echo "=== Services ==="
-          kubectl get services -n postbot
-          echo ""
-          echo "=== Ingress ==="
-          kubectl get ingress -n postbot
-          echo ""
-          echo "✅ Deployment completed successfully!"
+            if ! $DOCKER_BIN compose version >/dev/null 2>&1; then
+              echo "ERROR: 'docker compose' is not available on the VM." >&2
+              echo "Run the 'VM Bootstrap (one-time)' workflow (.github/workflows/bootstrap.yml) first." >&2
+              exit 1
+            fi
+
+            # Write runtime env vars (never commit these)
+            cat > "$DEPLOY_PATH/.env" << 'EOF'
+${{ secrets.POSTBOT_ENV }}
+EOF
+
+            # Allow compose to resolve the right images for this repo + commit
+            export POSTBOT_IMAGE_REGISTRY=ghcr.io
+            export POSTBOT_IMAGE_OWNER='${{ github.repository_owner }}'
+            export POSTBOT_IMAGE_TAG='${{ github.sha }}'
+
+            # Authenticate to pull images (required if GHCR packages are private)
+            $DOCKER_BIN login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" -p "${{ secrets.GHCR_PAT }}"
+
+            $DOCKER_BIN compose pull
+            $DOCKER_BIN compose up -d --remove-orphans
+
+            $DOCKER_BIN image prune -f || true

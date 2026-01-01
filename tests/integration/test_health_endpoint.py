@@ -29,11 +29,19 @@ class TestHealthEndpoints:
         # May return 200 or 503 depending on dependencies
         assert response.status_code in [200, 503]
         data = response.json()
-        assert "database" in data or "status" in data
+        if response.status_code == 200:
+            assert "checks" in data
+            assert "status" in data
+        else:
+            # Middleware standardizes errors under "error".
+            assert "error" in data
+            assert data["error"].get("status_code") == 503
+            # Readiness raises HTTPException with a dict detail; middleware places it into error.message.
+            assert isinstance(data["error"].get("message"), dict)
     
-    def test_liveness_endpoint(self, test_client):
-        """Test /liveness endpoint."""
-        response = test_client.get("/liveness")
+    def test_startup_endpoint(self, test_client):
+        """Test /startup endpoint."""
+        response = test_client.get("/startup")
         assert response.status_code == 200
         data = response.json()
-        assert data.get("status") == "alive"
+        assert data.get("status") == "started"

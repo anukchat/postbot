@@ -2,7 +2,7 @@ name: CI Pipeline
 
 permissions:
   contents: read
-  packages: write
+  packages: read
 
 on:
   push:
@@ -12,99 +12,48 @@ on:
   workflow_dispatch:
 
 jobs:
-  validate-kubernetes:
+  python-tests:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: 'v1.28.0'
-      
-      - name: Validate Kubernetes manifests
-        run: |
-          echo "Validating Kubernetes manifests..."
-          
-          # Check if k8s directory exists
-          if [ ! -d "k8s/base" ]; then
-            echo "❌ Error: k8s/base directory not found"
-            exit 1
-          fi
-          
-          # Dry-run validation of all manifests
-          for file in k8s/base/*.yaml; do
-            echo "Validating $file..."
-            kubectl apply --dry-run=client -f "$file"
-          done
-          
-          echo "✅ All Kubernetes manifests are valid"
-      
-      - name: Validate Docker configurations
-        run: |
-          echo "Checking Docker configurations..."
-          
-          # Check if Dockerfiles exist
-          if [ ! -f "Dockerfile.frontend" ]; then
-            echo "❌ Error: Dockerfile.frontend not found"
-            exit 1
-          fi
-          
-          if [ ! -f "Dockerfile.backend" ]; then
-            echo "❌ Error: Dockerfile.backend not found"
-            exit 1
-          fi
-          
-          if [ ! -f "docker-compose.yml" ]; then
-            echo "❌ Error: docker-compose.yml not found"
-            exit 1
-          fi
-          
-          echo "✅ All Docker configurations found"
-
-  build-and-push:
-    runs-on: ubuntu-latest
-    needs: validate-kubernetes
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postbot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d postbot_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          python-version: '3.10'
+          cache: 'pip'
 
-      - name: Build and push frontend image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: ./Dockerfile.frontend
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/postbot-frontend:latest
-            ghcr.io/${{ github.repository_owner }}/postbot-frontend:${{ github.sha }}
-          build-args: |
-            VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-            VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}
-            VITE_AUTH_PROVIDER_URL=${{ secrets.AUTH_PROVIDER_URL }}
-            VITE_AUTH_PROVIDER_KEY=${{ secrets.AUTH_PROVIDER_KEY }}
-            VITE_API_URL=${{ secrets.API_URL }}
-            VITE_REDIRECT_URL=${{ secrets.REDIRECT_URL }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmagic1
 
-      - name: Build and push backend image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: ./Dockerfile.backend
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/postbot-backend:latest
-            ghcr.io/${{ github.repository_owner }}/postbot-backend:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements_llm.txt
+
+      - name: Run pytest
+        env:
+          PYTHONPATH: .
+          ENVIRONMENT: test
+          AUTH_PROVIDER: supabase
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_KEY: test-key
+          TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postbot_test
+        run: |
+          pytest -q

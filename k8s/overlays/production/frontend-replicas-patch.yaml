@@ -1,7 +1,0 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: frontend
-  namespace: postbot
-spec:
-  replicas: 3  # More replicas for production

@@ -2,22 +2,27 @@ version: '3'
 
 services:
   frontend:
-    image: ghcr.io/anukchat/postbot-frontend:latest
+    image: ${POSTBOT_IMAGE_REGISTRY:-ghcr.io}/${POSTBOT_IMAGE_OWNER:-anukchat}/postbot-frontend:${POSTBOT_IMAGE_TAG:-latest}
     container_name: postbot-frontend
     ports:
       - "3000:3000"
-    restart: always
+    restart: unless-stopped
 
   backend:
-    image: ghcr.io/anukchat/postbot-backend:latest
+    image: ${POSTBOT_IMAGE_REGISTRY:-ghcr.io}/${POSTBOT_IMAGE_OWNER:-anukchat}/postbot-backend:${POSTBOT_IMAGE_TAG:-latest}
     container_name: postbot-backend
     ports:
       - "8000:8000"
     environment:
       # Required environment variables (must be set)
       - DATABASE_URL=${DATABASE_URL}
-      - AUTH_PROVIDER_URL=${AUTH_PROVIDER_URL}
-      - AUTH_PROVIDER_KEY=${AUTH_PROVIDER_KEY}
+      - AUTH_PROVIDER=${AUTH_PROVIDER:-supabase}
+
+      # Supabase (recommended). Settings supports legacy AUTH_PROVIDER_URL/KEY as aliases.
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_KEY=${SUPABASE_KEY:-}
+      - AUTH_PROVIDER_URL=${AUTH_PROVIDER_URL:-}
+      - AUTH_PROVIDER_KEY=${AUTH_PROVIDER_KEY:-}
       
       # Optional API Keys
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
@@ -45,4 +50,4 @@ services:
       # Cache Configuration
       - AUTH_CACHE_TTL=${AUTH_CACHE_TTL:-300}
       - AUTH_CACHE_SIZE=${AUTH_CACHE_SIZE:-100}
-    restart: always
+    restart: unless-stopped
