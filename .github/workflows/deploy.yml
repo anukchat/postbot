@@ -4,6 +4,11 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      run_deploy:
+        description: "Also run the deploy job (unsafe if misconfigured)"
+        required: false
+        default: "false"
 
 jobs:
   build-and-push:
@@ -59,7 +64,7 @@ jobs:
   deploy-compose:
     needs: build-and-push
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_deploy == 'true')
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
