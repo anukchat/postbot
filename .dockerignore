@@ -15,6 +15,13 @@
 **/.DS_Store
 **/README.md
 
+# Avoid sending local data/logs/notebooks into the Docker build context
+data/
+logs/
+archive/
+docs/
+src/backend/notebooks/
+
 node_modules
 npm-debug.log
 dist
@@ -23,3 +30,4 @@ dist
 .env
 .env.local
 .env.*.local
+.env.*

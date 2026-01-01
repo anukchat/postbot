@@ -47,12 +47,17 @@ Required repo secrets for building the frontend image:
 - `API_URL`
 - `REDIRECT_URL`
 
+Security note: all `VITE_*` values are baked into the frontend bundle and are effectively public. `SUPABASE_KEY` here must be the Supabase **anon** key (never a service-role key).
+
 Note: GHCR packages can be private by default even for public repos.
 For the simplest setup, set the `postbot-frontend` and `postbot-backend` packages to **public** so the VM can pull without `docker login`.
 
 If you keep GHCR packages private, add these optional secrets so the deploy job can `docker login` on the VM:
 - `GHCR_USERNAME`
 - `GHCR_PAT`
+
+Optional (to provision the VM `.env` automatically on first deploy):
+- `POSTBOT_ENV` (full contents of the `.env` file)
 
 The VM must also have a `.env` file at `DEPLOY_PATH/.env` (it is not stored in GitHub secrets).
 

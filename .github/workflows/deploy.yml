@@ -155,30 +155,46 @@ jobs:
 
       - name: Deploy over SSH (pull & up)
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+          ACTIONS_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          POSTBOT_ENV: ${{ secrets.POSTBOT_ENV }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT }}
+          envs: GHCR_USERNAME,GHCR_PAT,ACTIONS_GITHUB_TOKEN,POSTBOT_ENV
           script: |
             set -euo pipefail
 
             DEPLOY_PATH='${{ env.DEPLOY_PATH }}'
 
             if [[ ! -f "$DEPLOY_PATH/.env" ]]; then
-              echo "ERROR: Missing $DEPLOY_PATH/.env on the VM." >&2
-              echo "Fix: create it once (cp .env.example .env) and fill required values." >&2
-              exit 1
+              if [[ -n "${POSTBOT_ENV:-}" ]]; then
+                printf '%s' "$POSTBOT_ENV" > "$DEPLOY_PATH/.env"
+                chmod 600 "$DEPLOY_PATH/.env" || true
+              else
+                echo "ERROR: Missing $DEPLOY_PATH/.env on the VM." >&2
+                echo "Fix: create it once (or set POSTBOT_ENV secret to provision it automatically)." >&2
+                exit 1
+              fi
             fi
 
             cd "$DEPLOY_PATH"
 
-            GHCR_USERNAME='${{ secrets.GHCR_USERNAME }}'
-            GHCR_PAT='${{ secrets.GHCR_PAT }}'
-
             # Optional: allow pulling private GHCR images.
-            if [[ -n "$GHCR_USERNAME" && -n "$GHCR_PAT" ]]; then
+            # Prefer a dedicated PAT (GHCR_PAT). If not set, fall back to the workflow GITHUB_TOKEN.
+            DEFAULT_GHCR_USERNAME='${{ github.actor }}'
+            if [[ -z "${GHCR_USERNAME:-}" ]]; then
+              GHCR_USERNAME="$DEFAULT_GHCR_USERNAME"
+            fi
+
+            if [[ -n "${GHCR_PAT:-}" ]]; then
               echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+            elif [[ -n "${ACTIONS_GITHUB_TOKEN:-}" ]]; then
+              echo "$ACTIONS_GITHUB_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
             fi
 
             export POSTBOT_IMAGE_REGISTRY=ghcr.io

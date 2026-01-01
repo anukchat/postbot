@@ -104,6 +104,9 @@ Optional (only if GHCR packages are private):
 - `GHCR_USERNAME`
 - `GHCR_PAT`
 
+Optional (to provision the VM `.env` automatically on first deploy):
+- `POSTBOT_ENV`
+
 If you want to deploy manually from the VM:
 ```bash
 cd ~/postbot
