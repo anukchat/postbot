@@ -76,6 +76,8 @@ jobs:
 
       - name: Deploy via Docker Compose over SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          POSTBOT_ENV: ${{ secrets.POSTBOT_ENV }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -113,9 +115,7 @@ jobs:
             fi
 
             # Write runtime env vars (never commit these)
-            cat > "$DEPLOY_PATH/.env" << 'EOF'
-${{ secrets.POSTBOT_ENV }}
-EOF
+            printf '%s' "$POSTBOT_ENV" > "$DEPLOY_PATH/.env"
 
             # Allow compose to resolve the right images for this repo + commit
             export POSTBOT_IMAGE_REGISTRY=ghcr.io
