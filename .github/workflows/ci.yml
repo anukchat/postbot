@@ -1,4 +1,4 @@
-name: Build, Test, Deploy
+name: CI
 
 permissions:
   contents: read
@@ -10,39 +10,10 @@ on:
   pull_request:
     branches: [ main, develop ]
   workflow_dispatch:
-    inputs:
-      deploy_ref:
-        description: "Git ref to deploy (branch/tag/SHA). Defaults to the selected branch."
-        required: false
-        default: ""
-      deploy_path:
-        description: "Optional override for DEPLOY_PATH (uses DEPLOY_PATH secret if empty)."
-        required: false
-        default: ""
 
 jobs:
-  build:
-    name: Build (Docker)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Build backend image
-        run: |
-          docker build -f Dockerfile.backend -t postbot-backend:ci .
-
-      - name: Build frontend image
-        run: |
-          docker build -f Dockerfile.frontend \
-            --build-arg VITE_SUPABASE_URL=https://example.supabase.co \
-            --build-arg VITE_SUPABASE_ANON_KEY=test-key \
-            --build-arg VITE_API_URL=http://localhost:8000 \
-            --build-arg VITE_REDIRECT_URL=http://localhost:3000/app \
-            -t postbot-frontend:ci .
-
   test:
     name: Test (pytest)
-    needs: build
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -87,60 +58,3 @@ jobs:
           TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postbot_test
         run: |
           pytest -q
-
-  deploy:
-    name: Deploy (EC2/VM)
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    concurrency:
-      group: postbot-deploy
-      cancel-in-progress: true
-    steps:
-      - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT }}
-          script: |
-            set -euo pipefail
-
-            INPUT_DEPLOY_PATH="${{ github.event.inputs.deploy_path }}"
-            DEPLOY_PATH="${INPUT_DEPLOY_PATH:-${{ secrets.DEPLOY_PATH }}}"
-
-            INPUT_DEPLOY_REF="${{ github.event.inputs.deploy_ref }}"
-
-            # For manual runs, default to the exact commit SHA (temporary testing)
-            # For push-to-main runs, deploy the main branch
-            if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-              DEPLOY_REF="${INPUT_DEPLOY_REF:-${{ github.sha }}}"
-            else
-              DEPLOY_REF="${INPUT_DEPLOY_REF:-main}"
-            fi
-
-            cd "$DEPLOY_PATH"
-
-            if [[ ! -d .git ]]; then
-              echo "ERROR: DEPLOY_PATH does not look like a git repo: $DEPLOY_PATH" >&2
-              echo "Fix: clone the repo on the VM first (see docs/ec2.md)." >&2
-              exit 1
-            fi
-
-            git fetch --prune --tags
-
-            if git show-ref --verify --quiet "refs/remotes/origin/$DEPLOY_REF"; then
-              git checkout -B "$DEPLOY_REF" "origin/$DEPLOY_REF"
-              git pull --ff-only
-            elif git show-ref --verify --quiet "refs/tags/$DEPLOY_REF"; then
-              git checkout "tags/$DEPLOY_REF"
-            else
-              git checkout --detach "$DEPLOY_REF"
-            fi
-
-            docker compose up -d --build --remove-orphans
-
-            docker compose run --rm backend alembic upgrade head
-
-            docker image prune -f || true

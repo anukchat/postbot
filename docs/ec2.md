@@ -48,20 +48,26 @@ scp scripts/nginx/postbot.conf.template ubuntu@<HOST>:/tmp/postbot.conf.template
 ssh ubuntu@<HOST> "cd ~/postbot && sudo bash scripts/ec2_bootstrap.sh --install-docker --setup-nginx --domain postbot.example.com --nginx-template /tmp/postbot.conf.template"
 ```
 
-### 3) Clone the repo
+### 3) Create a deploy directory
 Pick a simple location (example uses your home directory):
 ```bash
 mkdir -p ~/postbot
 cd ~/postbot
-
-git clone <YOUR_REPO_URL> .
 ```
 
 ### 4) Create the server `.env`
-On the EC2 instance:
+On the EC2 instance (in the deploy directory):
+```bash
+touch .env
+nano .env
+```
+
+Tip: easiest is to create it locally and upload it once:
 ```bash
 cp .env.example .env
-nano .env
+
+# edit .env locally, then upload it
+scp -i <path-to-key> .env <user>@<host>:~/postbot/.env
 ```
 
 Required values:
@@ -73,16 +79,20 @@ Required values:
 
 ## Deploy / update
 
-Deploy can be automated from GitHub Actions via the unified pipeline workflow: [ci workflow](../.github/workflows/ci.yml).
+Deploy can be automated from GitHub Actions via [deploy workflow](../.github/workflows/deploy.yml).
 
-For PR/branch testing: run the workflow manually (Actions → “Build, Test, Deploy” → Run workflow) and set:
+This repo uses a registry-based deploy:
+- GitHub Actions builds & pushes images to GHCR
+- The VM pulls the images and runs `docker compose` (no repo clone required)
+
+For PR/branch testing: run the workflow manually (Actions → “Deploy” → Run workflow) and set:
 - by default it deploys the selected ref’s current commit SHA (temporary testing)
 - optionally set `deploy_ref` to your branch name (or tag/SHA)
 - optionally `deploy_path` if you deploy PR builds to a separate folder/VM
 
 Prereqs for automated deploy:
-- The repo is cloned on the VM (example: `~/postbot`).
-- A `.env` file exists on the VM in the repo root.
+- A deploy directory exists on the VM (example: `~/postbot`).
+- A `.env` file exists on the VM in that directory.
 - GitHub repo secrets are set:
   - `DEPLOY_HOST`
   - `DEPLOY_USER`
@@ -90,13 +100,17 @@ Prereqs for automated deploy:
   - `DEPLOY_SSH_KEY`
   - `DEPLOY_PATH`
 
+Optional (only if GHCR packages are private):
+- `GHCR_USERNAME`
+- `GHCR_PAT`
+
 If you want to deploy manually from the VM:
 ```bash
 cd ~/postbot
 
-git pull --ff-only
+docker compose pull
 
-docker compose up -d --build --remove-orphans
+docker compose up -d --remove-orphans
 
 docker compose run --rm backend alembic upgrade head
 ```

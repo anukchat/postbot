@@ -20,8 +20,8 @@ Production deployment is intentionally simple: **one VM + Docker Compose**.
 
 - One-time EC2 setup (Docker install + optional Nginx): [docs/ec2.md](docs/ec2.md)
 - Ongoing deploy automation:
-    - A single GitHub Actions pipeline runs **Build → Test → Deploy**.
-    - Deploy runs only on pushes to `main` (or manual dispatch) and updates the VM with `docker compose up -d --build`.
+    - CI runs on PRs and pushes to `main`/`develop`.
+    - Deploy builds & pushes images to GHCR, then the VM runs `docker compose pull` + `docker compose up -d`.
 
 ### What’s “one-time” vs “every deploy”
 
@@ -29,7 +29,8 @@ Production deployment is intentionally simple: **one VM + Docker Compose**.
     - Script: `scripts/ec2_bootstrap.sh`
     - Nginx template you can edit: `scripts/nginx/postbot.conf.template`
 - **Every deploy:** pull latest code + rebuild containers + run migrations.
-    - Automated by GitHub Actions: `.github/workflows/ci.yml`
+- **Every deploy:** pull latest images + restart containers + run migrations.
+    - Automated by GitHub Actions: `.github/workflows/deploy.yml`
 
 ### GitHub Actions secrets (for automated deploy)
 
@@ -40,10 +41,23 @@ Required repo secrets:
 - `DEPLOY_SSH_KEY`
 - `DEPLOY_PATH`
 
+Required repo secrets for building the frontend image:
+- `SUPABASE_URL`
+- `SUPABASE_KEY`
+- `API_URL`
+- `REDIRECT_URL`
+
+Note: GHCR packages can be private by default even for public repos.
+For the simplest setup, set the `postbot-frontend` and `postbot-backend` packages to **public** so the VM can pull without `docker login`.
+
+If you keep GHCR packages private, add these optional secrets so the deploy job can `docker login` on the VM:
+- `GHCR_USERNAME`
+- `GHCR_PAT`
+
 The VM must also have a `.env` file at `DEPLOY_PATH/.env` (it is not stored in GitHub secrets).
 
 Manual deploy for PR/branch testing:
-- Actions → “Build, Test, Deploy” → Run workflow
+- Actions → “Deploy” → Run workflow
 - Defaults to deploying the selected ref’s current commit SHA (temporary testing)
 - Optionally set `deploy_ref` to a branch/tag/SHA
 - Optionally set `deploy_path` if you deploy PR builds to a separate folder/VM
