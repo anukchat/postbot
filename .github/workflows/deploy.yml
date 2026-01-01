@@ -123,10 +123,14 @@ jobs:
     name: Deploy (EC2/VM)
     needs: build-and-push
     runs-on: ubuntu-latest
+    env:
+      DEPLOY_PATH: ${{ github.event.inputs.deploy_path != '' && github.event.inputs.deploy_path || secrets.DEPLOY_PATH }}
     concurrency:
       group: postbot-deploy
       cancel-in-progress: true
     steps:
+      - uses: actions/checkout@v3
+
       - name: Ensure deploy directory exists
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -136,8 +140,7 @@ jobs:
           port: ${{ secrets.DEPLOY_PORT }}
           script: |
             set -euo pipefail
-            DEPLOY_PATH="${{ github.event.inputs.deploy_path }}"
-            DEPLOY_PATH="${DEPLOY_PATH:-${{ secrets.DEPLOY_PATH }}}"
+            DEPLOY_PATH='${{ env.DEPLOY_PATH }}'
             mkdir -p "$DEPLOY_PATH"
 
       - name: Upload docker-compose.yml to server
@@ -148,7 +151,7 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT }}
           source: "docker-compose.yml"
-          target: ${{ github.event.inputs.deploy_path || secrets.DEPLOY_PATH }}
+          target: ${{ env.DEPLOY_PATH }}
 
       - name: Deploy over SSH (pull & up)
         uses: appleboy/ssh-action@v1.0.3
@@ -160,8 +163,7 @@ jobs:
           script: |
             set -euo pipefail
 
-            DEPLOY_PATH="${{ github.event.inputs.deploy_path }}"
-            DEPLOY_PATH="${DEPLOY_PATH:-${{ secrets.DEPLOY_PATH }}}"
+            DEPLOY_PATH='${{ env.DEPLOY_PATH }}'
 
             if [[ ! -f "$DEPLOY_PATH/.env" ]]; then
               echo "ERROR: Missing $DEPLOY_PATH/.env on the VM." >&2
