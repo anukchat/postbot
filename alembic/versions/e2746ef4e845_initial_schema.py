@@ -52,6 +52,11 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('source_type_id'),
     sa.UniqueConstraint('name')
     )
+    op.create_table('generation_limits',
+    sa.Column('tier', sa.Text(), nullable=False),
+    sa.Column('max_generations', sa.Integer(), nullable=False),
+    sa.PrimaryKeyConstraint('tier')
+    )
     op.create_table('tags',
     sa.Column('tag_id', sa.UUID(), nullable=False),
     sa.Column('name', sa.Text(), nullable=False),
@@ -409,6 +414,7 @@ def downgrade() -> None:
     op.drop_table('quota_usage')
     op.drop_table('parameter_values')
     op.drop_table('tags')
+    op.drop_table('generation_limits')
     op.drop_table('source_types')
     op.drop_table('plans')
     op.drop_table('parameters')

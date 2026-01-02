@@ -1,8 +1,8 @@
-"""seed_reference_data
+"""stabilize alembic head
 
-Revision ID: 0cbbda359976
-Revises: e2746ef4e845
-Create Date: 2026-01-01 00:38:23.693285
+Revision ID: 4198600832ff
+Revises: cf32c51cc0a1
+Create Date: 2026-01-02 10:18:50.489643
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '0cbbda359976'
-down_revision: Union[str, None] = 'e2746ef4e845'
+revision: str = '4198600832ff'
+down_revision: Union[str, None] = 'cf32c51cc0a1'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -185,84 +185,93 @@ jobs:
 
             DEPLOY_PATH='${{ env.DEPLOY_PATH }}'
 
-            # Provision a fresh .env on every deploy from GitHub Secrets.
-            # Keep naming consistent:
-            # - Backend uses DATABASE_URL, SUPABASE_URL, SUPABASE_KEY
-            # - Frontend build uses VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY (handled in the build job)
-
-            for required in DATABASE_URL SUPABASE_URL SUPABASE_KEY; do
-              if [[ -z "${!required:-}" ]]; then
-                echo "ERROR: Missing $required secret." >&2
+            require_env() {
+              local name="$1"
+              if [[ -z "${!name:-}" ]]; then
+                echo "ERROR: Missing $name." >&2
                 exit 1
               fi
-            done
+            }
 
-            # Fail fast on a very common misconfig: localhost inside a container points to itself.
+            write_env_file() {
+              local env_file="$DEPLOY_PATH/.env"
+              install -m 600 /dev/null "$env_file" 2>/dev/null || { : >"$env_file"; chmod 600 "$env_file" || true; }
+
+              {
+                printf 'DATABASE_URL=%s\n' "$DATABASE_URL"
+                printf 'AUTH_PROVIDER=supabase\n'
+                printf 'ENVIRONMENT=production\n'
+                printf 'SUPABASE_URL=%s\n' "$SUPABASE_URL"
+                printf 'SUPABASE_KEY=%s\n' "$SUPABASE_KEY"
+              } >> "$env_file"
+
+              local optional_vars=(
+                API_URL FRONTEND_URL ALLOWED_ORIGINS
+                GROQ_API_KEY GEMINI_API_KEY OPENROUTER_API_KEY DEEPSEEK_API_KEY OLLAMA_API_KEY
+                SERPER_API_KEY PIXABAY_API_KEY
+                REDDIT_CLIENT_ID REDDIT_CLIENT_SECRET REDDIT_USER_AGENT
+              )
+              for var in "${optional_vars[@]}"; do
+                local val="${!var-}"
+                [[ -n "$val" ]] && printf '%s=%s\n' "$var" "$val" >> "$env_file"
+              done
+            }
+
+            docker_prune_light() {
+              docker container prune -f || true
+              docker image prune -af --filter "until=24h" || true
+              docker builder prune -af --filter "until=24h" || true
+              docker network prune -f || true
+            }
+
+            run_migrations_if_needed() {
+              local head_rev current_out current_rc current_rev
+
+              head_rev="$(docker compose run --rm backend alembic heads 2>/dev/null | awk '/^[0-9a-f]+/ {print $1}' | head -n 1 || true)"
+              [[ -n "$head_rev" ]] || { echo "ERROR: Unable to determine Alembic head revision." >&2; exit 1; }
+
+              set +e
+              current_out="$(docker compose run --rm backend alembic current 2>&1)"
+              current_rc=$?
+              set -e
+
+              if [[ $current_rc -ne 0 ]] && echo "$current_out" | grep -qi "alembic_version"; then
+                echo "Alembic not initialized; stamping to head ($head_rev)."
+                docker compose run --rm backend alembic stamp head
+                current_rev="$head_rev"
+              else
+                current_rev="$(printf '%s\n' "$current_out" | awk '/^[0-9a-f]+/ {print $1}' | tail -n 1 || true)"
+              fi
+
+              if [[ -z "$current_rev" ]] || [[ "$current_rev" != "$head_rev" ]]; then
+                echo "Running migrations -> $head_rev"
+                docker compose run --rm backend alembic upgrade head
+              else
+                echo "Skipping migrations (at head: $head_rev)"
+              fi
+            }
+
+            require_env DATABASE_URL
+            require_env SUPABASE_URL
+            require_env SUPABASE_KEY
+
             if [[ "$DATABASE_URL" =~ (localhost|127\.0\.0\.1)(:|/|$) ]]; then
               echo "ERROR: DATABASE_URL points to localhost." >&2
-              echo "Fix: set DATABASE_URL secret to your Supabase Postgres connection string." >&2
               exit 1
             fi
 
-            env_file="$DEPLOY_PATH/.env"
-            : > "$env_file"
-            chmod 600 "$env_file" || true
-
-            {
-              printf 'DATABASE_URL=%s\n' "$DATABASE_URL"
-              printf 'AUTH_PROVIDER=supabase\n'
-              printf 'ENVIRONMENT=production\n'
-              printf 'SUPABASE_URL=%s\n' "$SUPABASE_URL"
-              printf 'SUPABASE_KEY=%s\n' "$SUPABASE_KEY"
-            } >> "$env_file"
-
-            optional_vars=(
-              API_URL
-              FRONTEND_URL
-              ALLOWED_ORIGINS
-              GROQ_API_KEY
-              GEMINI_API_KEY
-              OPENROUTER_API_KEY
-              DEEPSEEK_API_KEY
-              OLLAMA_API_KEY
-              SERPER_API_KEY
-              PIXABAY_API_KEY
-              REDDIT_CLIENT_ID
-              REDDIT_CLIENT_SECRET
-              REDDIT_USER_AGENT
-            )
-
-            for var in "${optional_vars[@]}"; do
-              val="${!var-}"
-              if [[ -n "$val" ]]; then
-                printf '%s=%s\n' "$var" "$val" >> "$env_file"
-              fi
-            done
-
+            write_env_file
             cd "$DEPLOY_PATH"
 
-            # Login to GHCR using the workflow's ephemeral github.token.
-            # This avoids requiring GHCR_USERNAME/GHCR_PAT secrets.
             echo "$ACTIONS_GITHUB_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
 
             export POSTBOT_IMAGE_REGISTRY=ghcr.io
             export POSTBOT_IMAGE_OWNER='${{ github.repository_owner }}'
             export POSTBOT_IMAGE_TAG='${{ github.sha }}'
 
-            # Small EC2 instances can run out of disk due to accumulating old images.
-            # Prune ONLY unused resources (no volumes) with a short retention window.
-            # NOTE: This is intentionally a bit aggressive for demo environments.
-            docker container prune -f || true
-            docker image prune -af --filter "until=24h" || true
-            docker builder prune -af --filter "until=24h" || true
-            docker network prune -f || true
-
+            docker_prune_light
             docker compose pull
-
-            # If a previous run created containers outside the current compose project,
-            # fixed container_name entries can cause conflicts. Clean them up.
             docker rm -f postbot-backend postbot-frontend >/dev/null 2>&1 || true
-
             docker compose up -d --remove-orphans
 
-            docker compose run --rm backend alembic upgrade head
+            run_migrations_if_needed

@@ -48,10 +48,8 @@ coverage.xml
 *.log
 
 # Environment variables
-.env
-.env.local
-.env.production
-.env.*.local
+.env*
+!.env.example
 
 tweet_collection/*
 *.log

@@ -19,7 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Seed generation_limits
+    # Seed generation_limits (idempotent)
     op.execute("""
         INSERT INTO generation_limits (tier, max_generations) VALUES
         ('free', 5),
