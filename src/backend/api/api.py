@@ -56,14 +56,15 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Include routers
+# Note: nginx strips /api prefix, so routers should not have /api prefix
 app.include_router(health.router)  # Health checks (no prefix for standard endpoints)
-app.include_router(content.router, prefix="/api")
-app.include_router(profiles.router, prefix="/api")
-app.include_router(content_types.router, prefix="/api")
-app.include_router(sources.router, prefix="/api")
-app.include_router(templates.router, prefix="/api")
-app.include_router(parameters.router, prefix="/api")
-app.include_router(reddit.router, prefix="/api")
+app.include_router(content.router)
+app.include_router(profiles.router)
+app.include_router(content_types.router)
+app.include_router(sources.router)
+app.include_router(templates.router)
+app.include_router(parameters.router)
+app.include_router(reddit.router)
 
 app.add_middleware(
     CORSMiddleware,
