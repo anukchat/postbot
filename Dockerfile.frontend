@@ -1,4 +1,4 @@
-FROM node:18-alpine AS build
+FROM node:18-alpine
 
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
@@ -11,21 +11,12 @@ ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_REDIRECT_URL=$VITE_REDIRECT_URL
 
 WORKDIR /app
-
-COPY src/frontend/project/package.json src/frontend/project/package-lock.json ./
-RUN npm ci
-
 COPY src/frontend/project/ ./
+
+RUN npm install
 RUN npm run build
 
-
-FROM node:18-alpine AS runtime
-
-WORKDIR /app
-
 RUN npm install -g serve && npm cache clean --force
-
-COPY --from=build /app/dist ./dist
 
 EXPOSE 3000
 
