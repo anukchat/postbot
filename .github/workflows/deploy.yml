@@ -236,18 +236,19 @@ jobs:
               set -e
 
               if [[ $current_rc -ne 0 ]] && echo "$current_out" | grep -qi "alembic_version"; then
-                echo "Alembic not initialized; stamping to head ($head_rev)."
+                echo "Alembic not initialized (pre-existing DB); stamping to head ($head_rev)."
                 docker compose run --rm backend alembic stamp head
-                current_rev="$head_rev"
-              else
-                current_rev="$(printf '%s\n' "$current_out" | awk '/^[0-9a-f]+/ {print $1}' | tail -n 1 || true)"
+                echo "Stamped successfully. Schema already exists, no migrations needed."
+                return 0
               fi
 
+              current_rev="$(printf '%s\n' "$current_out" | awk '/^[0-9a-f]+/ {print $1}' | tail -n 1 || true)"
+
               if [[ -z "$current_rev" ]] || [[ "$current_rev" != "$head_rev" ]]; then
-                echo "Running migrations -> $head_rev"
+                echo "Running migrations: $current_rev -> $head_rev"
                 docker compose run --rm backend alembic upgrade head
               else
-                echo "Skipping migrations (at head: $head_rev)"
+                echo "Already at head ($head_rev), no migrations needed."
               fi
             }
 
