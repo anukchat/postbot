@@ -1,8 +1,6 @@
 import axios from 'axios';
 import { authService } from './auth';
 import { TemplateFilter } from '../store/editorStore';
-import { supabaseClient } from '../utils/supaclient';
-import Cookies from 'js-cookie';
 
 const getApiBaseUrl = () => {
   const apiUrl = import.meta.env.VITE_API_URL;
@@ -12,7 +10,8 @@ const getApiBaseUrl = () => {
     if (env === 'production') {
       throw new Error('VITE_API_URL environment variable is required in production');
     }
-    return 'http://localhost:8000';
+    // Use current hostname for Docker compatibility (works in both local and container)
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
   }
 
   // Ensure URL has /api prefix

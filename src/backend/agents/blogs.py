@@ -50,6 +50,14 @@ logger = logging.getLogger(__name__)
 
 
 class AgentWorkflow:
+    # Default template parameters - used as fallback when template doesn't specify them
+    DEFAULT_TEMPLATE_PARAMS = {
+        'persona': 'content writer',
+        'content_type': 'blog post',
+        'age_group': 'general audience',
+        'tone': 'informative',
+        'length': 'medium'
+    }
 
     def __init__(self):
         logger.info("Initializing AgentWorkflow")
@@ -64,7 +72,7 @@ class AgentWorkflow:
             output=BlogStateOutput
             # config_schema=configuration.Configuration,
         )
-        dsn = os.getenv("SUPABASE_POSTGRES_DSN", "")
+        dsn = os.getenv("DATABASE_URL")
         connection_kwargs = {
             "autocommit": True,
             "keepalives": 1,
@@ -78,6 +86,9 @@ class AgentWorkflow:
             serde=JsonPlusSerializer(pickle_fallback=True)
         )
 
+        # NOTE: Checkpoint tables are created by Alembic migration
+        # cf32c51cc0a1_add_checkpoint_tables_and_seed_data
+        # Uncomment only if you need to create tables manually
         # self.checkpointer.setup()
 
         # Add finalizer to close connection when object is destroyed
@@ -110,6 +121,11 @@ class AgentWorkflow:
         if hasattr(self, 'conn'):
             self.conn.close()
 
+    def _get_template_params(self, state):
+        """Get template parameters with defaults as fallback"""
+        template_params = state.template.get('parameters', {}) if state.template else {}
+        return {**self.DEFAULT_TEMPLATE_PARAMS, **template_params}
+
     def generate_blog_plan(self, state: BlogState):
         """Generate the report plan"""
         reference_link = state.input_url
@@ -117,8 +133,9 @@ class AgentWorkflow:
         user_instructions = state.input_content
         blog_structure = default_blog_structure
 
+        params = self._get_template_params(state)
         system_instructions_sections = blog_planner_instructions.format(
-            user_instructions=user_instructions, blog_structure=blog_structure, **state.template['parameters']
+            user_instructions=user_instructions, blog_structure=blog_structure, **params
         )
 
         report_sections = self.llm.invoke(
@@ -151,13 +168,14 @@ class AgentWorkflow:
         media_markdown = state.media_markdown
         url_source_str = reference_link
 
+        params = self._get_template_params(state)
         system_instructions = main_body_section_writer_instructions.format(
             section_name=section.name,
             section_topic=section.description,
             user_instructions=user_instructions,
             source_urls=url_source_str,
             media_markdown=media_markdown,
-            **state.template['parameters']
+            **params
         )
 
         section_content = self.llm.invoke(
@@ -176,12 +194,13 @@ class AgentWorkflow:
         """Write final sections of the report, which do not require web search and use the completed sections as context"""
         section = state.section
 
+        params = self._get_template_params(state)
         system_instructions = intro_conclusion_instructions.format(
             section_name=section.name,
             section_topic=section.description,
             main_body_sections=state.blog_main_body_sections,
             source_urls=state.urls,
-            **state.template['parameters']
+            **params
         )
 
         section_content = self.llm.invoke([
@@ -253,7 +272,8 @@ class AgentWorkflow:
     def review_blog(self, state: BlogState):
         """Review the final blog"""
         final_blog = state.final_blog
-        review_prompt = blog_reviewer_instructions.format(blog_input=final_blog,**state.template['parameters'])
+        params = self._get_template_params(state)
+        review_prompt = blog_reviewer_instructions.format(blog_input=final_blog,**params)
 
         review = self.llm.invoke([
             HumanMessage(content=review_prompt)
@@ -303,7 +323,8 @@ class AgentWorkflow:
             try:
                 tags = ast.literal_eval(tags_string)
                 tags = [tag.strip().strip('"') for tag in tags]
-            except:
+            except (ValueError, SyntaxError):
+                # Fallback to simple split if not valid Python literal
                 tags = [tag.strip().strip('"[]') for tag in tags_string.split(",")]
         else:
             tags = []
@@ -961,7 +982,7 @@ class AgentWorkflow:
                     # Store source reference if provided
                     if source_id:
                         self.content_repo.add_content_source(content_id,source_id)
-                        # supabase.table("content_sources").insert(content_source_data).execute()
+                        # content_sources repository handles this
 
                     # Store tags
                     if result:

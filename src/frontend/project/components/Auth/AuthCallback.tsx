@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { supabaseClient } from '../../utils/supaclient';
-import { profileService } from '../../services/profiles';
+import { authService } from '../../services/auth';
 import { authDebugService } from '../../services/authDebug';
 import Cookies from 'js-cookie';
+import axios from 'axios';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
@@ -16,24 +16,38 @@ const AuthCallback = () => {
       try {
         if (searchParams.get('noAutoSignIn')) {
           authDebugService.authFlow('NoAutoSignIn detected, redirecting to login');
-          await supabaseClient.auth.signOut(); // Ensure clean state
+          await authService.signOut(); // Ensure clean state
           navigate('/login');
           return;
         }
 
-        const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+        // Wait for Supabase to process OAuth callback (it needs to exchange code for tokens)
+        // Try multiple times with delays to allow Supabase client to finish processing
+        let session = null;
+        let attempts = 0;
+        const maxAttempts = 5;
         
-        if (sessionError) {
-          authDebugService.error('Session Error', sessionError);
-          navigate('/login');
-          return;
+        while (!session && attempts < maxAttempts) {
+          if (attempts > 0) {
+            authDebugService.authFlow(`Retry ${attempts}: Waiting for session...`);
+            await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms between attempts
+          }
+          session = await authService.getSession();
+          attempts++;
         }
 
-        if (!session?.user) {
-          authDebugService.error('No User in Session', { session });
+        if (!session || !session.user) {
+          authDebugService.error('No User in Session after retries', { session, attempts });
           navigate('/login');
           return;
         }
+        
+        authDebugService.authFlow('Session retrieved successfully', { 
+          userId: session.user.id, 
+          hasAccessToken: !!session.access_token,
+          accessTokenPreview: session.access_token ? session.access_token.substring(0, 20) : 'UNDEFINED',
+          attempts 
+        });
 
         // Set refresh token in cookies
         if (session.refresh_token) {
@@ -48,7 +62,7 @@ const AuthCallback = () => {
           authDebugService.error('No refresh token in session', { session });
         }
 
-        const provider = session.user.app_metadata?.provider;
+        const provider = (session.user.app_metadata?.provider || session.user.user_metadata?.provider) || 'google';
         authDebugService.authFlow('Auth Provider Check', { 
           provider,
           userId: session.user.id,
@@ -57,32 +71,41 @@ const AuthCallback = () => {
 
         if (provider === 'google') {
           try {
-            const exists = await profileService.checkProfileExists(session.user.id);
-            authDebugService.authFlow('Profile Check', { exists });
+            authDebugService.authFlow('Syncing user profile with backend', {
+              userId: session.user.id,
+              email: session.user.email,
+              metadata: session.user.user_metadata
+            });
             
-            if (!exists) {
-              authDebugService.authFlow('Creating Google User Profile', {
-                userId: session.user.id,
-                metadata: session.user.user_metadata
-              });
-              
-              await profileService.createProfile(session.user.id, {
-                email: session.user.email || '',
-                full_name: session.user.user_metadata?.full_name || null,
-                avatar_url: session.user.user_metadata?.avatar_url || null,
-                role: 'free',
-                subscription_status: 'none',
-                generations_used: 0,
-                preferences: {},
-                is_deleted: false
-              });
+            // Sync profile with backend API (which can connect to ANY PostgreSQL database)
+            // Backend will create or update the profile in the configured database
+            const apiUrl = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:8000/api`;
+            await axios.post(`${apiUrl}/profiles/sync`, {
+              user_id: session.user.id,
+              email: session.user.email || '',
+              full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || null,
+              avatar_url: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || null,
+              provider: provider
+            }, {
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            authDebugService.authFlow('Profile synced successfully - Navigating to App');
+            navigate('/app');
+          } catch (profileError: any) {
+            authDebugService.error('Profile Sync Error', profileError);
+            
+            // Check if it's a network error or backend is down
+            if (profileError.code === 'ERR_NETWORK' || profileError.code === 'ECONNREFUSED') {
+              console.error('Backend API is not reachable. Please ensure backend is running.');
+              alert('Cannot connect to backend server. Please ensure the backend is running on ' + 
+                    (import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:8000`));
             }
             
-            authDebugService.authFlow('Google Auth Complete - Navigating to Dashboard');
-            navigate('/dashboard');
-          } catch (profileError) {
-            authDebugService.error('Profile Creation Error', profileError);
-            await supabaseClient.auth.signOut();
+            await authService.signOut();
             navigate('/login');
           }
         } else {
@@ -91,7 +114,7 @@ const AuthCallback = () => {
         }
       } catch (err) {
         authDebugService.error('Auth Callback Error', err);
-        await supabaseClient.auth.signOut(); // Clean up if anything goes wrong
+        await authService.signOut(); // Clean up if anything goes wrong
         navigate('/login');
       }
     };

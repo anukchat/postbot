@@ -24,7 +24,6 @@ class ConfigLoader:
         """Get configuration using dot notation path"""
         try:
             result = reduce(lambda d, key: d[key], path.split('.'), self.config_data)
-            print(f"Config data at path '{path}': {result}")
             return result
         except (KeyError, TypeError):
             available = self.list_configs()

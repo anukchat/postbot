@@ -3,10 +3,11 @@ from uuid import UUID
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session, DeclarativeMeta
 from sqlalchemy import select, update, delete, func
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from contextlib import contextmanager
 from .connection import DatabaseConnectionManager, db_retry
 from .models import Base
+from src.backend.exceptions import DatabaseException, ResourceNotFoundException
 
 Model = TypeVar('Model', bound=DeclarativeMeta)
 
@@ -23,9 +24,9 @@ class SQLAlchemyRepository(Generic[Model]):
             result = session.execute(stmt).scalar_one_or_none()
             session.commit()
             return result
-        except Exception as e:
+        except SQLAlchemyError as e:
             session.rollback()
-            raise e
+            raise DatabaseException(f"Error finding record: {str(e)}") from e
 
     def create(self, data: Dict[str, Any]) -> Model:
         """Create a new record"""
@@ -36,24 +37,30 @@ class SQLAlchemyRepository(Generic[Model]):
             session.flush()
             session.commit()
             return instance
-        except Exception as e:
+        except IntegrityError as e:
             session.rollback()
-            raise e
+            raise DatabaseException(f"Duplicate or constraint violation: {str(e)}") from e
+        except SQLAlchemyError as e:
+            session.rollback()
+            raise DatabaseException(f"Error creating record: {str(e)}") from e
 
     def update(self, id_field: str, id_value: UUID, data: Dict[str, Any]) -> Optional[Model]:
         """Update a record"""
         session = self.db.get_session()
         try:
             instance = self.find_by_field(id_field, id_value)
-            if instance:
-                for key, value in data.items():
-                    setattr(instance, key, value)
-                session.flush()
-                session.commit()
+            if not instance:
+                raise ResourceNotFoundException(f"Record with {id_field}={id_value} not found")
+            for key, value in data.items():
+                setattr(instance, key, value)
+            session.flush()
+            session.commit()
             return instance
-        except Exception as e:
+        except ResourceNotFoundException:
+            raise
+        except SQLAlchemyError as e:
             session.rollback()
-            raise e
+            raise DatabaseException(f"Error updating record: {str(e)}") from e
 
     def delete(self, id_field: str, id_value: UUID) -> bool:
         """Hard delete a record"""

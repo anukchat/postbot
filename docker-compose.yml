@@ -1,20 +1,19 @@
-version: '3'
-
 services:
   frontend:
-    image: ghcr.io/anukchat/postbot-frontend:latest
+    image: ${POSTBOT_IMAGE_REGISTRY:-ghcr.io}/${POSTBOT_IMAGE_OWNER}/postbot-frontend:${POSTBOT_IMAGE_TAG:-latest}
     container_name: postbot-frontend
     ports:
       - "3000:3000"
-    env_file:
-      - .env
-    restart: always
+    restart: unless-stopped
 
   backend:
-    image: ghcr.io/anukchat/postbot-backend:latest
+    image: ${POSTBOT_IMAGE_REGISTRY:-ghcr.io}/${POSTBOT_IMAGE_OWNER}/postbot-backend:${POSTBOT_IMAGE_TAG:-latest}
     container_name: postbot-backend
     ports:
       - "8000:8000"
     env_file:
       - .env
-    restart: always
+    environment:
+      - AUTH_PROVIDER=${AUTH_PROVIDER:-supabase}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    restart: unless-stopped

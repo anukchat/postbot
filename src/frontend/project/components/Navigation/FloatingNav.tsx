@@ -20,7 +20,7 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({ onToggleDrawer, isDraw
   const [isTemplateManagementOpen, setIsTemplateManagementOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { profile } = useAuth();
 
 
   const handleHomeClick = () => {
@@ -72,8 +72,8 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({ onToggleDrawer, isDraw
               </button>
             </Tippy>
             
-            {/* Force re-evaluation on every render */}
-            {user?.role === 'premium' && (
+            {/* Admin Panel - Only for premium users */}
+            {profile?.role === 'premium' && (
               <Tippy content="Admin Panel" placement="right">
               <button 
                 onClick={() => navigate('/admin')} 

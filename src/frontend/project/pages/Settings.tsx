@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from '../components/Landing/Navbar';
 import { useAuth } from '../contexts/AuthContext';
-import { supabaseClient } from '../utils/supaclient';
+import { profileService } from '../services/profiles';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/Tabs';  // Fix import
 import { toast } from 'react-hot-toast';
 import { User, Lock, Bell, Palette } from 'lucide-react';
@@ -45,13 +45,7 @@ const Settings: React.FC = () => {
     try {
       if (!user?.id) return;
       
-      const { data, error } = await supabaseClient
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error) throw error;
+      const data = await profileService.getProfile(user.id);
       if (data) {
         setProfile(data);
       }
@@ -65,15 +59,9 @@ const Settings: React.FC = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabaseClient
-        .from('profiles')
-        .upsert({
-          user_id: user?.id,
-          ...profile,
-          updated_at: new Date(),
-        });
-
-      if (error) throw error;
+      if (!user?.id) throw new Error('User not authenticated');
+      
+      await profileService.updateProfile(user.id, profile);
       toast.success('Profile updated successfully');
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -88,22 +76,9 @@ const Settings: React.FC = () => {
     setLoading(true);
 
     try {
-      const { data: existingProfile } = await supabaseClient
-        .from('profiles')
-        .select('id')
-        .eq('user_id', user?.id)
-        .single();
-
-      const { error } = await supabaseClient
-        .from('profiles')
-        .upsert({
-          id: existingProfile?.id,
-          user_id: user?.id,
-          preferences: preferences, // Store preferences as JSON string
-          updated_at: new Date(),
-        });
-
-      if (error) throw error;
+      if (!user?.id) throw new Error('User not authenticated');
+      
+      await profileService.updateProfile(user.id, { preferences });
       toast.success('Preferences updated successfully');
     } catch (error) {
       console.error('Error updating preferences:', error);

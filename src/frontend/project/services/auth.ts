@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import axios from 'axios';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -15,19 +16,22 @@ export const supabaseClient = createClient(supabaseUrl, supabaseKey, {
 export const authService = {
   async checkUserExists(email: string) {
     try {
-      const { data, error } = await supabaseClient
-        .from('profiles')
-        .select('id')
-        .eq('email', email)
-        .single();
-  
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
-        console.error('Error checking profile existence:', error);
+      const apiUrl = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:8000/api`;
+      const session = await supabaseClient.auth.getSession();
+      
+      const response = await axios.get(`${apiUrl}/profiles/check`, {
+        params: { email },
+        headers: session?.data?.session?.access_token ? {
+          'Authorization': `Bearer ${session.data.session.access_token}`
+        } : {}
+      });
+      
+      return response.data.exists;
+    } catch (error: any) {
+      // If 404, user doesn't exist
+      if (error.response?.status === 404) {
         return false;
       }
-  
-      return Boolean(data);
-    } catch (error) {
       console.error('Error checking user existence:', error);
       return false;
     }
@@ -167,17 +171,23 @@ export const authService = {
 
   async createUserProfile(userId: string, profileData: any) {
     try {
-      const { error } = await supabaseClient
-        .from('profiles')
-        .insert({
-          user_id: userId,
-          ...profileData,
-          role: 'free',
-          subscription_status: 'none'
-        })
-        .single();
+      const apiUrl = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:8000/api`;
+      const session = await supabaseClient.auth.getSession();
+      
+      await axios.post(`${apiUrl}/profiles`, {
+        user_id: userId,
+        ...profileData,
+        role: 'free',
+        subscription_status: 'none'
+      }, {
+        headers: session?.data?.session?.access_token ? {
+          'Authorization': `Bearer ${session.data.session.access_token}`,
+          'Content-Type': 'application/json'
+        } : {
+          'Content-Type': 'application/json'
+        }
+      });
 
-      if (error) throw error;
       return { error: null };
     } catch (error) {
       console.error('Profile creation error:', error);

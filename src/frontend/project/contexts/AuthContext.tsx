@@ -2,12 +2,22 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { authService } from '../services/auth';
 import { profileService } from '../services/profiles';
-import { supabaseClient } from '../utils/supaclient';
-import Cookies from 'js-cookie';
+
+export interface UserProfile {
+  id: string;
+  user_id: string;
+  email: string;
+  full_name?: string;
+  avatar_url?: string;
+  role: string;
+  subscription_status: string;
+  generations_used: number;
+}
 
 export interface AuthContextType {
   session: Session | null;
   user: User | null;
+  profile: UserProfile | null;
   signIn: (provider: 'google' | 'email', options?: { 
     email?: string;
     password?: string;
@@ -25,6 +35,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,6 +49,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (mounted) {
           setSession(initialSession);
           setUser(initialSession?.user ?? null);
+          
+          // Fetch profile if user exists
+          if (initialSession?.user) {
+            try {
+              const userProfile = await profileService.getProfile(initialSession.user.id);
+              if (userProfile && mounted) {
+                setProfile(userProfile);
+              }
+            } catch (error) {
+              console.error('Error fetching profile:', error);
+            }
+          }
+          
           setLoading(false);
         }
       } catch (error) {
@@ -47,11 +71,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     // Subscribe to auth state changes
-    const { data: { subscription } } = authService.onAuthStateChange((session) => {
+    const { data: { subscription } } = authService.onAuthStateChange(async (session) => {
       if (mounted) {
-          setSession(session);
-          setUser(session?.user ?? null);
-          setLoading(false);
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        // Fetch profile when auth state changes
+        if (session?.user) {
+          try {
+            const userProfile = await profileService.getProfile(session.user.id);
+            if (userProfile && mounted) {
+              setProfile(userProfile);
+            }
+          } catch (error) {
+            console.error('Error fetching profile on auth change:', error);
+          }
+        } else {
+          setProfile(null);
+        }
+        
+        setLoading(false);
       }
     });
 
@@ -101,7 +140,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (provider === 'email') {
           const exists = await profileService.checkProfileExists(data.user.id);
           console.log('Profile exists check:', exists);
-
+  setProfile(null);
+  
           if (!exists) {
             console.log('Creating new profile for email user');
             await profileService.createProfile(data.user.id, {
@@ -133,13 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkRegistration = async (user: any) => {
     try {
-      const { data } = await supabaseClient
-        .from('profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-      return !!data;
+      return await profileService.checkProfileExists(user.id);
     } catch (error) {
       console.error('Error checking registration:', error);
       return false;
@@ -170,6 +204,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value = {
     session,
     user,
+    profile,
     signIn,
     signUp,
     signOut,

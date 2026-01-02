@@ -30,6 +30,11 @@ wheel/
 .cache
 .pytest_cache/
 
+# Coverage
+.coverage
+htmlcov/
+coverage.xml
+
 # Jupyter Notebook
 .ipynb_checkpoints
 
@@ -43,7 +48,8 @@ wheel/
 *.log
 
 # Environment variables
-.env
+.env*
+!.env.example
 
 tweet_collection/*
 *.log

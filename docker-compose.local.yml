@@ -1,0 +1,39 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+        - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
+        - VITE_REDIRECT_URL=${VITE_REDIRECT_URL:-http://localhost:3000}
+    container_name: postbot-frontend-local
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    networks:
+      - postbot-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: postbot-backend-local
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # Keep only the few overrides with sensible defaults.
+      - AUTH_PROVIDER=${AUTH_PROVIDER:-supabase}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    restart: unless-stopped
+    networks:
+      - postbot-network
+    depends_on:
+      - frontend
+
+networks:
+  postbot-network:
+    driver: bridge

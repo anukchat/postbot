@@ -1,19 +1,77 @@
-name: Deploy to EC2
+name: Deploy
+
+permissions:
+  contents: read
+  packages: write
 
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      deploy_ref:
+        description: "Git ref to deploy (branch/tag/SHA). Default: current commit SHA (temporary testing)"
+        required: false
+        default: ""
+      deploy_path:
+        description: "Optional override for DEPLOY_PATH (uses DEPLOY_PATH secret if empty)."
+        required: false
+        default: ""
 
 jobs:
-  build:
+  test:
+    name: Test (pytest)
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postbot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d postbot_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmagic1
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements_llm.txt
+
+      - name: Run pytest
+        env:
+          PYTHONPATH: .
+          ENVIRONMENT: test
+          AUTH_PROVIDER: supabase
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_KEY: test-key
+          TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postbot_test
+        run: |
+          pytest -q
+
+  build-and-push:
+    name: Build & Push Images (GHCR)
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -23,15 +81,15 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ github.token }}
 
-      - name: Build and push frontend image
-        uses: docker/build-push-action@v4
+      - name: Build & push frontend image
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile.frontend
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/postbot-frontend:latest
+          tags: ghcr.io/${{ github.repository_owner }}/postbot-frontend:${{ github.sha }}
           build-args: |
             VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
             VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}
@@ -40,151 +98,181 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build and push backend image
-        uses: docker/build-push-action@v4
+      - name: Build & push backend image
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile.backend
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/postbot-backend:latest
+          tags: ghcr.io/${{ github.repository_owner }}/postbot-backend:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check if EC2 is reachable
+      - name: Tag images as latest (main only)
+        if: github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/main'
         run: |
-          echo "Checking if ${{ secrets.EC2_HOST }} is reachable on port 22..."
-          timeout 10 nc -zv ${{ secrets.EC2_HOST }} 22 || echo "Cannot connect to EC2 instance on port 22"
+          docker buildx imagetools create \
+            -t ghcr.io/${{ github.repository_owner }}/postbot-frontend:latest \
+            ghcr.io/${{ github.repository_owner }}/postbot-frontend:${{ github.sha }}
 
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.repository_owner }}
+          docker buildx imagetools create \
+            -t ghcr.io/${{ github.repository_owner }}/postbot-backend:latest \
+            ghcr.io/${{ github.repository_owner }}/postbot-backend:${{ github.sha }}
+
+  deploy:
+    name: Deploy (EC2/VM)
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_PATH: ${{ github.event.inputs.deploy_path != '' && github.event.inputs.deploy_path || secrets.DEPLOY_PATH }}
+    concurrency:
+      group: postbot-deploy
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Ensure deploy directory exists
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script_stop: true
-          command_timeout: "30m"
-          envs: GITHUB_TOKEN,GITHUB_USERNAME
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
           script: |
-            echo "Starting deployment process at $(date)"
-            cd /home/ubuntu/postbot
-            
-            # Create fresh .env file
-            echo "Creating .env file with secrets..."
-            cat > .env << EOL
-            SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-            REDDIT_CLIENT_ID=${{ secrets.REDDIT_CLIENT_ID }}
-            REDDIT_CLIENT_SECRET=${{ secrets.REDDIT_CLIENT_SECRET }}
-            REDDIT_USER_AGENT=${{ secrets.REDDIT_USER_AGENT }}
-            SERPER_API_KEY=${{ secrets.SERPER_API_KEY }}
-            SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
-            SUPABASE_POSTGRES_DSN=${{ secrets.SUPABASE_POSTGRES_DSN }}
-            API_URL=${{ secrets.API_URL }}
-            REDIRECT_URL=${{ secrets.REDIRECT_URL }}
-            VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-            VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_KEY }}
-            VITE_API_URL=${{ secrets.API_URL }}
-            VITE_REDIRECT_URL=${{ secrets.REDIRECT_URL }}
-            EOL
-            
-            # Set proper permissions for .env
-            chmod 600 .env
-            
-            # Export GitHub auth variables
-            export GITHUB_TOKEN="${GITHUB_TOKEN}"
-            export GITHUB_USERNAME="${GITHUB_USERNAME}"
+            set -euo pipefail
+            DEPLOY_PATH='${{ env.DEPLOY_PATH }}'
+            mkdir -p "$DEPLOY_PATH"
 
-            # Login to GitHub Container Registry
-            echo "Logging in to GitHub Container Registry..."
-            echo "${GITHUB_TOKEN}" | docker login ghcr.io -u ${GITHUB_USERNAME} --password-stdin
-            
-            echo "Running deployment script..."
-            # Run the deployment script
-            /home/ubuntu/deploy.sh
-            
-            # Prune old Docker images to save disk space
-            echo "Pruning old Docker images..."
-            docker image prune -af
-            
-            # Verify containers are running after deployment
-            echo "Verifying deployment:"
-            docker ps
-            # Create site configuration file
-            echo "Creating site configuration file..."
-            cat > /etc/nginx/sites-available/riteup.mlguide.in << EOL
-            server {
-                server_name riteup.mlguide.in;
-                client_max_body_size 10M;
+      - name: Upload docker-compose.yml to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          source: "docker-compose.yml"
+          target: ${{ env.DEPLOY_PATH }}
 
-                # ACME Challenge
-                location ^~ /.well-known/acme-challenge/ {
-                    root /var/www/riteup.mlguide.in;
-                    allow all;
-                }
+      - name: Deploy over SSH (pull & up)
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          GHCR_USERNAME: ${{ github.actor }}
+          ACTIONS_GITHUB_TOKEN: ${{ github.token }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          API_URL: ${{ secrets.API_URL }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+          ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_USER_AGENT: ${{ secrets.REDDIT_USER_AGENT }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          envs: GHCR_USERNAME,ACTIONS_GITHUB_TOKEN,DATABASE_URL,SUPABASE_URL,SUPABASE_KEY,API_URL,FRONTEND_URL,ALLOWED_ORIGINS,GROQ_API_KEY,GEMINI_API_KEY,OPENROUTER_API_KEY,DEEPSEEK_API_KEY,OLLAMA_API_KEY,SERPER_API_KEY,PIXABAY_API_KEY,REDDIT_CLIENT_ID,REDDIT_CLIENT_SECRET,REDDIT_USER_AGENT
+          script: |
+            set -euo pipefail
 
-                # Proxy to Node.js (port 3000)
-                location / {
-                    proxy_pass http://localhost:3000;
-                    proxy_http_version 1.1;
-                    proxy_set_header Upgrade \$http_upgrade;
-                    proxy_set_header Connection 'upgrade';
-                    proxy_set_header Host \$host;
-                    proxy_cache_bypass \$http_upgrade;
-                    proxy_connect_timeout 90s;
-                    proxy_send_timeout 90s;
-                    proxy_read_timeout 120s;
-                }
+            DEPLOY_PATH='${{ env.DEPLOY_PATH }}'
 
-                # Proxy to Backend API (port 8000)
-                location /api/ {
-                    proxy_pass http://localhost:8000/;
-                    proxy_http_version 1.1;
-                    proxy_set_header Upgrade \$http_upgrade;
-                    proxy_set_header Connection 'upgrade';
-                    proxy_set_header Host \$host;
-                    proxy_cache_bypass \$http_upgrade;
-                    proxy_connect_timeout 90s;
-                    proxy_send_timeout 90s;
-                    proxy_read_timeout 120s;
-                }
-
-                # SSL Configuration
-                listen 443 ssl;
-                ssl_certificate /etc/letsencrypt/live/riteup.mlguide.in/fullchain.pem;
-                ssl_certificate_key /etc/letsencrypt/live/riteup.mlguide.in/privkey.pem;
-                include /etc/letsencrypt/options-ssl-nginx.conf;
-                ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
-
-                # Security Headers
-                add_header X-Content-Type-Options "nosniff" always;
-                add_header X-Frame-Options "SAMEORIGIN" always;
-                add_header X-XSS-Protection "1; mode=block" always;
-                add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+            require_env() {
+              local name="$1"
+              if [[ -z "${!name:-}" ]]; then
+                echo "ERROR: Missing $name." >&2
+                exit 1
+              fi
             }
 
-            # HTTP-to-HTTPS Redirect
-            server {
-                listen 80;
-                server_name riteup.mlguide.in;
-                return 301 https://\$host\$request_uri;
+            write_env_file() {
+              local env_file="$DEPLOY_PATH/.env"
+              install -m 600 /dev/null "$env_file" 2>/dev/null || { : >"$env_file"; chmod 600 "$env_file" || true; }
+
+              {
+                printf 'DATABASE_URL=%s\n' "$DATABASE_URL"
+                printf 'AUTH_PROVIDER=supabase\n'
+                printf 'ENVIRONMENT=production\n'
+                printf 'SUPABASE_URL=%s\n' "$SUPABASE_URL"
+                printf 'SUPABASE_KEY=%s\n' "$SUPABASE_KEY"
+              } >> "$env_file"
+
+              local optional_vars=(
+                API_URL FRONTEND_URL ALLOWED_ORIGINS
+                GROQ_API_KEY GEMINI_API_KEY OPENROUTER_API_KEY DEEPSEEK_API_KEY OLLAMA_API_KEY
+                SERPER_API_KEY PIXABAY_API_KEY
+                REDDIT_CLIENT_ID REDDIT_CLIENT_SECRET REDDIT_USER_AGENT
+              )
+              for var in "${optional_vars[@]}"; do
+                local val="${!var-}"
+                [[ -n "$val" ]] && printf '%s=%s\n' "$var" "$val" >> "$env_file"
+              done
             }
-            EOL
 
-            # Enable the site
-            sudo ln -s /etc/nginx/sites-available/riteup.mlguide.in /etc/nginx/sites-enabled/
-            sudo systemctl reload nginx
+            docker_prune_light() {
+              docker container prune -f || true
+              docker image prune -af --filter "until=24h" || true
+              docker builder prune -af --filter "until=24h" || true
+              docker network prune -f || true
+            }
 
-            # Set up SSL
-            sudo apt install certbot python3-certbot-nginx -y
-            sudo certbot --nginx -d riteup.mlguide.in
+            run_migrations_if_needed() {
+              local head_rev current_out current_rc current_rev
 
-            # Verify Nginx is running
-            echo "Checking Nginx status:"
-            systemctl status nginx
+              head_rev="$(docker compose run --rm backend alembic heads 2>/dev/null | awk '/^[0-9a-f]+/ {print $1}' | head -n 1 || true)"
+              [[ -n "$head_rev" ]] || { echo "ERROR: Unable to determine Alembic head revision." >&2; exit 1; }
+
+              set +e
+              current_out="$(docker compose run --rm backend alembic current 2>&1)"
+              current_rc=$?
+              set -e
+
+              if [[ $current_rc -ne 0 ]] && echo "$current_out" | grep -qi "alembic_version"; then
+                echo "Alembic not initialized (pre-existing DB); stamping to head ($head_rev)."
+                docker compose run --rm backend alembic stamp head
+                echo "Stamped successfully. Schema already exists, no migrations needed."
+                return 0
+              fi
+
+              current_rev="$(printf '%s\n' "$current_out" | awk '/^[0-9a-f]+/ {print $1}' | tail -n 1 || true)"
+
+              if [[ -z "$current_rev" ]] || [[ "$current_rev" != "$head_rev" ]]; then
+                echo "Running migrations: $current_rev -> $head_rev"
+                docker compose run --rm backend alembic upgrade head
+              else
+                echo "Already at head ($head_rev), no migrations needed."
+              fi
+            }
+
+            require_env DATABASE_URL
+            require_env SUPABASE_URL
+            require_env SUPABASE_KEY
+
+            if [[ "$DATABASE_URL" =~ (localhost|127\.0\.0\.1)(:|/|$) ]]; then
+              echo "ERROR: DATABASE_URL points to localhost." >&2
+              exit 1
+            fi
+
+            write_env_file
+            cd "$DEPLOY_PATH"
+
+            echo "$ACTIONS_GITHUB_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+
+            export POSTBOT_IMAGE_REGISTRY=ghcr.io
+            export POSTBOT_IMAGE_OWNER='${{ github.repository_owner }}'
+            export POSTBOT_IMAGE_TAG='${{ github.sha }}'
+
+            docker_prune_light
+            docker compose pull
+            docker rm -f postbot-backend postbot-frontend >/dev/null 2>&1 || true
+            docker compose up -d --remove-orphans
+
+            run_migrations_if_needed

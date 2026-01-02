@@ -5,20 +5,31 @@ from datetime import datetime, timedelta
 from supabase import Client, create_client
 from ..models import Profile
 from ..sqlalchemy_repository import SQLAlchemyRepository
+from src.backend.exceptions import AuthenticationException, DatabaseException
+from src.backend.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 class AuthRepository(SQLAlchemyRepository[Profile]):
     def __init__(self):
         super().__init__(Profile)
-        # Initialize Supabase client
+        # Initialize auth provider client
         url = os.getenv("SUPABASE_URL")
         key = os.getenv("SUPABASE_KEY")
+
+        if not url or not key:
+            raise AuthenticationException(
+                "Missing Supabase configuration. Please set SUPABASE_URL and SUPABASE_KEY environment variables."
+            )
+
         self.supabase: Client = create_client(url, key)
 
     async def sign_up(self, email: str, password: str) -> Dict[str, Any]:
         """Sign up a new user"""
         session = self.db.get_session()
         try:
-            # Create user in Supabase Auth
+            logger.info(f"Attempting sign up for email: {email}")
+            # Create user in auth provider
             response = self.supabase.auth.sign_up({
                 "email": email,
                 "password": password
@@ -35,49 +46,65 @@ class AuthRepository(SQLAlchemyRepository[Profile]):
                 session.add(profile)
                 session.flush()
                 session.commit()
+                logger.info(f"User registered successfully: {response.user.id}")
             
             return response
+        except DatabaseException as e:
+            session.rollback()
+            logger.error(f"Database error during sign up: {e}")
+            raise AuthenticationException(f"Sign up failed: database error")
         except Exception as e:
             session.rollback()
-            raise ValueError(f"Sign up failed: {str(e)}")
+            logger.error(f"Sign up failed: {e}", exc_info=True)
+            raise AuthenticationException(f"Sign up failed: {str(e)}")
 
     async def sign_in(self, email: str, password: str) -> Dict[str, Any]:
         """Sign in an existing user"""
         try:
+            logger.info(f"Sign in attempt for email: {email}")
             response = self.supabase.auth.sign_in_with_password({
                 "email": email,
                 "password": password
             })
+            logger.info(f"Sign in successful for email: {email}")
             return response
         except Exception as e:
-            raise ValueError(f"Sign in failed: {str(e)}")
+            logger.error(f"Sign in failed for {email}: {e}")
+            raise AuthenticationException(f"Sign in failed: {str(e)}")
 
     async def sign_out(self) -> Dict[str, Any]:
         """Sign out the current user"""
         try:
+            logger.info("User sign out")
             return self.supabase.auth.sign_out()
         except Exception as e:
-            raise ValueError(f"Sign out failed: {str(e)}")
+            logger.error(f"Sign out failed: {e}")
+            raise AuthenticationException(f"Sign out failed: {str(e)}")
 
     async def refresh_session(self, refresh_token: str) -> Dict[str, Any]:
         """Refresh the session using a refresh token"""
         try:
+            logger.debug("Refreshing session")
             response = self.supabase.auth.refresh_session({
                 "refresh_token": refresh_token
             })
             return response
         except Exception as e:
-            raise ValueError(f"Session refresh failed: {str(e)}")
+            logger.error(f"Session refresh failed: {e}")
+            raise AuthenticationException(f"Session refresh failed: {str(e)}")
 
     async def get_user(self, access_token: str) -> Optional[Dict[str, Any]]:
         """Get user information from access token and refresh token"""
         try:
             if not access_token:
-                raise ValueError("Both access_token and refresh_token are required")
+                raise AuthenticationException("Access token is required")
             
             return self.supabase.auth.get_user(access_token)
+        except AuthenticationException:
+            raise
         except Exception as e:
-            raise ValueError(f"Failed to get user: {str(e)}")
+            logger.error(f"Failed to get user: {e}")
+            raise AuthenticationException(f"Failed to get user: {str(e)}")
             
     async def get_user_by_access_token(self, access_token: str) -> Optional[Dict[str, Any]]:
         """Try to get user information using only the access token (fallback method)

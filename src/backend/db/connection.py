@@ -25,7 +25,12 @@ class DatabaseConnectionManager:
 
     def __init__(self):
         if not hasattr(self, 'initialized'):
-            dsn = os.getenv("SUPABASE_POSTGRES_DSN", "")
+            dsn = os.getenv("DATABASE_URL")
+            if not dsn:
+                raise RuntimeError(
+                    "DATABASE_URL is not set (or is empty). "
+                    "Set DATABASE_URL to your Postgres connection string (e.g., Supabase) before starting the backend."
+                )
             self.engine = create_engine(
                 dsn,
                 pool_pre_ping=True,
@@ -77,8 +82,11 @@ class DatabaseConnectionManager:
             session.close()
             try:
                 session_context.set(None)
-            except:
+            except LookupError:
+                # Expected when context was never set
                 pass
+            except Exception as e:
+                logger.warning(f"Failed to clear session context: {e}")
 
 def db_retry(retries=3, delay=1):
     """Decorator for database operations with retry logic"""
