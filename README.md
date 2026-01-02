@@ -73,9 +73,6 @@ Demo GIF:
 
 ![Postbot demo](assets/demo.gif)
 
-UI screenshot:
-
-![Postbot UX](assets/images/UX.png)
 
 ## ⚡ Quick Start (10 minutes)
 
@@ -211,8 +208,6 @@ docker compose -f docker-compose.local.yml down
 ---
 
 ## 🏗️ Architecture
-
-![Postbot architecture diagram](assets/images/RiteUp%20Architecture.png)
 
 High-level system view:
 

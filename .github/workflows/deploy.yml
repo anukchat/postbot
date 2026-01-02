@@ -81,7 +81,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ github.token }}
 
       - name: Build & push frontend image
         uses: docker/build-push-action@v5
@@ -156,8 +156,8 @@ jobs:
       - name: Deploy over SSH (pull & up)
         uses: appleboy/ssh-action@v1.0.3
         env:
-          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+          GHCR_USERNAME: ${{ github.actor }}
+          ACTIONS_GITHUB_TOKEN: ${{ github.token }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
@@ -179,7 +179,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT }}
-          envs: GHCR_USERNAME,GHCR_PAT,DATABASE_URL,SUPABASE_URL,SUPABASE_KEY,API_URL,FRONTEND_URL,ALLOWED_ORIGINS,GROQ_API_KEY,GEMINI_API_KEY,OPENROUTER_API_KEY,DEEPSEEK_API_KEY,OLLAMA_API_KEY,SERPER_API_KEY,PIXABAY_API_KEY,REDDIT_CLIENT_ID,REDDIT_CLIENT_SECRET,REDDIT_USER_AGENT
+          envs: GHCR_USERNAME,ACTIONS_GITHUB_TOKEN,DATABASE_URL,SUPABASE_URL,SUPABASE_KEY,API_URL,FRONTEND_URL,ALLOWED_ORIGINS,GROQ_API_KEY,GEMINI_API_KEY,OPENROUTER_API_KEY,DEEPSEEK_API_KEY,OLLAMA_API_KEY,SERPER_API_KEY,PIXABAY_API_KEY,REDDIT_CLIENT_ID,REDDIT_CLIENT_SECRET,REDDIT_USER_AGENT
           script: |
             set -euo pipefail
 
@@ -241,14 +241,9 @@ jobs:
 
             cd "$DEPLOY_PATH"
 
-            # Optional: login to GHCR if your packages are private.
-            if [[ -n "${GHCR_PAT:-}" ]]; then
-              if [[ -z "${GHCR_USERNAME:-}" ]]; then
-                echo "ERROR: GHCR_PAT is set but GHCR_USERNAME is missing." >&2
-                exit 1
-              fi
-              echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
-            fi
+            # Login to GHCR using the workflow's ephemeral github.token.
+            # This avoids requiring GHCR_USERNAME/GHCR_PAT secrets.
+            echo "$ACTIONS_GITHUB_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
 
             export POSTBOT_IMAGE_REGISTRY=ghcr.io
             export POSTBOT_IMAGE_OWNER='${{ github.repository_owner }}'
