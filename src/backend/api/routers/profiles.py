@@ -244,14 +244,44 @@ async def delete_profile(
 
 @router.get("/profiles", response_model=List[Profile])
 async def list_profiles(
+    user_id: Optional[str] = None,
     skip: int = 0,
     limit: int = 10,
     current_user = Depends(get_current_user_profile)
 ):
+    """
+    List profiles. If user_id is provided, returns the profile for that user_id.
+    Otherwise returns the current user's profile.
+    
+    Args:
+        user_id: Optional user_id to filter by (auth provider's user ID)
+        skip: Number of records to skip
+        limit: Maximum number of records to return
+        current_user: Authenticated user from token
+        
+    Returns:
+        List of profiles matching the criteria
+    """
     try:
-        logger.debug(f"Listing profiles for user {current_user.id}")
-        profiles = profile_repository.filter({"id": current_user.profile_id}, skip, limit)
-        return profiles
+        if user_id:
+            # Query by user_id field (auth provider's user ID)
+            logger.debug(f"Listing profiles for user_id: {user_id}")
+            profile = profile_repository.find_by_field("user_id", user_id)
+            if not profile:
+                logger.info(f"No profile found for user_id: {user_id}")
+                return []
+            # Only return if user has access to this profile
+            if profile.user_id != current_user.id:
+                logger.warning(f"Unauthorized access attempt to user_id {user_id} by user {current_user.id}")
+                raise AuthorizationException("Not authorized to access this profile")
+            return [profile]
+        else:
+            # Return current user's profile
+            logger.debug(f"Listing profiles for current user {current_user.id}")
+            profiles = profile_repository.filter({"user_id": current_user.id}, skip, limit)
+            return profiles
+    except AuthorizationException:
+        raise HTTPException(status_code=403, detail="Not authorized")
     except DatabaseException as e:
         logger.error(f"Database error listing profiles: {e}")
         raise HTTPException(status_code=500, detail="Database error")
