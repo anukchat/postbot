@@ -4,19 +4,332 @@
 
 ### Transform Your Tweets into Engaging Blog Content with AI
 
+**Automatically convert your Twitter bookmarks into polished blog posts using cutting-edge AI agents**
+
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-18+-61DAFB.svg?logo=react)](https://reactjs.org/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-**[Deploy](#-deploy-ec2--vm)** • **[Demo](#-demo)** • **[Quick Start](#-quick-start-10-minutes)** • **[Features](#-features)** • **[Architecture](#-architecture)** • **[Agent Architecture](#-agent-architecture)** • **[Contributing](#-contributing)**
+**[🚀 Quick Start](#-quick-start-5-steps)** • **[☁️ Deploy](#-production-deployment)** • **[🎬 Demo](#-demo)** • **[✨ Features](#-features)** • **[🏗️ Architecture](#-architecture)** • **[🤝 Contributing](#-contributing)**
 
 </div>
 
-## 🚀 Deploy (EC2 / VM)
+---
 
-Production deployment is intentionally simple: **one VM + Docker Compose**.
+## 🎯 Why POST BOT?
+
+- ✅ **One-Click Blog Generation** - Transform tweets into full blog posts in seconds
+- ✅ **AI Agent Workflow** - Powered by LangGraph with intelligent planning and execution
+- ✅ **Multi-LLM Support** - Works with Groq, Gemini, OpenAI, and more (with auto-fallback)
+- ✅ **Smart Content Extraction** - Automatically analyzes embedded links, PDFs, and GitHub repos
+- ✅ **Production Ready** - Docker-based deployment with automated CI/CD
+- ✅ **100% Open Source** - Self-host on any cloud or run locally
+
+---
+
+## 📋 Prerequisites
+
+Before you begin, ensure you have:
+
+- ✅ **Docker & Docker Compose** ([Install Docker](https://docs.docker.com/get-docker/))
+- ✅ **PostgreSQL Database** (we recommend [Supabase](https://supabase.com) - free tier available)
+- ✅ **LLM API Key** (at least one):
+  - [Groq](https://console.groq.com) (recommended - fast & generous free tier)
+  - [Google Gemini](https://makersuite.google.com/app/apikey) (free tier)
+  - OpenAI, OpenRouter, or DeepSeek
+- ✅ **Auth Provider Account**:
+  - [Supabase](https://supabase.com) (easiest - handles auth + database)
+  - Or Auth0, Clerk
+
+**Estimated setup time:** 5-10 minutes ⏱️
+
+---
+
+## ⚡ Quick Start (5 Steps)
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/your-username/postbot.git
+cd postbot
+```
+
+### Step 2: Create Environment File
+
+```bash
+cp .env.example .env
+```
+
+Now edit `.env` and fill in **these required values**:
+
+```bash
+# ============================================
+# REQUIRED: Database (Supabase recommended)
+# ============================================
+DATABASE_URL=postgresql://postgres.[PROJECT]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres
+
+# ============================================
+# REQUIRED: Authentication (Supabase example)
+# ============================================
+AUTH_PROVIDER=supabase
+SUPABASE_URL=https://[PROJECT].supabase.co
+SUPABASE_KEY=your-service-role-key-here
+
+# Frontend needs these too
+VITE_SUPABASE_URL=https://[PROJECT].supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+
+# ============================================
+# REQUIRED: Application URLs
+# ============================================
+VITE_API_URL=http://localhost:8000
+VITE_REDIRECT_URL=http://localhost:3000
+
+# ============================================
+# REQUIRED: At least ONE LLM API key
+# ============================================
+GROQ_API_KEY=gsk_...                    # Recommended (fast & free)
+# GEMINI_API_KEY=...                    # Alternative
+# OPENROUTER_API_KEY=sk-or-...          # Alternative
+```
+
+<details>
+<summary>🔍 <b>Where do I get these values?</b></summary>
+
+**Supabase (Database + Auth):**
+1. Create account at [supabase.com](https://supabase.com)
+2. Create new project
+3. Go to **Settings → Database**:
+   - Copy "Connection string" (use **Transaction** pooler mode)
+   - This is your `DATABASE_URL`
+4. Go to **Settings → API**:
+   - Copy "Project URL" → `SUPABASE_URL` and `VITE_SUPABASE_URL`
+   - Copy "service_role" key → `SUPABASE_KEY`
+   - Copy "anon public" key → `VITE_SUPABASE_ANON_KEY`
+
+**Groq API Key (LLM):**
+1. Sign up at [console.groq.com](https://console.groq.com)
+2. Go to API Keys section
+3. Create new API key
+4. Copy to `GROQ_API_KEY`
+
+</details>
+
+### Step 3: Start the Application
+
+```bash
+docker compose -f docker-compose.local.yml up --build
+```
+
+**Wait for these success messages:**
+```
+✅ backend  | INFO:     Uvicorn running on http://0.0.0.0:8000
+✅ frontend | ➜  Local:   http://localhost:3000/
+```
+
+### Step 4: Initialize Database
+
+In a new terminal:
+
+```bash
+# Run database migrations (creates all tables)
+docker compose -f docker-compose.local.yml exec backend alembic upgrade head
+```
+
+**Expected output:**
+```
+✅ INFO  [alembic.runtime.migration] Running upgrade  -> e2746ef4e845, initial_schema
+```
+
+### Step 5: Access Your Application
+
+🎉 **You're ready!** Open these URLs:
+
+- 🌐 **Frontend**: http://localhost:3000
+- 🔧 **API**: http://localhost:8000
+- 📚 **API Docs**: http://localhost:8000/docs (interactive Swagger UI)
+
+**First-time login:**
+1. Click "Login" button
+2. Authenticate with your provider (Supabase/Auth0/Clerk)
+3. You'll be redirected back to the app
+4. Start uploading Twitter bookmarks!
+
+---
+
+## ✅ Verify Everything Works
+
+Test the health endpoint:
+
+```bash
+curl http://localhost:8000/api/health
+```
+
+**Expected response:**
+```json
+{
+  "status": "healthy",
+  "database": "connected",
+  "version": "1.0.0"
+}
+```
+
+If you see this, congratulations! 🎉 Your POST BOT is running.
+
+---
+
+## 🛑 Stop the Application
+
+```bash
+docker compose -f docker-compose.local.yml down
+```
+
+To also remove volumes (database data):
+```bash
+docker compose -f docker-compose.local.yml down -v
+```
+
+---
+
+## ☁️ Production Deployment
+
+POST BOT uses a **simple single-VM deployment** with Docker Compose - no Kubernetes complexity needed.
+
+### One-Time VM Setup
+
+**Prerequisites:**
+- Ubuntu 22.04+ VM (AWS EC2, DigitalOcean, etc.)
+- Domain pointing to your VM's IP
+- Ports 80/443 open
+
+**1. Install Docker on your VM:**
+
+```bash
+# SSH into your VM
+ssh ubuntu@your-vm-ip
+
+# Run the bootstrap script
+curl -fsSL https://raw.githubusercontent.com/your-username/postbot/main/scripts/ec2_bootstrap.sh | bash
+```
+
+This script installs:
+- Docker & Docker Compose
+- Nginx reverse proxy (optional but recommended)
+- Configures SSL via Let's Encrypt
+
+**2. Configure Nginx (optional but recommended):**
+
+The script creates nginx config at `/etc/nginx/sites-available/postbot`. Edit if needed:
+
+```bash
+sudo nano /etc/nginx/sites-available/postbot
+```
+
+**Important:** The nginx config strips `/api` prefix:
+```nginx
+location /api/ {
+    proxy_pass http://127.0.0.1:8000/;  # Note the trailing slash!
+}
+```
+
+This means:
+- Client calls: `https://your-domain.com/api/profiles`
+- Nginx forwards: `http://backend:8000/profiles` (without `/api`)
+- **Your FastAPI routers should NOT have `/api` prefix** ✅ (already configured correctly)
+
+### Automated Deployment with GitHub Actions
+
+**1. Set up GitHub Secrets:**
+
+Go to your GitHub repo → Settings → Secrets → Actions, add:
+
+**VM Access:**
+```
+DEPLOY_HOST=your-vm-ip-or-domain
+DEPLOY_USER=ubuntu
+DEPLOY_PORT=22
+DEPLOY_SSH_KEY=<your-private-ssh-key>
+DEPLOY_PATH=/home/ubuntu/postbot
+```
+
+**Backend Environment:**
+```
+DATABASE_URL=postgresql://...
+SUPABASE_URL=https://...
+SUPABASE_KEY=...
+GROQ_API_KEY=gsk_...
+```
+
+**Frontend Build Variables:**
+```
+VITE_SUPABASE_URL=https://...
+VITE_SUPABASE_ANON_KEY=...
+VITE_API_URL=https://your-domain.com/api
+VITE_REDIRECT_URL=https://your-domain.com
+```
+
+**GitHub Container Registry (optional):**
+```
+GHCR_USERNAME=your-github-username
+GHCR_PAT=<your-github-personal-access-token>
+```
+
+**2. Deploy:**
+
+```bash
+# Automatic: Push to main branch
+git push origin main
+
+# Manual: Run workflow from GitHub Actions tab
+# Actions → Deploy → Run workflow
+```
+
+**What happens during deployment:**
+1. ✅ Builds Docker images for frontend & backend
+2. ✅ Pushes images to GitHub Container Registry
+3. ✅ SSHs to your VM
+4. ✅ Pulls latest images
+5. ✅ Recreates `.env` from GitHub Secrets
+6. ✅ Runs `docker compose up -d`
+7. ✅ Runs database migrations
+8. ✅ Performs health check
+
+**Deployment logs:**
+
+```bash
+# On your VM, check deployment
+ssh ubuntu@your-vm-ip
+cd /home/ubuntu/postbot
+docker compose ps
+docker logs postbot-backend -f
+```
+
+### Manual Deployment (for testing branches)
+
+```bash
+# On your VM
+cd /home/ubuntu/postbot
+git pull origin your-branch
+docker compose pull
+docker compose up -d --build
+docker compose exec backend alembic upgrade head
+```
+
+### Post-Deployment Verification
+
+```bash
+# Check services are running
+curl https://your-domain.com/api/health
+
+# Expected response:
+# {"status":"healthy","database":"connected","version":"1.0.0"}
+```
+
+For detailed deployment docs, see [docs/ec2.md](docs/ec2.md).
+
+---
 
 - One-time EC2 setup (Docker install + optional Nginx): [docs/ec2.md](docs/ec2.md)
 - Ongoing deploy automation:
@@ -69,12 +382,42 @@ Manual deploy for PR/branch testing:
 
 ## 🎬 Demo
 
-Demo GIF:
+**Live Demo:** [https://postbot-demo.example.com](https://postbot-demo.example.com) _(coming soon)_
+
+### How it Works
 
 ![Postbot demo](assets/demo.gif)
 
+**Step-by-step:**
 
-## ⚡ Quick Start (10 minutes)
+1. **📥 Import Bookmarks**
+   - Export your Twitter bookmarks as JSON
+   - Upload to POST BOT
+   - AI extracts all embedded content (links, PDFs, GitHub repos)
+
+2. **🎯 Select & Configure**
+   - Choose one or more tweets
+   - Pick your writing style (Technical, Professional, Casual, Academic)
+   - Customize tone, length, and target audience
+
+3. **🤖 AI Generation**
+   - LangGraph agent creates a structured outline
+   - Writes each section with proper research
+   - Generates title, intro, main body, and conclusion
+   - Optionally creates social media posts (LinkedIn/Twitter)
+
+4. **✏️ Review & Export**
+   - Edit in built-in markdown editor
+   - Export as Markdown, PDF, or DOCX
+   - Publish directly or copy to your CMS
+
+**What makes it special:**
+- 🧠 **Intelligent Planning**: Agent creates outline before writing
+- 🔗 **Deep Research**: Analyzes all linked content automatically
+- 🎨 **Style Consistency**: Maintains your chosen tone throughout
+- ⚡ **Fast**: Generates 2000+ word articles in under 60 seconds
+
+---
 
 This is the simplest way to run PostBot locally.
 
@@ -337,110 +680,278 @@ The blog generation prompt is driven by templates and parameters:
 
 ## ⚙️ Configuration
 
-### Environment Variables Reference
+### Complete Environment Variables Reference
 
 <details>
-<summary><b>Database & Core</b></summary>
+<summary><b>🔴 Required: Database & Core</b></summary>
 
 ```env
-# Database (Required)
-DATABASE_URL=postgresql://user:password@host:5432/database
+# ============================================
+# Database Connection (REQUIRED)
+# ============================================
+# For Supabase: Use Transaction pooler (port 5432)
+DATABASE_URL=postgresql://postgres.[PROJECT]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres?sslmode=require
 
-# Application URLs
+# For other PostgreSQL providers:
+# DATABASE_URL=postgresql://user:password@host:5432/database
+
+# ============================================
+# Application URLs (REQUIRED)
+# ============================================
+# Backend API URL (for internal communication)
 API_URL=http://localhost:8000
+
+# Frontend URL (for CORS)
 FRONTEND_URL=http://localhost:3000
+
+# Allowed CORS origins (comma-separated)
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 
-# Environment
+# ============================================
+# Environment & Logging
+# ============================================
 ENVIRONMENT=development  # or production
 LOG_LEVEL=INFO          # DEBUG, INFO, WARNING, ERROR
 ```
 
+**Getting Supabase DATABASE_URL:**
+1. Go to your Supabase project → Settings → Database
+2. Click "Connection string" → "Transaction" mode
+3. Copy the string, replace `[YOUR-PASSWORD]` with your actual password
+4. Add `?sslmode=require` at the end
+
 </details>
 
 <details>
-<summary><b>Authentication (Choose One)</b></summary>
+<summary><b>🔴 Required: Authentication (Choose One Provider)</b></summary>
 
-**Supabase:**
+**Option 1: Supabase (Recommended)**
 ```env
 AUTH_PROVIDER=supabase
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-service-role-key
+
+# Backend needs these
+SUPABASE_URL=https://[PROJECT].supabase.co
+SUPABASE_KEY=eyJhbG...                      # Service role key
+
+# Frontend needs these (different keys!)
+VITE_SUPABASE_URL=https://[PROJECT].supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbG...            # Anon public key (NOT service role!)
 ```
 
-**Auth0:**
+**Getting Supabase keys:**
+1. Supabase project → Settings → API
+2. **Project URL**: Copy to `SUPABASE_URL` and `VITE_SUPABASE_URL`
+3. **anon public** key: Copy to `VITE_SUPABASE_ANON_KEY`
+4. **service_role** key: Copy to `SUPABASE_KEY` (⚠️ Keep this secret!)
+
+**Option 2: Auth0**
 ```env
 AUTH_PROVIDER=auth0
-VITE_AUTH0_DOMAIN=your-tenant.auth0.com
-VITE_AUTH0_CLIENT_ID=your-client-id
+
+# Backend
 AUTH0_DOMAIN=your-tenant.auth0.com
 AUTH0_CLIENT_ID=your-client-id
 AUTH0_CLIENT_SECRET=your-secret
+
+# Frontend
+VITE_AUTH0_DOMAIN=your-tenant.auth0.com
+VITE_AUTH0_CLIENT_ID=your-client-id
 ```
 
-**Clerk:**
+**Option 3: Clerk**
 ```env
 AUTH_PROVIDER=clerk
-VITE_CLERK_PUBLISHABLE_KEY=pk_test_xxx
+
+# Backend
 CLERK_SECRET_KEY=sk_test_xxx
+
+# Frontend
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_xxx
 ```
 
 </details>
 
 <details>
-<summary><b>LLM APIs</b></summary>
+<summary><b>🔴 Required: Frontend URLs</b></summary>
 
 ```env
-# Add at least one
-GROQ_API_KEY=gsk_xxx              # Recommended - fast & free
-GEMINI_API_KEY=xxx                # Google Gemini
-OPENROUTER_API_KEY=sk-or-xxx      # Multiple models
-DEEPSEEK_API_KEY=xxx              # DeepSeek
-OLLAMA_API_KEY=xxx                # Local models
+# ============================================
+# Frontend Build-Time Variables (REQUIRED)
+# ============================================
+# These are BAKED INTO the frontend bundle
+
+# API endpoint the frontend will call
+VITE_API_URL=http://localhost:8000           # Local
+# VITE_API_URL=https://api.yourdomain.com    # Production
+
+# Where to redirect after login
+VITE_REDIRECT_URL=http://localhost:3000      # Local
+# VITE_REDIRECT_URL=https://yourdomain.com   # Production
 ```
+
+**⚠️ Important:** All `VITE_*` variables are:
+- Embedded in the frontend JavaScript bundle
+- **Publicly visible** in the browser
+- Must be set **before building** the frontend
+- Never put secrets in `VITE_*` variables!
 
 </details>
 
 <details>
-<summary><b>Optional Services</b></summary>
+<summary><b>🔴 Required: LLM API Keys (At Least One)</b></summary>
 
 ```env
-# Reddit API
+# ============================================
+# LLM Provider Keys (At least ONE required)
+# ============================================
+
+# Groq (Recommended - fast & generous free tier)
+GROQ_API_KEY=gsk_...
+# Get key: https://console.groq.com/keys
+
+# Google Gemini (Free tier available)
+GEMINI_API_KEY=AIza...
+# Get key: https://makersuite.google.com/app/apikey
+
+# OpenRouter (Access to multiple models)
+OPENROUTER_API_KEY=sk-or-...
+# Get key: https://openrouter.ai/keys
+
+# DeepSeek
+DEEPSEEK_API_KEY=sk-...
+# Get key: https://platform.deepseek.com/api_keys
+
+# Ollama (Local models)
+OLLAMA_API_KEY=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+# Install: https://ollama.ai
+```
+
+**Fallback behavior:** If primary LLM fails, POST BOT automatically tries the next available provider.
+
+</details>
+
+<details>
+<summary><b>🟡 Optional: Search & Image Services</b></summary>
+
+```env
+# ============================================
+# Optional: Enhanced Features
+# ============================================
+
+# Web Search (for content enrichment)
+SERPER_API_KEY=your-key
+# Get key: https://serper.dev (100 free searches/day)
+
+# Image Search (for blog illustrations)
+PIXABAY_API_KEY=your-key
+# Get key: https://pixabay.com/api/docs/ (free)
+
+# Reddit API (for Reddit content extraction)
 REDDIT_CLIENT_ID=your-id
 REDDIT_CLIENT_SECRET=your-secret
 REDDIT_USER_AGENT=postbot:v1.0.0
+# Create app: https://www.reddit.com/prefs/apps
+```
 
-# Search & Images
-SERPER_API_KEY=your-key           # Google search
-PIXABAY_API_KEY=your-key          # Free images
+**Note:** These are optional. POST BOT works without them, but content enrichment features won't be available.
+
+</details>
+
+<details>
+<summary><b>🟢 Optional: Advanced Configuration</b></summary>
+
+```env
+# ============================================
+# Performance & Caching
+# ============================================
+AUTH_CACHE_SIZE=1000          # Token cache size
+AUTH_CACHE_TTL=300            # Token cache TTL (seconds)
+
+# ============================================
+# Rate Limiting
+# ============================================
+RATE_LIMIT_PER_MINUTE=60      # API requests per minute
+RATE_LIMIT_PER_HOUR=1000      # API requests per hour
+
+# ============================================
+# LangGraph Checkpointing
+# ============================================
+# Uses PostgreSQL (same as DATABASE_URL)
+# No additional config needed - uses checkpoint tables from migration
+
+# ============================================
+# Vector Database (Qdrant)
+# ============================================
+# Coming soon - semantic search features
+# QDRANT_URL=http://localhost:6333
+# QDRANT_API_KEY=your-key
 ```
 
 </details>
 
-### Database Migrations
+### Configuration Checklist
 
-POST BOT uses Alembic for database schema management:
+Before running POST BOT, ensure you have:
+
+- ✅ `DATABASE_URL` - PostgreSQL connection string
+- ✅ `AUTH_PROVIDER` + auth keys - Supabase/Auth0/Clerk credentials  
+- ✅ `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` - Frontend auth
+- ✅ `VITE_API_URL` + `VITE_REDIRECT_URL` - Frontend URLs
+- ✅ At least ONE LLM API key - Groq, Gemini, OpenRouter, etc.
+- ✅ `ALLOWED_ORIGINS` - CORS whitelist
+
+**Quick validation:**
 
 ```bash
-# Run migrations (creates all tables + seeds data)
-alembic upgrade head
+# Check all required vars are set
+docker compose -f docker-compose.local.yml config | grep -E "DATABASE_URL|SUPABASE|GROQ|VITE_"
+```
 
-# Create new migration
-alembic revision --autogenerate -m "description"
+---
 
-# Rollback one version
-alembic downgrade -1
+### Database Migrations
+
+POST BOT uses Alembic for database schema management.
+
+**Initial setup (already done if you followed Quick Start):**
+
+```bash
+# Run all migrations
+docker compose -f docker-compose.local.yml exec backend alembic upgrade head
+```
+
+**Common commands:**
+
+```bash
+# Check current version
+docker compose -f docker-compose.local.yml exec backend alembic current
 
 # View migration history
-alembic history
+docker compose -f docker-compose.local.yml exec backend alembic history
+
+# Rollback one version
+docker compose -f docker-compose.local.yml exec backend alembic downgrade -1
+
+# Create new migration (after model changes)
+docker compose -f docker-compose.local.yml exec backend alembic revision --autogenerate -m "add new feature"
 ```
 
 **What gets created:**
-- 31 application tables (users, content, sources, templates, etc.)
-- 3 LangGraph checkpoint tables (for agent state)
-- Reference data (content types, source types, parameters)
+- ✅ **31 application tables**: profiles, content, sources, templates, etc.
+- ✅ **4 LangGraph checkpoint tables**: for AI agent state persistence
+- ✅ **Reference data**: content types (blog, article), source types (twitter, reddit), default parameters
+
+**Production deployment:** Migrations run automatically during GitHub Actions deploy.
+
+**Troubleshooting:**
+
+If migrations fail with "relation already exists" (tables were created manually):
+
+```bash
+# Stamp database without creating tables
+docker compose -f docker-compose.local.yml exec backend alembic stamp head
+```
 
 ---
 
@@ -510,74 +1021,251 @@ print(response.json()["generated_text"])
 
 ## 🛠️ Development
 
-### Manual Run (without Docker)
+### Local Development (Without Docker)
 
-**Backend:**
+For faster iteration during development, you can run services directly:
+
+**Prerequisites:**
+- Python 3.12+
+- Node.js 18+
+- PostgreSQL 14+ (local or remote)
+
+**Backend Setup:**
+
 ```bash
+# Navigate to backend
 cd src/backend
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt -r requirements_llm.txt
 
+# Set up environment
+cp ../../.env.example ../../.env
+# Edit .env with your values
+
 # Run migrations
 alembic upgrade head
 
-# Start server
+# Start development server (auto-reload on code changes)
 uvicorn api.api:app --reload --port 8000
 ```
 
-**Frontend:**
+**Frontend Setup:**
+
 ```bash
+# Navigate to frontend
 cd src/frontend/project
 
 # Install dependencies
 npm install
 
-# Start dev server
+# Start development server (Vite hot reload)
 npm run dev
 ```
 
-Access:
-- Frontend: http://localhost:5173
+**Access:**
+- Frontend: http://localhost:5173 (Vite default port)
 - Backend: http://localhost:8000
 - API Docs: http://localhost:8000/docs
+
+**Hot Reload:**
+- Backend: Uvicorn auto-reloads on Python file changes
+- Frontend: Vite hot-reloads on React/TypeScript changes
+
+### Development with Docker (Recommended for consistency)
+
+Use Docker Compose for a production-like environment:
+
+```bash
+# Start all services
+docker compose -f docker-compose.local.yml up --build
+
+# Run specific service
+docker compose -f docker-compose.local.yml up backend
+
+# View logs
+docker compose -f docker-compose.local.yml logs -f backend
+
+# Execute commands in running container
+docker compose -f docker-compose.local.yml exec backend bash
+docker compose -f docker-compose.local.yml exec backend alembic current
+
+# Rebuild after dependency changes
+docker compose -f docker-compose.local.yml build --no-cache
+```
 
 ### Project Structure
 
 ```
 postbot/
-├── .github/workflows/    # CI/CD pipelines
-├── alembic/             # Database migrations
+├── .github/
+│   └── workflows/
+│       ├── ci.yml           # Test & lint on PRs
+│       └── deploy.yml       # Production deployment
+├── alembic/
+│   ├── versions/            # Database migrations
+│   └── env.py              # Alembic configuration
+├── scripts/
+│   ├── ec2_bootstrap.sh    # VM initial setup
+│   └── nginx/              # Nginx config templates
 ├── src/
 │   ├── backend/
-│   │   ├── agents/      # LangGraph AI agents
-│   │   ├── api/         # FastAPI endpoints
-│   │   ├── auth/        # Authentication providers
-│   │   ├── db/          # Database models & repos
-│   │   └── extraction/  # Content extractors
+│   │   ├── agents/         # 🤖 LangGraph AI agents
+│   │   │   ├── blogs.py    # Main blog generation workflow
+│   │   │   ├── state.py    # State management
+│   │   │   ├── tools.py    # Search & extraction tools
+│   │   │   └── prompts/    # AI prompt templates
+│   │   ├── api/
+│   │   │   ├── api.py      # FastAPI app & middleware
+│   │   │   ├── routers/    # API endpoints
+│   │   │   └── dependencies.py  # Auth & DB dependencies
+│   │   ├── auth/           # 🔐 Authentication providers
+│   │   │   ├── factory.py  # Provider factory (Supabase/Auth0/Clerk)
+│   │   │   └── providers/  # Provider implementations
+│   │   ├── db/
+│   │   │   ├── models.py   # SQLAlchemy models
+│   │   │   ├── repositories/  # Data access layer
+│   │   │   └── connection.py  # Database connection
+│   │   ├── extraction/     # 📄 Content extractors
+│   │   │   ├── github.py   # GitHub repo analysis
+│   │   │   ├── pdf.py      # PDF extraction
+│   │   │   └── html.py     # Web page scraping
+│   │   └── utils/          # Logging, config, helpers
 │   └── frontend/
-│       └── project/     # React application
-├── Makefile            # Development commands
-├── docker-compose.local.yml  # Local dev (Docker Compose)
-├── docker-compose.yml        # Production deploy (Docker Compose on VM)
-└── .env.example              # Environment template
+│       └── project/
+│           ├── src/
+│           │   ├── components/  # React components
+│           │   ├── services/    # API client
+│           │   ├── pages/       # Route components
+│           │   └── context/     # Auth & state
+│           ├── public/          # Static assets
+│           └── vite.config.ts   # Vite configuration
+├── tests/
+│   ├── unit/               # Unit tests
+│   └── integration/        # Integration tests
+├── Dockerfile.backend      # Backend container
+├── Dockerfile.frontend     # Frontend container  
+├── docker-compose.yml      # Production compose
+├── docker-compose.local.yml  # Local development compose
+├── Makefile               # Development shortcuts
+└── .env.example           # Environment template
 ```
 
-### Useful Commands
+### Key Files Explained
+
+| File | Purpose |
+|------|---------|
+| `src/backend/agents/blogs.py` | Main LangGraph workflow for blog generation |
+| `src/backend/api/api.py` | FastAPI application setup, middleware, CORS |
+| `src/backend/api/routers/` | API endpoints (profiles, content, sources, etc.) |
+| `src/backend/auth/factory.py` | Authentication provider factory pattern |
+| `src/backend/db/models.py` | Database schema (31 tables) |
+| `alembic/versions/e2746ef4e845_initial_schema.py` | Initial database migration |
+| `.github/workflows/deploy.yml` | CI/CD deployment automation |
+| `docker-compose.local.yml` | Local development environment |
+
+### Useful Development Commands
 
 ```bash
-# Local (Docker Compose)
-docker compose -f docker-compose.local.yml up --build
-docker compose -f docker-compose.local.yml logs -f
+# ============================================
+# Database
+# ============================================
+# Create new migration after model changes
+docker compose -f docker-compose.local.yml exec backend \
+  alembic revision --autogenerate -m "add new feature"
+
+# Apply migrations
+docker compose -f docker-compose.local.yml exec backend alembic upgrade head
+
+# Rollback migration
+docker compose -f docker-compose.local.yml exec backend alembic downgrade -1
+
+# View migration history
+docker compose -f docker-compose.local.yml exec backend alembic history
+
+# ============================================
+# Testing
+# ============================================
+# Run all tests
+docker compose -f docker-compose.local.yml exec backend pytest
+
+# Run specific test file
+docker compose -f docker-compose.local.yml exec backend pytest tests/unit/test_agents.py
+
+# Run with coverage
+docker compose -f docker-compose.local.yml exec backend pytest --cov=src
+
+# ============================================
+# Code Quality
+# ============================================
+# Format code
+docker compose -f docker-compose.local.yml exec backend black src/
+
+# Lint
+docker compose -f docker-compose.local.yml exec backend ruff check src/
+
+# Type checking
+docker compose -f docker-compose.local.yml exec backend mypy src/
+
+# ============================================
+# Cleanup
+# ============================================
+# Stop all services
 docker compose -f docker-compose.local.yml down
 
-\
+# Remove volumes (⚠️ deletes data)
+docker compose -f docker-compose.local.yml down -v
 
-# Database
-alembic upgrade head  # Run migrations
-alembic history       # View history
-alembic current       # Current version
+# Remove images
+docker compose -f docker-compose.local.yml down --rmi all
+
+# Full cleanup
+docker system prune -a --volumes
 ```
+
+### Making Changes
+
+**1. Create a branch:**
+```bash
+git checkout -b feature/your-feature-name
+```
+
+**2. Make changes and test:**
+```bash
+# Start services
+docker compose -f docker-compose.local.yml up -d
+
+# Watch logs
+docker compose -f docker-compose.local.yml logs -f
+
+# Run tests
+docker compose -f docker-compose.local.yml exec backend pytest
+```
+
+**3. Commit with clear messages:**
+```bash
+git add .
+git commit -m "feat: add new feature"  # Use conventional commits
+git push origin feature/your-feature-name
+```
+
+**Commit message prefixes:**
+- `feat:` - New feature
+- `fix:` - Bug fix
+- `docs:` - Documentation
+- `refactor:` - Code refactoring
+- `test:` - Adding tests
+- `chore:` - Maintenance
+
+**4. Open Pull Request:**
+- Go to GitHub repository
+- Click "Pull Request"
+- Fill in description (what, why, how)
+- Wait for CI checks to pass
 
 ---
 
@@ -627,102 +1315,253 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.
 
 ## 🐛 Troubleshooting
 
+### Common Issues & Solutions
+
 <details>
-<summary><b>Containers won't start</b></summary>
+<summary><b>❌ "Cannot connect to server" in frontend</b></summary>
+
+**Symptoms:** Frontend shows connection error, network tab shows failed API calls.
+
+**Solution:**
+
+1. Check backend is running:
+   ```bash
+   docker compose -f docker-compose.local.yml ps
+   # Should show "backend" as "Up"
+   ```
+
+2. Check backend logs:
+   ```bash
+   docker logs postbot-backend-local --tail 50
+   # Look for "Uvicorn running on http://0.0.0.0:8000"
+   ```
+
+3. Verify `VITE_API_URL` in `.env`:
+   ```bash
+   # For local development
+   VITE_API_URL=http://localhost:8000
+   
+   # For production
+   VITE_API_URL=https://your-domain.com/api
+   ```
+
+4. Check CORS settings:
+   ```bash
+   # In .env, ensure ALLOWED_ORIGINS includes your frontend URL
+   ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+   ```
+
+</details>
+
+<details>
+<summary><b>❌ Database connection failed</b></summary>
+
+**Symptoms:** Backend logs show `could not connect to server` or `FATAL: password authentication failed`.
+
+**Solution:**
+
+1. Test database connection:
+   ```bash
+   # Copy your DATABASE_URL from .env
+   psql "postgresql://..."
+   ```
+
+2. Common issues:
+   - **Wrong port**: Use `5432` for direct connection, `6543` for Supabase pooler
+   - **SSL required**: Supabase requires `?sslmode=require` at end of connection string
+   - **IP allowlist**: Check Supabase dashboard → Database → Connection Pooling → Add your IP
+
+3. Correct Supabase format:
+   ```bash
+   # Use Transaction mode pooler (port 5432)
+   DATABASE_URL=postgresql://postgres.[PROJECT]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres?sslmode=require
+   ```
+
+</details>
+
+<details>
+<summary><b>❌ 404 on /api/profiles endpoint</b></summary>
+
+**Symptoms:** API calls return 404 even though route exists.
+
+**Cause:** Nginx configuration strips `/api` prefix before forwarding to backend.
+
+**Solution:** ✅ Already fixed! FastAPI routers should NOT have `/api` prefix since nginx strips it. Verify:
+
+```python
+# ✅ Correct (in api.py)
+app.include_router(profiles.router)  # No prefix!
+
+# ❌ Wrong
+app.include_router(profiles.router, prefix="/api")
+```
+
+If you see 404s after deployment, ensure:
+1. Latest code is deployed
+2. Backend container restarted: `docker compose restart backend`
+3. Nginx config has trailing slash: `proxy_pass http://127.0.0.1:8000/;`
+
+</details>
+
+<details>
+<summary><b>❌ Authentication not working</b></summary>
+
+**Symptoms:** Login button does nothing, or redirects to error page.
+
+**Solution:**
+
+1. Check auth provider is configured:
+   ```bash
+   docker exec postbot-backend-local env | grep AUTH
+   # Should show AUTH_PROVIDER=supabase and related keys
+   ```
+
+2. Verify redirect URLs in auth provider dashboard:
+   - **Supabase**: Authentication → URL Configuration
+   - Add: `http://localhost:3000` (local)
+   - Add: `https://your-domain.com` (production)
+
+3. Check browser console for errors (F12 → Console tab)
+
+4. Verify frontend env vars:
+   ```bash
+   # In .env
+   VITE_SUPABASE_URL=https://[PROJECT].supabase.co
+   VITE_SUPABASE_ANON_KEY=eyJ...  # Must be anon key, not service role!
+   VITE_REDIRECT_URL=http://localhost:3000  # Must match your frontend URL
+   ```
+
+</details>
+
+<details>
+<summary><b>❌ LLM generation fails</b></summary>
+
+**Symptoms:** "Content generation failed" error, or infinite loading.
+
+**Solution:**
+
+1. Verify API key is set:
+   ```bash
+   docker exec postbot-backend-local env | grep API_KEY
+   ```
+
+2. Test API key manually:
+   ```bash
+   # For Groq
+   curl -H "Authorization: Bearer $GROQ_API_KEY" \
+        https://api.groq.com/openai/v1/models
+   ```
+
+3. Check backend logs for specific error:
+   ```bash
+   docker logs postbot-backend-local --tail 100 | grep -i error
+   ```
+
+4. Common issues:
+   - **Rate limit exceeded**: Wait a few minutes or switch to different LLM
+   - **Invalid API key**: Regenerate key in provider dashboard
+   - **No quota remaining**: Check billing in provider dashboard
+
+</details>
+
+<details>
+<summary><b>❌ Migrations fail with "relation already exists"</b></summary>
+
+**Symptoms:** `alembic upgrade head` fails with duplicate table errors.
+
+**Cause:** Tables were created manually before running migrations.
+
+**Solution:**
 
 ```bash
-# Check container logs
-docker compose -f docker-compose.local.yml ps
-docker logs postbot-backend-local --tail 200
-docker logs postbot-frontend-local --tail 200
+# Stamp database to current migration without creating tables
+docker compose -f docker-compose.local.yml exec backend alembic stamp head
 
-# Common issues:
-# 1. Missing env vars
-# Ensure .env exists and includes DATABASE_URL and auth vars
+# Verify
+docker compose -f docker-compose.local.yml exec backend alembic current
+# Should show: e2746ef4e845 (head)
+```
 
-# 2. Database connection
-# Verify DATABASE_URL is correct and database is accessible
+For production database that was manually created, the deploy script handles this automatically.
 
-# If this is a fresh deploy, run migrations:
-# docker compose run --rm backend alembic upgrade head
+</details>
+
+<details>
+<summary><b>❌ Docker image build fails with "invalid reference format"</b></summary>
+
+**Cause:** Missing `POSTBOT_IMAGE_OWNER` environment variable.
+
+**Solution:**
+
+```bash
+# Set in your .env or export it
+export POSTBOT_IMAGE_OWNER=your-github-username
+
+# Or for local testing, use docker-compose.local.yml which doesn't need it
+docker compose -f docker-compose.local.yml up --build
 ```
 
 </details>
 
 <details>
-<summary><b>Cannot connect to database</b></summary>
+<summary><b>❌ Frontend build fails with "process is not defined"</b></summary>
+
+**Cause:** Missing environment variables during build.
+
+**Solution:**
 
 ```bash
-# Test database connection
-psql "$DATABASE_URL"
+# Ensure all VITE_* variables are in .env
+grep VITE_ .env
 
-# If using Supabase, ensure:
-# 1. Database pooler is used (6543 port with session mode)
-# 2. IP allowlist includes your cluster IPs
-# 3. SSL mode is required in connection string
+# Should show:
+# VITE_SUPABASE_URL=...
+# VITE_SUPABASE_ANON_KEY=...
+# VITE_API_URL=...
+# VITE_REDIRECT_URL=...
 
-# Connection string format:
-# postgresql://postgres.[project]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
+# Rebuild
+docker compose -f docker-compose.local.yml up --build frontend
 ```
 
 </details>
 
-<details>
-<summary><b>Authentication not working</b></summary>
+### Still Having Issues?
 
-```bash
-# Check frontend can reach auth provider
-curl -v https://your-project.supabase.co
+1. **Check all logs:**
+   ```bash
+   # Backend
+   docker logs postbot-backend-local --tail 200
+   
+   # Frontend
+   docker logs postbot-frontend-local --tail 200
+   
+   # Both
+   docker compose -f docker-compose.local.yml logs -f
+   ```
 
-# Verify environment variables
-docker exec -it postbot-backend-local env | grep AUTH
+2. **Verify environment variables:**
+   ```bash
+   # Check what's loaded
+   docker exec postbot-backend-local env | sort
+   ```
 
-# Check CORS settings match your domain
-docker exec -it postbot-backend-local env | grep ALLOWED_ORIGINS
-```
+3. **Fresh start:**
+   ```bash
+   # Stop and remove everything
+   docker compose -f docker-compose.local.yml down -v
+   
+   # Rebuild from scratch
+   docker compose -f docker-compose.local.yml up --build
+   ```
 
-</details>
-
-<details>
-<summary><b>LLM API calls failing</b></summary>
-
-```bash
-# Check API keys are set
-docker exec -it postbot-backend-local env | grep API_KEY
-
-# Test API key manually
-curl -H "Authorization: Bearer $GROQ_API_KEY" https://api.groq.com/v1/models
-
-# Check logs for specific error
-docker logs postbot-backend-local --tail 200 | grep -i error
-```
-
-</details>
-
-<details>
-<summary><b>Frontend shows "Cannot connect to server"</b></summary>
-
-```bash
-# Check containers are running
-docker compose -f docker-compose.local.yml ps
-
-# Check backend logs
-docker logs postbot-backend-local --tail 200
-
-# Check VITE_API_URL in your .env matches where backend is exposed
-# (default in docker-compose.local.yml is http://localhost:8000)
-```
-
-</details>
-
-### Still Stuck?
-
-1. **Check Logs**: `docker logs postbot-backend-local --tail 200`
-2. **Check Status**: `docker compose -f docker-compose.local.yml ps`
-3. **Open Issue**: [GitHub Issues](https://github.com/your-username/postbot/issues) with:
-   - Steps to reproduce
-   - Error messages
-    - Environment (local/production)
+4. **Get help:**
+   - 🐛 [Open an Issue](https://github.com/your-username/postbot/issues) with:
+     - Steps to reproduce
+     - Full error messages
+     - Docker logs
+     - Your environment (OS, Docker version)
+   - 💬 [GitHub Discussions](https://github.com/your-username/postbot/discussions)
 
 ---
 

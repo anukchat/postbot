@@ -59,7 +59,7 @@ converters:
 llm:
   default:
     class_params:
-      model: groq/llama-3.3-70b-versatile  # Free tier: 30 RPM, 14,400 RPD
+      model: gemini/gemini-2.5-flash
       temperature: 0.5
       num_retries: 3  # LiteLLM's built-in retry with exponential backoff
       max_parallel_requests: 5  # Groq has better limits
