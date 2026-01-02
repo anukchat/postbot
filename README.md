@@ -41,6 +41,9 @@ Required repo secrets:
 - `DEPLOY_SSH_KEY`
 - `DEPLOY_PATH`
 
+Required repo secrets for the backend:
+- `DATABASE_URL` (Supabase Postgres connection string)
+
 Required repo secrets for building the frontend image:
 - `SUPABASE_URL`
 - `SUPABASE_KEY`
@@ -56,10 +59,7 @@ If you keep GHCR packages private, add these optional secrets so the deploy job 
 - `GHCR_USERNAME`
 - `GHCR_PAT`
 
-Optional (to provision the VM `.env` automatically on first deploy):
-- `POSTBOT_ENV` (full contents of the `.env` file)
-
-The VM must also have a `.env` file at `DEPLOY_PATH/.env` (it is not stored in GitHub secrets).
+The deploy workflow recreates `DEPLOY_PATH/.env` on every deploy from GitHub Secrets.
 
 Manual deploy for PR/branch testing:
 - Actions → “Deploy” → Run workflow

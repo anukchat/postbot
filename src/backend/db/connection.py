@@ -26,6 +26,11 @@ class DatabaseConnectionManager:
     def __init__(self):
         if not hasattr(self, 'initialized'):
             dsn = os.getenv("DATABASE_URL")
+            if not dsn:
+                raise RuntimeError(
+                    "DATABASE_URL is not set (or is empty). "
+                    "Set DATABASE_URL to your Postgres connection string (e.g., Supabase) before starting the backend."
+                )
             self.engine = create_engine(
                 dsn,
                 pool_pre_ping=True,

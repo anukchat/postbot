@@ -20,11 +20,10 @@ class Settings:
         
         # Authentication Provider Configuration
         self.auth_provider: str = os.getenv("AUTH_PROVIDER", "supabase").lower()
-        
-        # Legacy support - AUTH_PROVIDER_URL/KEY map to specific providers
+
         # For Supabase
-        self.supabase_url: Optional[str] = os.getenv("SUPABASE_URL") or os.getenv("AUTH_PROVIDER_URL")
-        self.supabase_key: Optional[str] = os.getenv("SUPABASE_KEY") or os.getenv("AUTH_PROVIDER_KEY")
+        self.supabase_url: Optional[str] = os.getenv("SUPABASE_URL")
+        self.supabase_key: Optional[str] = os.getenv("SUPABASE_KEY")
         
         # For Auth0
         self.auth0_domain: Optional[str] = os.getenv("AUTH0_DOMAIN")
@@ -64,14 +63,10 @@ class Settings:
         
         if auth_provider == "supabase":
             # Supabase requires URL and key.
-            # Support legacy/compat env vars used by older compose configs: AUTH_PROVIDER_URL/AUTH_PROVIDER_KEY.
-            has_url = bool(os.getenv("SUPABASE_URL") or os.getenv("AUTH_PROVIDER_URL"))
-            has_key = bool(os.getenv("SUPABASE_KEY") or os.getenv("AUTH_PROVIDER_KEY"))
-
-            if not has_url:
-                missing_vars.append("SUPABASE_URL (or AUTH_PROVIDER_URL)")
-            if not has_key:
-                missing_vars.append("SUPABASE_KEY (or AUTH_PROVIDER_KEY)")
+            if not os.getenv("SUPABASE_URL"):
+                missing_vars.append("SUPABASE_URL")
+            if not os.getenv("SUPABASE_KEY"):
+                missing_vars.append("SUPABASE_KEY")
         elif auth_provider == "auth0":
             # Auth0 requires domain, client ID, and secret
             for var in ["AUTH0_DOMAIN", "AUTH0_CLIENT_ID", "AUTH0_CLIENT_SECRET"]:

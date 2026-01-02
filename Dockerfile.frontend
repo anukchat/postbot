@@ -1,14 +1,10 @@
-FROM node:18-alpine
+FROM node:18-alpine AS build
 
-
-
-# Add these ARG statements near the top of your Dockerfile.frontend
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
 ARG VITE_API_URL
 ARG VITE_REDIRECT_URL
 
-# Then pass them to the build environment
 ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
 ENV VITE_API_URL=$VITE_API_URL
@@ -16,20 +12,21 @@ ENV VITE_REDIRECT_URL=$VITE_REDIRECT_URL
 
 WORKDIR /app
 
-# Copy the entire frontend project
+COPY src/frontend/project/package.json src/frontend/project/package-lock.json ./
+RUN npm ci
+
 COPY src/frontend/project/ ./
-
-# Install dependencies
-RUN npm install
-
-# Build the application
 RUN npm run build
 
-# Install serve to run the built application
-RUN npm install -g serve
 
-# Expose port
+FROM node:18-alpine AS runtime
+
+WORKDIR /app
+
+RUN npm install -g serve && npm cache clean --force
+
+COPY --from=build /app/dist ./dist
+
 EXPOSE 3000
 
-# Start the application
 CMD ["serve", "-s", "dist", "-l", "3000"]

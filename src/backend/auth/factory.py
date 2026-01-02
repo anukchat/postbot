@@ -64,13 +64,12 @@ class AuthProviderFactory:
     @staticmethod
     def _create_supabase_provider() -> SupabaseAuthProvider:
         """Create Supabase auth provider from environment"""
-        url = os.getenv("SUPABASE_URL") or os.getenv("AUTH_PROVIDER_URL")
-        key = os.getenv("SUPABASE_KEY") or os.getenv("AUTH_PROVIDER_KEY")
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_KEY")
         
         if not url or not key:
             raise ConfigurationException(
-                "Supabase provider requires SUPABASE_URL and SUPABASE_KEY "
-                "(or AUTH_PROVIDER_URL and AUTH_PROVIDER_KEY) environment variables"
+                "Supabase provider requires SUPABASE_URL and SUPABASE_KEY environment variables"
             )
         
         return SupabaseAuthProvider(url=url, key=key)
